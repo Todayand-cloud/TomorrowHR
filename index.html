@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>인사 관련 법령문 개정 현황</title>
+    <link
+      rel="stylesheet"
+      as="style"
+      crossorigin
+      href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css"
+    />
+    <link rel="stylesheet" href="css/style.css" />
+  </head>
+  <body class="is-home-view">
+    <header class="site-header">
+      <div class="container site-header__inner">
+        <a class="logo" href="index.html" id="homeLogo">
+          인사 관련 법령문 개정 현황
+          <span>HR Law Amendment Desk</span>
+        </a>
+        <button class="menu-toggle" type="button" aria-label="메뉴 열기" id="menuToggle">
+          <span></span>
+        </button>
+        <nav class="nav" id="mainNav">
+          <a href="#amendments" data-nav="amendments">최근 개정</a>
+          <a href="#laws" data-nav="laws">주요 법령</a>
+          <a href="#upcoming" data-nav="upcoming">시행예정</a>
+          <a href="#notices" data-nav="notices">입법예고</a>
+          <a href="#compilations" data-nav="compilations">질의회시집</a>
+          <a href="#faqs" data-nav="faqs">자주하는 질문</a>
+        </nav>
+      </div>
+    </header>
+
+    <main>
+      <section class="hero" id="homeHero">
+        <div class="hero__pattern" aria-hidden="true"></div>
+        <div class="container hero__inner">
+          <div class="hero__content">
+            <p class="hero__eyebrow">HR Law Amendment Desk</p>
+            <h1 class="hero__brand">인사 관련 법령문<br />개정 현황</h1>
+            <span class="hero__rule" aria-hidden="true"></span>
+            <p class="hero__lead">개정 · 시행 · 예고 — 인사 실무에 필요한 법령 변화를 한곳에서</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="desk" aria-label="자료 안내">
+        <div class="container">
+          <div class="home-overview" id="homeOverview">
+            <div class="home-overview__head">
+              <h2 class="home-overview__title">한눈에 보기</h2>
+              <p class="home-overview__desc">관심 영역을 선택하면 해당 자료로 이동합니다.</p>
+            </div>
+            <ul class="overview-list" id="overviewList">
+              <li>
+                <a class="overview-item" href="#amendments" data-panel="amendments">
+                  <span class="overview-item__label">최근 개정</span>
+                  <span class="overview-item__preview" data-overview="amendments"
+                    >공포 · 시행 ±6개월</span
+                  >
+                  <span class="overview-item__go" aria-hidden="true">보기</span>
+                </a>
+              </li>
+              <li>
+                <a class="overview-item" href="#laws" data-panel="laws">
+                  <span class="overview-item__label">주요 법령</span>
+                  <span class="overview-item__preview" data-overview="laws"
+                    >조문 3단 대조 · 노란 음영</span
+                  >
+                  <span class="overview-item__go" aria-hidden="true">보기</span>
+                </a>
+              </li>
+              <li>
+                <a class="overview-item" href="#upcoming" data-panel="upcoming">
+                  <span class="overview-item__label">시행예정</span>
+                  <span class="overview-item__preview" data-overview="upcoming"
+                    >시행일 요약 · 조문 대조 연동</span
+                  >
+                  <span class="overview-item__go" aria-hidden="true">보기</span>
+                </a>
+              </li>
+              <li>
+                <a class="overview-item" href="#notices" data-panel="notices">
+                  <span class="overview-item__label">입법예고</span>
+                  <span class="overview-item__preview" data-overview="notices"
+                    >최근 인사·노동 관련 예고</span
+                  >
+                  <span class="overview-item__go" aria-hidden="true">보기</span>
+                </a>
+              </li>
+              <li>
+                <a class="overview-item" href="#compilations" data-panel="compilations">
+                  <span class="overview-item__label">질의회시집</span>
+                  <span class="overview-item__preview" data-overview="compilations"
+                    >분야별 질의회시 PDF</span
+                  >
+                  <span class="overview-item__go" aria-hidden="true">보기</span>
+                </a>
+              </li>
+              <li>
+                <a class="overview-item" href="#faqs" data-panel="faqs">
+                  <span class="overview-item__label">자주하는 질문</span>
+                  <span class="overview-item__preview" data-overview="faqs">고용노동부 FAQ 조회수 상위</span>
+                  <span class="overview-item__go" aria-hidden="true">보기</span>
+                </a>
+              </li>
+            </ul>
+          </div>
+
+          <div class="panel-stage" id="panelStage" hidden>
+            <div class="panel-toolbar">
+              <button type="button" class="panel-back" id="panelBack">
+                <span aria-hidden="true">←</span> 전체 보기
+              </button>
+              <p class="panel-toolbar__note" id="panelNote"></p>
+            </div>
+
+            <section class="panel" id="faqs" data-panel="faqs" hidden>
+              <div class="section__head">
+                <div>
+                  <h2 class="section__title">자주하는 질문</h2>
+                  <p class="section__desc">
+                    고용노동부 「자주하는 질문」 게시판 조회수 상위 10건입니다.
+                  </p>
+                </div>
+              </div>
+              <div id="faqsRoot"></div>
+            </section>
+
+            <section class="panel" id="compilations" data-panel="compilations" hidden>
+              <div class="section__head">
+                <div>
+                  <h2 class="section__title">질의회시집</h2>
+                  <p class="section__desc">
+                    고용노동부가 PDF로 묶어 공지하는 분야별 질의회시집입니다. 원문에서 내려받을 수
+                    있습니다.
+                  </p>
+                </div>
+                <a
+                  class="section__link"
+                  href="https://www.moel.go.kr/info/publicdata/majorpublish/majorPublishList.do?searchDivCd=4"
+                  target="_blank"
+                  rel="noopener"
+                  >게시판 바로가기</a
+                >
+              </div>
+              <div id="compilationsRoot"></div>
+            </section>
+
+            <section class="panel" id="upcoming" data-panel="upcoming" hidden>
+              <div class="section__head">
+                <div>
+                  <h2 class="section__title">시행예정 법령</h2>
+                  <p class="section__desc">
+                    시행일·D-day와 한 줄 요약만 보여 줍니다. 「개정 조문 보기」에서 주요 법령
+                    조·항 음영과 개정 전 안내를 확인하세요.
+                  </p>
+                </div>
+                <div class="section__meta" id="upcomingRange"></div>
+              </div>
+              <div id="upcomingRoot"></div>
+            </section>
+
+            <section class="panel" id="notices" data-panel="notices" hidden>
+              <div class="section__head">
+                <div>
+                  <h2 class="section__title">입법예고</h2>
+                  <p class="section__desc">
+                    고용노동부 「입법·행정예고」 중 인사·노동 실무와 관련된 최근 공고입니다.
+                  </p>
+                </div>
+                <a
+                  class="section__link"
+                  href="https://www.moel.go.kr/info/lawinfo/lawmaking/list.do"
+                  target="_blank"
+                  rel="noopener"
+                  >예고 게시판</a
+                >
+              </div>
+              <div id="noticesRoot"></div>
+            </section>
+
+            <section class="panel" id="amendments" data-panel="amendments" hidden>
+              <div class="section__head">
+                <div>
+                  <h2 class="section__title">최근 개정</h2>
+                  <p class="section__desc">
+                    주요 4개 법령의 개정을 개정일 순으로 나열합니다. 시행일과 변경 전·후 요약을
+                    함께 보여 주며, 조회 범위는 공포 · 시행 ±6개월입니다.
+                  </p>
+                </div>
+                <div class="base-date" id="baseDateMeta">
+                  <span class="base-date__label" id="baseDateLabel">기준일</span>
+                  <div class="base-date__picker" id="baseDatePicker">
+                    <button
+                      type="button"
+                      class="base-date__trigger"
+                      id="baseDateTrigger"
+                      aria-haspopup="dialog"
+                      aria-expanded="false"
+                      aria-labelledby="baseDateLabel"
+                    >
+                      <span class="base-date__value" id="baseDateValue">—</span>
+                      <span class="base-date__cal-icon" aria-hidden="true">
+                        <svg viewBox="0 0 20 20" width="16" height="16" fill="none">
+                          <rect
+                            x="2.5"
+                            y="4"
+                            width="15"
+                            height="13.5"
+                            rx="1.5"
+                            stroke="currentColor"
+                            stroke-width="1.5"
+                          />
+                          <path
+                            d="M2.5 8.5h15M6.5 2.5v3M13.5 2.5v3"
+                            stroke="currentColor"
+                            stroke-width="1.5"
+                            stroke-linecap="round"
+                          />
+                        </svg>
+                      </span>
+                    </button>
+                    <div
+                      class="base-date__calendar"
+                      id="baseDateCalendar"
+                      role="dialog"
+                      aria-label="기준일 선택 캘린더"
+                      hidden
+                    >
+                      <div class="cal-head">
+                        <button type="button" class="cal-nav" id="calPrev" aria-label="이전 달">
+                          ‹
+                        </button>
+                        <p class="cal-title" id="calTitle"></p>
+                        <button type="button" class="cal-nav" id="calNext" aria-label="다음 달">
+                          ›
+                        </button>
+                      </div>
+                      <div class="cal-weekdays" aria-hidden="true">
+                        <span>일</span><span>월</span><span>화</span><span>수</span><span>목</span
+                        ><span>금</span><span>토</span>
+                      </div>
+                      <div class="cal-grid" id="calGrid"></div>
+                      <p class="cal-hint">접속일부터 최대 3개월 전까지만 선택 가능</p>
+                    </div>
+                    <input type="hidden" id="baseDateInput" />
+                  </div>
+                  <button type="button" class="base-date__reset" id="baseDateReset">오늘</button>
+                  <button type="button" class="base-date__refresh" id="amendmentRefresh" title="법제처 데이터를 다시 받아 사이트를 갱신합니다.">
+                    지금 갱신
+                  </button>
+                  <span class="base-date__range" id="amendmentRange">기준일 계산 중…</span>
+                  <span class="base-date__refresh-status" id="amendmentRefreshStatus" aria-live="polite"></span>
+                </div>
+              </div>
+              <div id="amendmentsRoot"></div>
+            </section>
+
+            <section class="panel" id="laws" data-panel="laws" hidden>
+              <div class="section__head">
+                <div>
+                  <h2 class="section__title">주요 법령</h2>
+                  <p class="section__desc">
+                    법령을 누르면 조회기간 내 개정된 조문을 법률·시행령·시행규칙 3단으로 모두
+                    나열합니다. 빨간 개정문(신설·변경)은 노란 음영으로 표시되고, 마우스 오버 시
+                    개정 전 내용을 확인할 수 있습니다.
+                  </p>
+                </div>
+              </div>
+              <div class="law-links" id="lawsRoot"></div>
+            </section>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container site-footer__inner">
+        <div>
+          <strong>인사 관련 법령문 개정 현황</strong>
+          <p>
+            조문은
+            <a href="https://www.law.go.kr/" target="_blank" rel="noopener">국가법령정보센터</a>,
+            FAQ·질의회시집·예고는
+            <a href="https://www.moel.go.kr/" target="_blank" rel="noopener">고용노동부</a>
+            공개 자료를 참고합니다. 적용 시 최신 원문을 확인하세요.
+          </p>
+        </div>
+        <div class="site-footer__links">
+          <a href="#amendments">최근 개정</a>
+          <a href="#laws">주요 법령</a>
+          <a href="#upcoming">시행예정</a>
+          <a href="#notices">입법예고</a>
+          <a href="#compilations">질의회시집</a>
+          <a href="#faqs">자주하는 질문</a>
+        </div>
+      </div>
+    </footer>
+
+    <script src="js/data.js"></script>
+    <script src="js/consultations-data.js"></script>
+    <script src="js/resource-data.js"></script>
+    <script src="js/law-articles.js"></script>
+    <script src="js/refresh-config.js"></script>
+    <script src="js/main.js"></script>
+  </body>
+</html>

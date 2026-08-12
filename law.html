@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>법령 상세 — 인사 관련 법령문 개정 현황</title>
+    <link
+      rel="stylesheet"
+      as="style"
+      crossorigin
+      href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css"
+    />
+    <link rel="stylesheet" href="css/style.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container site-header__inner">
+        <a class="logo" href="index.html">
+          인사 관련 법령문 개정 현황
+          <span>HR Law Amendment Desk</span>
+        </a>
+        <button class="menu-toggle" type="button" aria-label="메뉴 열기" id="menuToggle">
+          <span></span>
+        </button>
+        <nav class="nav" id="mainNav">
+          <a href="index.html#amendments">최근 개정</a>
+          <a href="index.html#laws" class="is-active">주요 법령</a>
+          <a href="index.html#upcoming">시행예정</a>
+          <a href="index.html#notices">입법예고</a>
+          <a href="index.html#compilations">질의회시집</a>
+          <a href="index.html#faqs">자주하는 질문</a>
+        </nav>
+      </div>
+    </header>
+
+    <main>
+      <section class="page-hero">
+        <div class="container">
+          <div class="page-hero__crumb">
+            <a href="index.html">홈</a> · <a href="index.html#laws">주요 법령</a> ·
+            <span id="crumbCurrent">상세</span>
+          </div>
+          <h1 id="lawTitle">법령명</h1>
+          <p id="lawSummary"></p>
+          <p class="page-hero__source" id="lawSource"></p>
+        </div>
+      </section>
+
+      <div class="detail-toolbar">
+        <div class="container detail-toolbar__inner">
+          <div class="detail-hint-wrap">
+            <p class="detail-hint">
+              표시되는 공포일·시행일은 법제처 개정 이력과 동일합니다. 조문 연혁 태그와 공포일이
+              일치하는 항·호만 노란 음영으로 강조합니다.
+            </p>
+            <p class="detail-legend">
+              <span class="detail-legend__swatch" aria-hidden="true"></span>
+              노란 음영 = 법제처 연혁과 교차검증된 개정·신설 문구. 마우스를 올리면 개정 전 안내가
+              나타나고, 치우면 숨겨집니다.
+            </p>
+          </div>
+          <div class="detail-actions">
+            <button type="button" class="btn--sm" id="expandAll">모두 펼치기</button>
+            <button type="button" class="btn--sm" id="collapseAll">모두 접기</button>
+          </div>
+        </div>
+      </div>
+
+      <section class="tiers" id="tiersRoot" aria-label="법·시행령·시행규칙 3단 대조">
+        <!-- JS 렌더 -->
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container site-footer__inner">
+        <div>
+          <strong>인사 관련 법령문 개정 현황</strong>
+          <p>
+            표시된 조문은 이해를 돕기 위한 샘플입니다. 실제 적용 시 현행 법령 원문을 반드시
+            확인하세요.
+          </p>
+        </div>
+        <div class="site-footer__links">
+          <a href="index.html">홈으로</a>
+          <a href="index.html#laws">주요 법령</a>
+        </div>
+      </div>
+    </footer>
+
+    <script src="js/data.js"></script>
+    <script src="js/law-articles.js"></script>
+    <script src="js/main.js"></script>
+  </body>
+</html>

@@ -1,0 +1,30 @@
+{
+  "ok": false,
+  "problems": [
+    "highlight_not_in_body live-009883-2026-03-17-21475-제43조"
+  ],
+  "checks": [
+    {
+      "lsId": "001872",
+      "article": "제110조",
+      "liveChars": 391,
+      "ok": true,
+      "details": []
+    },
+    {
+      "lsId": "009883",
+      "article": "제43조",
+      "liveChars": 75,
+      "ok": false,
+      "details": []
+    },
+    {
+      "article": "제44조의4",
+      "ok": true,
+      "details": []
+    }
+  ],
+  "emptyBodies": 2,
+  "orphanEmptyAmended": 0,
+  "displayGaps": 0
+}

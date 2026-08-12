@@ -1,0 +1,66 @@
+[
+  {
+    "id": "live-001872-2026-06-09-21784",
+    "amendedDate": "2026-06-09",
+    "effectiveDate": "2027-06-10",
+    "mentions": [],
+    "probes": []
+  },
+  {
+    "id": "live-000130-2026-05-26-21700",
+    "amendedDate": "2026-05-26",
+    "effectiveDate": "2026-11-27",
+    "mentions": [],
+    "probes": []
+  },
+  {
+    "id": "live-010356-2026-04-07-21534",
+    "amendedDate": "2026-04-07",
+    "effectiveDate": "2026-12-08",
+    "mentions": [
+      "제94조"
+    ],
+    "probes": [
+      {
+        "ok": false,
+        "url": "https://www.law.go.kr/법령/%EA%B8%B0%EA%B0%84%EC%A0%9C%20%EB%B0%8F%20%EB%8B%A8%EC%8B%9C%EA%B0%84%EA%B7%BC%EB%A1%9C%EC%9E%90%20%EB%B3%B4%ED%98%B8%20%EB%93%B1%EC%97%90%20%EA%B4%80%ED%95%9C%20%EB%B2%95%EB%A5%A0/%EC%A0%9C94%EC%A1%B0",
+        "error": "'ascii' codec can't encode characters in position 5-6: ordinal not in range(128)"
+      }
+    ]
+  },
+  {
+    "id": "live-001872-2026-04-07-21533",
+    "amendedDate": "2026-04-07",
+    "effectiveDate": "2026-10-08",
+    "mentions": [],
+    "probes": []
+  },
+  {
+    "id": "live-001872-2026-03-17-21472",
+    "amendedDate": "2026-03-17",
+    "effectiveDate": "2027-01-01",
+    "mentions": [],
+    "probes": []
+  },
+  {
+    "id": "live-000130-2026-03-17-21476",
+    "amendedDate": "2026-03-17",
+    "effectiveDate": "2026-09-18",
+    "mentions": [],
+    "probes": []
+  },
+  {
+    "id": "live-001872-2026-02-19-21373",
+    "amendedDate": "2026-02-19",
+    "effectiveDate": "2026-08-20",
+    "mentions": [],
+    "probes": []
+  },
+  {
+    "id": "live-000130-2026-02-19-21373",
+    "amendedDate": "2026-02-19",
+    "effectiveDate": "2026-08-20",
+    "mentions": [],
+    "probes": []
+  }
+]
