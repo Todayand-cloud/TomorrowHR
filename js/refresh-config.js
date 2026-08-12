@@ -9,6 +9,6 @@ window.LAW_REFRESH = {
   workflowFile: "refresh-laws.yml",
   ref: "main",
   /** 예: https://tomorrowhr-refresh.xxxxx.workers.dev */
-  proxyUrl: "",
+  proxyUrl: "https://wandering-dew-09bd.shkim5.workers.dev",
   githubToken: "",
 };
