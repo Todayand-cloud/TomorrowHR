@@ -1,0 +1,78 @@
+name: Refresh law data
+
+# PC 푸시 없이 법제처 데이터를 받아 js/ 캐시를 저장소에 커밋합니다.
+# GitHub Pages는 커밋 후 자동으로 다시 배포됩니다.
+
+on:
+  schedule:
+    # 6시간마다 (자동 갱신)
+    - cron: "0 */6 * * *"
+  workflow_dispatch:
+    inputs:
+      base:
+        description: "기준일 YYYY-MM-DD (비우면 오늘)"
+        required: false
+        default: ""
+  repository_dispatch:
+    types: [refresh-laws]
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: refresh-laws
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Fetch from law.go.kr and rebuild cache
+        env:
+          PYTHONIOENCODING: utf-8
+        run: |
+          set -e
+          BASE="${{ github.event.inputs.base }}"
+          if [ -z "$BASE" ]; then
+            BASE="${{ github.event.client_payload.base }}"
+          fi
+          if [ -n "$BASE" ]; then
+            python3 _law_fetch/refresh_amendments.py --base "$BASE"
+          else
+            python3 _law_fetch/refresh_amendments.py
+          fi
+
+      # 검증 실패해도 수집 결과는 커밋 (데이터 갱신이 막히지 않게)
+      - name: Parity simulation (법제처 대조)
+        continue-on-error: true
+        env:
+          PYTHONIOENCODING: utf-8
+          CI: "true"
+        run: |
+          python3 _law_fetch/verify_law_parity.py || {
+            echo "::warning::법제처 대조 검증에 실패했습니다. 수집 데이터는 커밋합니다."
+            exit 0
+          }
+
+      - name: Commit updated data
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "data: 법제처 기준 개정·조문 캐시 자동 갱신"
+          file_pattern: |
+            js/amendments-cache.json
+            js/notices-cache.json
+            js/resource-data.js
+            js/law-articles.js
+            js/law-articles-raw.json
+            js/law-articles-seed.json
+            _law_fetch/full-*.txt
+            _law_fetch/_parity_report.json
