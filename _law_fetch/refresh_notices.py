@@ -44,7 +44,7 @@ def parse_base(text: str | None) -> date:
 def fetch_list_page(page_index: int) -> str:
     url = LIST_URL + "?" + urllib.parse.urlencode({"pageIndex": str(page_index)})
     req = urllib.request.Request(url, headers=UA)
-    with urllib.request.urlopen(req, timeout=60) as res:
+    with urllib.request.urlopen(req, timeout=12) as res:
         return res.read().decode("utf-8", "replace")
 
 

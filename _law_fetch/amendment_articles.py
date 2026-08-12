@@ -95,8 +95,10 @@ def _located_swap_belongs(doc_text: str, match_start: int, law_id: str, law_name
 
 def fetch_html(url: str) -> str:
     sep = "&" if "?" in url else "?"
-    req = urllib.request.Request(f"{url}{sep}_ts={int(time.time() * 1000)}", headers=UA)
-    with urllib.request.urlopen(req, timeout=60) as res:
+    req = urllib.request.Request(
+        f"{url}{sep}_ts={int(time.time() * 1000)}", headers=UA
+    )
+    with urllib.request.urlopen(req, timeout=12) as res:
         return res.read().decode("utf-8", "replace")
 
 

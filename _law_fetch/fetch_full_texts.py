@@ -40,10 +40,25 @@ FULL_TARGETS = [
 ]
 
 
+# Actions 러너에서 law.go.kr 가 막히면 요청마다 오래 대기 → 작업이 1시간+ 끌림.
+# 짧게 끊는다(재시도 없음). 막힌 IP면 빨리 실패하는 편이 낫다.
+HTTP_TIMEOUT_S = 12
+HTTP_RETRIES = 1
+
+
 def _http_get(url: str) -> str:
-    req = urllib.request.Request(url, headers=UA)
-    with urllib.request.urlopen(req, timeout=90) as res:
-        return res.read().decode("utf-8", "replace")
+    last_exc: Exception | None = None
+    for attempt in range(HTTP_RETRIES):
+        try:
+            req = urllib.request.Request(url, headers=UA)
+            with urllib.request.urlopen(req, timeout=HTTP_TIMEOUT_S) as res:
+                return res.read().decode("utf-8", "replace")
+        except Exception as exc:  # noqa: BLE001
+            last_exc = exc
+            if attempt + 1 < HTTP_RETRIES:
+                time.sleep(1.5 * (attempt + 1))
+    assert last_exc is not None
+    raise last_exc
 
 
 def _plain_tag(tag: str, block: str) -> str:

@@ -138,10 +138,11 @@ def normalize_history_dates(blob: str) -> list[date]:
 
 def fetch_html(url: str) -> str:
     # cache-buster + no-cache headers → 수동 갱신 시 항상 신규 수집
+    # timeout 짧게: Actions에서 법제처 차단 시 요청당 대기 폭주 방지
     sep = "&" if "?" in url else "?"
     bust = f"{url}{sep}_ts={int(time.time() * 1000)}"
     req = urllib.request.Request(bust, headers=UA)
-    with urllib.request.urlopen(req, timeout=45) as res:
+    with urllib.request.urlopen(req, timeout=12) as res:
         return res.read().decode("utf-8", "replace")
 
 
