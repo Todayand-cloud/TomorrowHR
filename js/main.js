@@ -1593,6 +1593,12 @@
         }
         setRefreshStatus("갱신 실패: " + msg, true);
       })
+      .finally(function () {
+        if (btn) btn.disabled = false;
+      });
+  }
+
+  function refreshAmendmentsFromServer(baseDate) {
     const btn = document.getElementById("amendmentRefresh");
     const base = toInputValue(baseDate);
 
