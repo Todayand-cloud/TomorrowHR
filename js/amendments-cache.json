@@ -10,7 +10,7 @@
   "effLookbackDays": 182,
   "effWindowLabel": "±6개월",
   "amdWindowLabel": "±6개월",
-  "fetchedAt": "2026-08-12T08:34:43",
+  "fetchedAt": "2026-08-12T08:54:00",
   "freshFetch": true,
   "count": 27,
   "errors": [],
@@ -1730,11 +1730,6 @@
   "selfCheck": {
     "ok": true,
     "problems": [],
-    "warnings": [],
-    "parity": {
-      "ok": true,
-      "problemCount": 0,
-      "problems": []
-    }
+    "warnings": []
   }
 }
