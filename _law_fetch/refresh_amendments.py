@@ -16,7 +16,6 @@ import argparse
 import json
 import re
 import time
-import urllib.request
 from datetime import date, datetime, timedelta
 from pathlib import Path
 import sys
@@ -29,6 +28,7 @@ from amendment_articles import (  # noqa: E402
     load_seed_articles,
     sync_articles_js,
 )
+from http_util import http_get  # noqa: E402
 
 CACHE_PATH = ROOT / "js" / "amendments-cache.json"
 ARTICLES_PATH = ROOT / "js" / "law-articles-raw.json"
@@ -138,12 +138,10 @@ def normalize_history_dates(blob: str) -> list[date]:
 
 def fetch_html(url: str) -> str:
     # cache-buster + no-cache headers → 수동 갱신 시 항상 신규 수집
-    # timeout 짧게: Actions에서 법제처 차단 시 요청당 대기 폭주 방지
+    # Actions에서는 LAW_FETCH_PROXY(Cloudflare) 경유
     sep = "&" if "?" in url else "?"
     bust = f"{url}{sep}_ts={int(time.time() * 1000)}"
-    req = urllib.request.Request(bust, headers=UA)
-    with urllib.request.urlopen(req, timeout=12) as res:
-        return res.read().decode("utf-8", "replace")
+    return http_get(bust, headers=UA)
 
 
 def fetch_revisions(ls_id: str) -> list[dict]:

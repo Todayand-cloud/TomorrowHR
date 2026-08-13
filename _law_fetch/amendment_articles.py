@@ -6,9 +6,10 @@ from __future__ import annotations
 import json
 import re
 import time
-import urllib.request
 from datetime import date, timedelta
 from pathlib import Path
+
+from http_util import http_get
 
 ROOT = Path(__file__).resolve().parents[1]
 ARTICLES_PATH = ROOT / "js" / "law-articles-raw.json"
@@ -95,11 +96,7 @@ def _located_swap_belongs(doc_text: str, match_start: int, law_id: str, law_name
 
 def fetch_html(url: str) -> str:
     sep = "&" if "?" in url else "?"
-    req = urllib.request.Request(
-        f"{url}{sep}_ts={int(time.time() * 1000)}", headers=UA
-    )
-    with urllib.request.urlopen(req, timeout=12) as res:
-        return res.read().decode("utf-8", "replace")
+    return http_get(f"{url}{sep}_ts={int(time.time() * 1000)}", headers=UA)
 
 
 def html_to_text(html: str) -> str:

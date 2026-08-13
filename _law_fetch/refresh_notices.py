@@ -12,9 +12,10 @@ import json
 import re
 import time
 import urllib.parse
-import urllib.request
 from datetime import date, datetime, timedelta
 from pathlib import Path
+
+from http_util import http_get
 
 ROOT = Path(__file__).resolve().parents[1]
 CACHE_PATH = ROOT / "js" / "notices-cache.json"
@@ -43,9 +44,7 @@ def parse_base(text: str | None) -> date:
 
 def fetch_list_page(page_index: int) -> str:
     url = LIST_URL + "?" + urllib.parse.urlencode({"pageIndex": str(page_index)})
-    req = urllib.request.Request(url, headers=UA)
-    with urllib.request.urlopen(req, timeout=12) as res:
-        return res.read().decode("utf-8", "replace")
+    return http_get(url, headers=UA)
 
 
 def _cell_text(raw: str) -> str:
