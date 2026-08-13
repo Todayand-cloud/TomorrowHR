@@ -10,13 +10,13 @@
   "effLookbackDays": 182,
   "effWindowLabel": "±6개월",
   "amdWindowLabel": "±6개월",
-  "fetchedAt": "2026-08-13T15:24:09",
+  "fetchedAt": "2026-08-13T07:30:29",
   "freshFetch": true,
   "count": 35,
   "errors": [],
   "audit": {
-    "matchedHighlights": 30,
-    "unmatchedRevisions": 5,
+    "matchedHighlights": 31,
+    "unmatchedRevisions": 4,
     "rejectedDemoRule": "highlight only when article history date == promulgation date"
   },
   "fullTexts": {
@@ -1455,9 +1455,9 @@
       ],
       "locators": [
         "제43조",
-        "제43조 제1호",
-        "제43조 제2호",
-        "제43조 제3호"
+        "1호",
+        "2호",
+        "3호"
       ],
       "articleIds": [
         "retirement-statute-43"
@@ -1940,7 +1940,7 @@
         "제2조"
       ],
       "locators": [
-        "제14호"
+        "14호"
       ],
       "articleIds": [
         "retirement-statute-2"
@@ -1952,16 +1952,16 @@
             {
               "text": "14. \"중소기업퇴직연금기금제도\"란 중소기업(상시 100명 미만의 근로자를 사용하는 사업에 한정한다. 이하 같다) 근로자의 안정적인 노후생활 보장을 지원하기 위하여 둘 이상의 중소기업 사용자 및 근로자가 납입한 부담금 등으로 공동의 기금을 조성ㆍ운영하여 근로자에게 급여를 지급하는 제도를 말한다.",
               "beforeText": "14. \"중소기업퇴직연금기금제도\"란 중소기업(상시 30명 이하의 근로자를 사용하는 사업에 한정한다. 이하 같다) 근로자의 안정적인 노후생활 보장을 지원하기 위하여 둘 이상의 중소기업 사용자 및 근로자가 납입한 부담금 등으로 공동의 기금을 조성ㆍ운영하여 근로자에게 급여를 지급하는 제도를 말한다.",
-              "pending": false,
-              "locator": "14호",
-              "amendedDate": "2026-03-17",
-              "effectiveDate": "2026-07-01",
+              "isNew": false,
               "historyKind": "개정",
               "historyDates": [
                 "2026-03-17"
               ],
-              "isNew": false,
+              "locator": "14호",
+              "amendedDate": "2026-03-17",
+              "effectiveDate": "2026-07-01",
               "beforeNote": "",
+              "pending": false,
               "compareBefore": "14. \"중소기업퇴직연금기금제도\"란 중소기업(상시 30명 이하의 근로자를 사용하는 사업에 한정한다. 이하 같다) 근로자의 안정적인 노후생활 보장을 지원하기 위하여 둘 이상의 중소기업 사용자 및 근로자가 납입한 부담금 등으로 공동의 기금을 조성ㆍ운영하여 근로자에게 급여를 지급하는 제도를 말한다.",
               "compareAfter": "14. \"중소기업퇴직연금기금제도\"란 중소기업(상시 100명 미만의 근로자를 사용하는 사업에 한정한다. 이하 같다) 근로자의 안정적인 노후생활 보장을 지원하기 위하여 둘 이상의 중소기업 사용자 및 근로자가 납입한 부담금 등으로 공동의 기금을 조성ㆍ운영하여 근로자에게 급여를 지급하는 제도를 말한다."
             }
@@ -2265,29 +2265,72 @@
       "bodyApplied": false
     }
   ],
+  "simulationCycle": 1,
   "selfCheck": {
     "ok": true,
     "problems": [],
     "warnings": [],
     "repairAttempt": 1,
-    "healedCompares": [],
+    "healedCompares": [
+      {
+        "id": "live-009883-2026-03-17-21475-제9조",
+        "from": "compare_to_highlight",
+        "locator": "제2항"
+      },
+      {
+        "id": "live-009883-2026-03-17-21475-제23조의14",
+        "from": "compare_to_highlight",
+        "locator": "제1항"
+      }
+    ],
+    "healedHighlights": [
+      {
+        "id": "live-009883-2026-03-17-21475-제9조",
+        "from": "compare_to_highlight",
+        "locator": "제2항"
+      },
+      {
+        "id": "live-009883-2026-03-17-21475-제23조의14",
+        "from": "compare_to_highlight",
+        "locator": "제1항"
+      }
+    ],
     "scrubbedGhosts": [],
+    "freshFetch": true,
+    "simulation": {
+      "attempt": 1,
+      "maxAttempts": 3,
+      "passed": true,
+      "parityOk": true,
+      "offlineProblemCount": 0,
+      "parityProblemCount": 0
+    },
     "parity": {
       "ok": true,
       "problemCount": 0,
       "problems": []
-    }
-  },
-  "_healedHighlights": [
-    {
-      "id": "live-009883-2026-03-17-21475-제9조",
-      "from": "compare_to_highlight",
-      "locator": "제2항"
     },
+    "simulationLog": [
+      {
+        "attempt": 1,
+        "maxAttempts": 3,
+        "offlineProblems": 0,
+        "buildCount": 35,
+        "buildErrors": 0,
+        "parityProblems": [],
+        "result": "passed"
+      }
+    ]
+  },
+  "simulationLog": [
     {
-      "id": "live-009883-2026-03-17-21475-제23조의14",
-      "from": "compare_to_highlight",
-      "locator": "제1항"
+      "attempt": 1,
+      "maxAttempts": 3,
+      "offlineProblems": 0,
+      "buildCount": 35,
+      "buildErrors": 0,
+      "parityProblems": [],
+      "result": "passed"
     }
   ]
 }
