@@ -519,8 +519,9 @@ def build_amendments(base: date) -> dict:
     except Exception as exc:  # noqa: BLE001
         errors.append({"stage": "restore_bodies_from_full", "error": str(exc)})
 
-    # 수동 갱신마다 조문·캐시를 시드 적용 결과로 전면 교체
-    sync_articles_js(articles_db)
+    # 수집 전패(타임아웃 등)면 조문 JS 를 건드리지 않음 — 빈 화면/데이터 유실 방지
+    if collected or not errors:
+        sync_articles_js(articles_db)
 
     collected.sort(
         key=lambda x: (x["amendedDate"], x["effectiveDate"], x.get("articleNo") or ""),
@@ -570,11 +571,41 @@ def build_amendments(base: date) -> dict:
     }
 
 
-def save_cache(payload: dict) -> Path:
-    """기존 캐시를 지우고 신규 수집 결과로 덮어쓴다."""
+def save_cache(payload: dict, *, force: bool = False) -> Path | None:
+    """신규 수집 결과로 덮어쓴다.
+
+    법제처 타임아웃 등으로 amendments 가 비었는데 errors 가 있으면
+    기존 정상 캐시를 지우지 않는다(빈 화면 사고 방지).
+    """
     CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
-    if CACHE_PATH.is_file():
-        CACHE_PATH.unlink()
+    new_items = payload.get("amendments") or []
+    errors = payload.get("errors") or []
+    if (
+        not force
+        and not new_items
+        and errors
+        and CACHE_PATH.is_file()
+    ):
+        try:
+            prev = json.loads(CACHE_PATH.read_text(encoding="utf-8"))
+        except Exception:  # noqa: BLE001
+            prev = {}
+        if prev.get("amendments"):
+            print(
+                "::warning::법제처 수집 실패로 개정 0건 — 기존 캐시 "
+                f"{len(prev.get('amendments') or [])}건을 유지합니다."
+            )
+            prev = dict(prev)
+            prev["lastFailedFetch"] = {
+                "at": payload.get("fetchedAt"),
+                "baseDate": payload.get("baseDate"),
+                "errors": errors[:30],
+                "fullTexts": payload.get("fullTexts"),
+            }
+            CACHE_PATH.write_text(
+                json.dumps(prev, ensure_ascii=False, indent=2), encoding="utf-8"
+            )
+            return CACHE_PATH
     CACHE_PATH.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
     return CACHE_PATH
 
@@ -620,25 +651,45 @@ def main() -> None:
         action="store_true",
         help="법제처 대조 시뮬레이션 생략",
     )
+    parser.add_argument(
+        "--repair-attempts",
+        type=int,
+        default=2,
+        help="법제처 불일치 시 전문 재수집·재빌드 횟수(기본 2)",
+    )
     args = parser.parse_args()
     base = parse_base(args.base)
-    payload = build_amendments(base)
-    problems = audit_payload(payload)
-    warnings = payload.pop("_auditWarnings", [])
-    payload["selfCheck"] = {
-        "ok": len(problems) == 0,
-        "problems": problems,
-        "warnings": warnings,
-    }
-    path = save_cache(payload)
-    notices_report = payload.get("noticesRefresh")
 
-    parity = None
-    if not args.skip_parity:
+    # 불일치 시 롤백용 이전 캐시
+    prev_cache = ""
+    if CACHE_PATH.is_file():
+        prev_cache = CACHE_PATH.read_text(encoding="utf-8")
+
+    attempts = max(1, int(args.repair_attempts or 1))
+    payload: dict = {}
+    path = CACHE_PATH
+    notices_report = None
+
+    for attempt in range(1, attempts + 1):
+        payload = build_amendments(base)
+        problems = audit_payload(payload)
+        warnings = payload.pop("_auditWarnings", [])
+        payload["selfCheck"] = {
+            "ok": len(problems) == 0,
+            "problems": problems,
+            "warnings": warnings,
+            "repairAttempt": attempt,
+        }
+        path = save_cache(payload) or CACHE_PATH
+        notices_report = payload.get("noticesRefresh")
+
+        if args.skip_parity:
+            break
+
         try:
             from verify_law_parity import run_simulation
 
-            parity = run_simulation(verbose=False)
+            parity = run_simulation(verbose=attempt == attempts)
             payload["selfCheck"]["parity"] = {
                 "ok": parity.get("ok"),
                 "problemCount": len(parity.get("problems") or []),
@@ -650,23 +701,66 @@ def main() -> None:
                     list(payload["selfCheck"].get("problems") or [])
                     + [f"parity:{p}" for p in (parity.get("problems") or [])[:20]]
                 )
-            # parity 결과 반영해 캐시 재저장
-            save_cache(payload)
+                save_cache(payload)
+                if attempt < attempts:
+                    print(
+                        f"::warning::법제처 불일치 {len(parity.get('problems') or [])}건 "
+                        f"— {attempt}/{attempts} 재수집·재검증"
+                    )
+                    continue
+                # 최종 실패: 이전 정상 캐시가 있으면 롤백(빈/틀린 화면 방지)
+                if prev_cache:
+                    try:
+                        prev = json.loads(prev_cache)
+                    except Exception:  # noqa: BLE001
+                        prev = {}
+                    if prev.get("amendments") and (prev.get("count") or 0) > 0:
+                        prev = dict(prev)
+                        prev["lastFailedParity"] = payload["selfCheck"].get("parity")
+                        CACHE_PATH.write_text(
+                            json.dumps(prev, ensure_ascii=False, indent=2),
+                            encoding="utf-8",
+                        )
+                        print("::warning::parity 최종 실패 — 이전 캐시로 롤백")
+                        payload = prev
+                print(
+                    json.dumps(
+                        {
+                            "ok": False,
+                            "baseDate": payload.get("baseDate"),
+                            "count": payload.get("count"),
+                            "selfCheck": payload.get("selfCheck"),
+                            "cache": str(path),
+                        },
+                        ensure_ascii=False,
+                    )
+                )
+                raise SystemExit(1)
+            else:
+                save_cache(payload)
+                break
+        except SystemExit:
+            raise
         except Exception as exc:  # noqa: BLE001
             payload["selfCheck"]["parity"] = {"ok": False, "error": str(exc)}
+            payload["selfCheck"]["ok"] = False
             save_cache(payload)
+            if attempt < attempts:
+                print(f"::warning::parity 예외 — 재시도: {exc}")
+                continue
+            raise SystemExit(1)
 
     print(
         json.dumps(
             {
-                "ok": True,
-                "baseDate": payload["baseDate"],
-                "from": payload["from"],
-                "to": payload["to"],
-                "count": payload["count"],
-                "errors": payload["errors"],
+                "ok": bool((payload.get("selfCheck") or {}).get("ok", True)),
+                "baseDate": payload.get("baseDate"),
+                "from": payload.get("from"),
+                "to": payload.get("to"),
+                "count": payload.get("count"),
+                "errors": payload.get("errors"),
                 "audit": payload.get("audit"),
-                "selfCheck": payload["selfCheck"],
+                "selfCheck": payload.get("selfCheck"),
                 "noticesRefresh": notices_report,
                 "cache": str(path),
             },
