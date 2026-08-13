@@ -615,6 +615,7 @@
         attachAmendment(h.articleId);
         const entry = ensureHighlightEntry(map, h.articleId);
         (h.phrases || []).forEach(function (phrase) {
+          if (phrase && phrase.skipHighlight) return;
           const normalized = normalizePhrase(phrase, item);
           const key =
             (normalized.text || "") +
@@ -635,6 +636,31 @@
           if (!exists && normalized.text) entry.phrases.push(normalized);
         });
       });
+
+      // 시행 완료로 highlights 가 비었지만 compare 가 있으면 음영 복구
+      // (퇴직급여법 제2조 「100명 미만」 등 — 개정 배지만 있고 노란 음영 없던 오류)
+      if (item.articleLevel && (item.compareAfter || "").trim()) {
+        const aid = firstArticleId(item);
+        if (aid) {
+          attachAmendment(aid);
+          const entry = ensureHighlightEntry(map, aid);
+          if (!entry.phrases.length) {
+            entry.phrases.push(
+              normalizePhrase(
+                {
+                  text: (item.compareAfter || "").trim(),
+                  beforeText: (item.compareBefore || "").trim(),
+                  pending: item.bodyApplied === false,
+                  locator: item.articleNo || "",
+                  amendedDate: item.amendedDate,
+                  effectiveDate: item.effectiveDate,
+                },
+                item
+              )
+            );
+          }
+        }
+      }
     });
     return map;
   }
