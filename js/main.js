@@ -214,26 +214,25 @@
    * 같은 조·호에 미시행 개정이 여러 건이면 시행일 순으로 합성.
    * (예: 제110조 제1호 — 제104조제2항→제104조 후 제4항 및 제5항→부터)
    */
-  function composePendingPhrases(body, phrases) {
-    const raw = body || "";
-    const pending = [];
-    const rest = [];
-    (phrases || []).forEach(function (p) {
-      if (p && p.pending && !p.isNew && p.beforeText && p.text) pending.push(p);
-      else rest.push(p);
-    });
-    if (pending.length <= 1) return phrases || [];
+  function phraseKey(p) {
+    return (
+      (p.text || "") + "|" + (p.locator || "") + "|" + (p.amendedDate || "")
+    );
+  }
 
-    pending.sort(function (a, b) {
+  /** 같은 항·호(locator)끼리만 연쇄 합성. 제1항+제2항 삭제는 절대 합치지 않음. */
+  function composePendingGroup(raw, group) {
+    if (!group || group.length <= 1) return group || [];
+
+    const sorted = group.slice().sort(function (a, b) {
       const de = parseYMD(a.effectiveDate) - parseYMD(b.effectiveDate);
       if (de !== 0) return de;
       return parseYMD(a.amendedDate) - parseYMD(b.amendedDate);
     });
 
-    // 본문에 실제로 있는 before 를 앵커로 사용
     let anchor = null;
-    for (let i = 0; i < pending.length; i += 1) {
-      const b = pending[i].beforeText || "";
+    for (let i = 0; i < sorted.length; i += 1) {
+      const b = sorted[i].beforeText || "";
       if (b && raw.indexOf(b) !== -1) {
         anchor = b;
         break;
@@ -244,11 +243,11 @@
         break;
       }
     }
-    if (!anchor) return phrases || [];
+    if (!anchor) return group;
 
     let working = stripHistTags(anchor);
     const applied = [];
-    pending.forEach(function (p) {
+    sorted.forEach(function (p) {
       const sub = minimalSubstitution(p.beforeText, p.text);
       if (sub && sub.old && working.indexOf(sub.old) !== -1) {
         working = replaceFirst(working, sub.old, sub.neu);
@@ -265,7 +264,7 @@
       }
     });
 
-    if (applied.length <= 1) return phrases || [];
+    if (applied.length <= 1) return group;
 
     const latest = applied[applied.length - 1];
     const composed = {
@@ -283,21 +282,43 @@
       }),
     };
 
-    // 합성에 쓴 pending 은 개별 적용하지 않음
     const used = {};
     applied.forEach(function (p) {
-      used[
-        (p.text || "") + "|" + (p.locator || "") + "|" + (p.amendedDate || "")
-      ] = true;
+      used[phraseKey(p)] = true;
     });
-    const leftover = rest.concat(
-      pending.filter(function (p) {
-        return !used[
-          (p.text || "") + "|" + (p.locator || "") + "|" + (p.amendedDate || "")
-        ];
-      })
-    );
+    const leftover = group.filter(function (p) {
+      return !used[phraseKey(p)];
+    });
     return [composed].concat(leftover);
+  }
+
+  function composePendingPhrases(body, phrases) {
+    const raw = body || "";
+    const pending = [];
+    const rest = [];
+    (phrases || []).forEach(function (p) {
+      if (p && p.pending && !p.isNew && p.beforeText && p.text) pending.push(p);
+      else rest.push(p);
+    });
+    if (pending.length <= 1) return phrases || [];
+
+    // locator(제1항/제2항/제1호…) 단위로만 합성 — 항 삭제와 다른 항 치환을 섞지 않음
+    const groups = {};
+    const order = [];
+    pending.forEach(function (p) {
+      const key = (p.locator || "").trim() || "_";
+      if (!groups[key]) {
+        groups[key] = [];
+        order.push(key);
+      }
+      groups[key].push(p);
+    });
+
+    let out = rest.slice();
+    order.forEach(function (key) {
+      out = out.concat(composePendingGroup(raw, groups[key]));
+    });
+    return out;
   }
 
   function highlightBody(body, phrases) {
