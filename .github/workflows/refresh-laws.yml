@@ -45,7 +45,8 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Fetch from law.go.kr and rebuild cache
+      - name: Fetch from law.go.kr, verify vs 법제처, repair if mismatch
+        timeout-minutes: 20
         env:
           PYTHONIOENCODING: utf-8
           LAW_FETCH_PROXY: https://wandering-dew-09bd.shkim5.workers.dev
@@ -57,37 +58,36 @@ jobs:
           if [ -z "$BASE" ]; then
             BASE="${{ github.event.client_payload.base }}"
           fi
+          # skip-parity 없이 실행: 불일치 시 내부에서 재수집·재검증
           if [ -n "$BASE" ]; then
-            python3 _law_fetch/refresh_amendments.py --base "$BASE" --skip-parity
+            python3 _law_fetch/refresh_amendments.py --base "$BASE" --repair-attempts 2
           else
-            python3 _law_fetch/refresh_amendments.py --skip-parity
+            python3 _law_fetch/refresh_amendments.py --repair-attempts 2
           fi
 
-      - name: Parity simulation (법제처 대조)
-        continue-on-error: true
-        timeout-minutes: 8
-        env:
-          PYTHONIOENCODING: utf-8
-          CI: "true"
-          LAW_FETCH_PROXY: https://wandering-dew-09bd.shkim5.workers.dev
-          LAW_FETCH_PROXY_SECRET: ${{ secrets.LAW_FETCH_PROXY_SECRET }}
-          LAW_HTTP_TIMEOUT: "45"
-        run: |
-          python3 _law_fetch/verify_law_parity.py --soft || {
-            echo "::warning::법제처 대조 검증에 실패했습니다. 수집 데이터는 커밋합니다."
-            exit 0
-          }
-
-      - name: Guard against empty amendments cache
+      - name: Guard against empty or failed self-check
         id: guard
         run: |
-          COUNT=$(python3 -c "import json;p=json.load(open('js/amendments-cache.json',encoding='utf-8'));print(int(p.get('count') or len(p.get('amendments') or [])))")
-          echo "count=$COUNT" >> "$GITHUB_OUTPUT"
-          echo "amendments count=$COUNT"
-          if [ "$COUNT" -le 0 ]; then
-            echo "::error::amendments count=$COUNT — 빈 캐시는 커밋하지 않습니다."
-            exit 1
-          fi
+          python3 - <<'PY'
+          import json, os, sys
+          p = json.load(open("js/amendments-cache.json", encoding="utf-8"))
+          count = int(p.get("count") or len(p.get("amendments") or []))
+          sc = p.get("selfCheck") or {}
+          parity = sc.get("parity") or {}
+          print(f"count={count}")
+          print(f"selfCheck.ok={sc.get('ok')}")
+          print(f"parity.ok={parity.get('ok')}")
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as out:
+              out.write(f"count={count}\n")
+          if count <= 0:
+              print("::error::빈 캐시 — 커밋 중단")
+              sys.exit(1)
+          if sc.get("ok") is False or parity.get("ok") is False:
+              print("::error::법제처 대조 실패 — 잘못된 데이터 커밋 중단")
+              for x in (sc.get("problems") or [])[:15]:
+                  print(" -", x)
+              sys.exit(1)
+          PY
 
       # git-auto-commit 대신 직접 커밋: 동시 실행/원격 앞지름 시 rebase 재시도
       - name: Commit and push updated data
