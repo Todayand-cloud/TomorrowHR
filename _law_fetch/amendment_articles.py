@@ -29,14 +29,19 @@ PROVISO_NEW_RE = re.compile(
 )
 QUOTE_SWAP_RE = re.compile(
     r'(?:"([^"]{1,320})"|「([^」]{1,320})」)\s*[을를]\s*'
+    r'(?:각각\s*)?'
     r'(?:"([^"]{1,320})"|「([^」]{1,320})」)\s*(?:으로|로)'
 )
-# 제60조제6항제3호 중 "A"을 "B"로 한다 (부칙·타법개정 포함)
+# 제61조제1항 각 호 외의 부분 중 "A"을 각각 "B"로 한다/하고 (부칙·타법개정 포함)
 LOCATED_SWAP_RE = re.compile(
     r"제\s*(\d+)\s*조(?:의\s*(\d+))?"
-    r"(?:제\s*(\d+)\s*항)?(?:제\s*(\d+)\s*호)?\s*중\s*"
+    r"(?:제\s*(\d+)\s*항)?"
+    r"(?:제\s*(\d+)\s*호)?"
+    r"(?:[^\"「\n]{0,40}?)중\s*"
     r'(?:"([^"]{1,320})"|「([^」]{1,320})」)\s*[을를]\s*'
-    r'(?:"([^"]{1,320})"|「([^」]{1,320})」)\s*(?:으로|로)\s*한다'
+    r'(?:각각\s*)?'
+    r'(?:"([^"]{1,320})"|「([^」]{1,320})」)\s*(?:으로|로)'
+    r'(?:\s*한다|\s*하고|\s*하며)?'
 )
 JO_TOKEN_RE = re.compile(r"제\s*([0-9]+)\s*조(?:의\s*([0-9]+))?")
 UNIT_HANG_HO_RE = re.compile(
@@ -201,11 +206,11 @@ def parse_special_effective(doc_text: str, amended: date, default_effective: dat
 
 
 _STMT_START_RE = re.compile(
-    r"(?:^|(?<=\.\s)|(?<=다\.\s)|(?<=자\s)|(?<=다\s))"
+    r"(?:^|(?<=\.\s)|(?<=다\.\s)|(?<=자\s)|(?<=다\s)|(?<=고\s)|(?<=며\s))"
     r"제\s*([0-9]+)\s*조(?:의\s*([0-9]+))?"
     r"(?="
-    # 제60조제6항제3호 중 … / 제43조 중 … (인용 제37조제6항 단독은 제외)
-    r"(?:제\s*\d+\s*항)?(?:제\s*\d+\s*호)?\s*중\s"
+    # 제61조제1항 각 호 외의 부분 중 … / 제60조제6항제3호 중 …
+    r"(?:제\s*\d+\s*항)?(?:제\s*\d+\s*호)?(?:[^\"「]{0,40}?)중\s"
     r"|\s*제목"
     r"|\s*중\s"
     r"|\s*[을를]\s"
@@ -216,6 +221,49 @@ _STMT_START_RE = re.compile(
     r"|\("
     r")"
 )
+
+
+def expected_amended_articles_from_doc(doc_text: str) -> list[str]:
+    """개정문에서 '이 법이 고치는 조' 목록 (누락 검증용)."""
+    main = re.split(r"\s부칙\s", doc_text or "", maxsplit=1)[0]
+    found: list[str] = []
+    seen: set[str] = set()
+    patterns = [
+        # 제N조…중 "…"을 "…"로
+        re.compile(
+            r"제\s*(\d+)\s*조(?:의\s*(\d+))?"
+            r"(?:제\s*\d+\s*항)?(?:제\s*\d+\s*호)?"
+            r"(?:[^\"「]{0,40}?)중\s*[\"「]"
+        ),
+        # 단서 신설
+        re.compile(
+            r"제\s*(\d+)\s*조(?:의\s*(\d+))?제\s*\d+\s*항에\s*단서를\s*다음과\s*같이\s*신설"
+        ),
+        # 조 신설
+        re.compile(r"제\s*(\d+)\s*조(?:의\s*(\d+))?를\s*다음과\s*같이\s*신설"),
+        # 제N조제M항제K호를 다음과 같이 / 중
+        re.compile(
+            r"제\s*(\d+)\s*조(?:의\s*(\d+))?제\s*\d+\s*항(?:제\s*\d+\s*호)?"
+            r"(?:를\s*다음과|.\s*중\s*[\"「])"
+        ),
+    ]
+    for pat in patterns:
+        for m in pat.finditer(main):
+            jo = jo_label(m.group(1), m.group(2) if m.lastindex and m.lastindex >= 2 else None)
+            if jo and jo not in seen:
+                seen.add(jo)
+                found.append(jo)
+    return found
+
+
+def _is_cite_token(text: str) -> bool:
+    s = re.sub(r"\s+", "", text or "")
+    return bool(
+        re.fullmatch(
+            r"제\d+조(?:의\d+)?(?:제\d+항)?(?:제\d+호)?(?:단서|본문)?",
+            s,
+        )
+    )
 
 
 def _split_jo_chunks(doc_text: str) -> list[tuple[str, str]]:
@@ -895,6 +943,33 @@ def _pending_phrases_only(
                 )
                 continue
             old, new = op.get("old") or "", op.get("new") or ""
+            # 인용 일괄 치환: 조 본문 전체 전·후 비교
+            if _is_cite_token(old) and body.count(old) > 1:
+                before_full = body
+                after_full = body.replace(old, new)
+                before_clean = re.sub(r"\s*<개정[^>]*>\s*", " ", before_full).strip()
+                after_clean = re.sub(r"\s*<개정[^>]*>\s*", " ", after_full).strip()
+                loc = op.get("unitLocator") or op.get("locator") or art.get("no") or ""
+                replace_hits.append((before_full, after_full, loc))
+                if not structural:
+                    phrases.append(
+                        {
+                            # 화면 표기=개정 후, beforeText는 본문 매칭용(연혁 태그 유지)
+                            "text": after_clean,
+                            "beforeText": before_full,
+                            "isNew": False,
+                            "historyKind": "개정",
+                            "historyDates": [amd],
+                            "locator": loc,
+                            "amendedDate": amd,
+                            "effectiveDate": eff,
+                            "beforeNote": "",
+                            "pending": True,
+                            "compareBefore": before_clean,
+                            "compareAfter": after_clean,
+                        }
+                    )
+                continue
             unit_info = find_containing_unit(body, old)
             if unit_info:
                 before_unit, _, _ = unit_info
@@ -990,7 +1065,12 @@ def _pending_phrases_only(
             if op.get("kind") == "replace":
                 old, new = op.get("old") or "", op.get("new") or ""
                 if old and old in after_full:
-                    after_full = after_full.replace(old, new, 1)
+                    # 인용 토큰은 조 안 복수 출현을 모두 치환
+                    after_full = (
+                        after_full.replace(old, new)
+                        if _is_cite_token(old)
+                        else after_full.replace(old, new, 1)
+                    )
         proviso_op = next((op for op in ops if op.get("kind") == "proviso"), None)
         proviso = (proviso_op or {}).get("text") or ""
         hang_for_proviso = 1
@@ -1263,6 +1343,30 @@ def apply_ops_to_article(
             old, new = op["old"], op["new"]
             # 이미 eflaw 현행 본문에 반영된 치환은 재적용하지 않음
             if old not in body and new and new in body:
+                continue
+            # 인용 번호 일괄 변경(제60조제7항→제8항 등): 조 전체에 여러 번 등장
+            if _is_cite_token(old) and body.count(old) > 1:
+                before_full = body
+                after_full = body.replace(old, new)
+                after_clean = re.sub(r"\s*<개정[^>]*>\s*", " ", after_full).rstrip()
+                after_marked = after_clean + " " + hist_rev
+                body = after_marked
+                phrases.append(
+                    {
+                        "text": after_marked,
+                        "beforeText": re.sub(r"\s*<개정[^>]*>\s*", " ", before_full).strip(),
+                        "isNew": False,
+                        "historyKind": "개정",
+                        "historyDates": [amd],
+                        "locator": op.get("unitLocator")
+                        or op.get("locator")
+                        or art.get("no")
+                        or "",
+                        "amendedDate": amd,
+                        "effectiveDate": eff,
+                        "beforeNote": "",
+                    }
+                )
                 continue
             unit_info = find_containing_unit(body, old)
             if unit_info:
