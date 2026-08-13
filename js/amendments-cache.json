@@ -1,7 +1,7 @@
 {
-  "baseDate": "2026-08-12",
-  "from": "2026-02-11",
-  "to": "2027-02-10",
+  "baseDate": "2026-08-13",
+  "from": "2026-02-12",
+  "to": "2027-02-11",
   "forwardDays": 182,
   "lookbackDays": 182,
   "amdForwardDays": 182,
@@ -10,7 +10,7 @@
   "effLookbackDays": 182,
   "effWindowLabel": "±6개월",
   "amdWindowLabel": "±6개월",
-  "fetchedAt": "2026-08-12T15:31:49",
+  "fetchedAt": "2026-08-13T00:46:05",
   "freshFetch": true,
   "count": 27,
   "errors": [],
@@ -21,7 +21,7 @@
   },
   "fullTexts": {
     "ok": true,
-    "asOf": "2026-08-12",
+    "asOf": "2026-08-13",
     "files": [
       {
         "lawId": "labor-standards",
@@ -1730,11 +1730,6 @@
   "selfCheck": {
     "ok": true,
     "problems": [],
-    "warnings": [],
-    "parity": {
-      "ok": true,
-      "problemCount": 0,
-      "problems": []
-    }
+    "warnings": []
   }
 }
