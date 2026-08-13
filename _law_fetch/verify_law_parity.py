@@ -736,6 +736,31 @@ def run_simulation(verbose: bool = True) -> dict:
     except Exception as exc:  # noqa: BLE001
         problems.append(f"doc_coverage_error: {exc}")
 
+    # --- 전체 조문개정: 노란 음영(highlights) 미처리 검사 ---
+    yellow_missing = 0
+    for item in amendments:
+        if not item.get("articleLevel"):
+            continue
+        ca = (item.get("compareAfter") or "").strip()
+        cb = (item.get("compareBefore") or "").strip()
+        summary = item.get("summary") or ""
+        needs = bool(ca or cb or re.search(r"→|삭제|신설", summary))
+        if not needs:
+            continue
+        phrases = [
+            p
+            for h in (item.get("highlights") or [])
+            for p in (h.get("phrases") or [])
+            if not p.get("skipHighlight") and (p.get("text") or "").strip()
+        ]
+        if not phrases:
+            yellow_missing += 1
+            problems.append(f"missing_yellow_highlight {item.get('id')}")
+            if verbose:
+                print(f"[FAIL] missing_yellow_highlight {item.get('id')}")
+    if verbose and yellow_missing == 0:
+        print("[INFO] yellow highlight coverage ok")
+
     # UI: 안내문 중복 문구가 main.js 에 남아 있지 않은지
     if MAIN_JS.is_file():
         main_src = MAIN_JS.read_text(encoding="utf-8")

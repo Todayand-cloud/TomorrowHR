@@ -177,6 +177,36 @@ def hist_tag(amended: date, kind: str = "개정") -> str:
     return f"<{kind} {amended.year}. {amended.month}. {amended.day}.>"
 
 
+def append_hist_date(unit: str, amended: date, kind: str = "개정") -> str:
+    """항·호 단위 끝 연혁 태그에 공포일을 추가(없으면 신설)."""
+    text = (unit or "").rstrip()
+    d = f"{amended.year}. {amended.month}. {amended.day}."
+    m = re.search(r"<(개정|신설)\s*([^>]*)>", text)
+    if m:
+        inner = (m.group(2) or "").strip().rstrip(",")
+        if d in inner:
+            return text
+        new_inner = f"{inner}, {d}" if inner else d
+        return text[: m.start()] + f"<{m.group(1)} {new_inner}>" + text[m.end() :]
+    return (text + " " + hist_tag(amended, kind)).strip()
+
+
+def strip_hist_tags(text: str) -> str:
+    return re.sub(r"\s*<(?:개정|신설)\s*[^>]*>\s*", " ", text or "").strip()
+
+
+def fix_josa_after_jo_replace(text: str, new: str) -> str:
+    """제104조제2항→제104조 치환 후 '조을' → '조를' 보정."""
+    if not text or not new or not new.endswith("조"):
+        return text
+    return re.sub(
+        rf"({re.escape(new)})을(?=\s|위반|위반한|,|\.|$)",
+        r"\1를",
+        text,
+        count=1,
+    )
+
+
 def parse_special_effective(doc_text: str, amended: date, default_effective: date) -> dict[str, date]:
     """부칙 시행일 특례를 조문별로 해석한다."""
     special: dict[str, date] = {}
@@ -580,16 +610,20 @@ def extract_article_changes(
                 f"제{renum_ho.group(3)}·{renum_ho.group(4)}호"
             )
 
-        if re.search(r"제\s*\d+\s*항을\s*삭제한다", chunk) or "제2항을 삭제한다" in chunk:
+        del_hang = re.search(r"제\s*(\d+)\s*항을\s*삭제한다", chunk)
+        if del_hang or "제2항을 삭제한다" in chunk:
+            hang_n = int(del_hang.group(1)) if del_hang else 2
+            mark = N_TO_CIRCLE.get(hang_n, "②")
             entry["ops"].append(
                 {
                     "kind": "delete_mark",
-                    "text": "② 삭제",
-                    "locator": "제2항",
+                    "hang": hang_n,
+                    "text": f"{mark} 삭제",
+                    "locator": f"제{hang_n}항",
                     "isNew": False,
                 }
             )
-            entry["summaryParts"].append("제2항 삭제")
+            entry["summaryParts"].append(f"제{hang_n}항 삭제")
 
         # 항 번호 이동 지시 (제60조: 5~7항 → 6~8항)
         renum = re.search(
@@ -862,7 +896,8 @@ def hang_locator_from_text(text: str, fallback: str = "") -> str:
             return fallback
         return base
     if re.match(r"^\d+(?:의\d+)?\.", t):
-        return fallback or t.split(".", 1)[0] + "호"
+        # 호 단위는 번호 표기를 우선 (제2조 안의 14. → 14호)
+        return t.split(".", 1)[0] + "호"
     return fallback
 
 
@@ -956,16 +991,16 @@ def _pending_phrases_only(
             # 인용 일괄 치환: 조 본문 전체 전·후 비교
             if _is_cite_token(old) and body.count(old) > 1:
                 before_full = body
-                after_full = body.replace(old, new)
-                before_clean = re.sub(r"\s*<개정[^>]*>\s*", " ", before_full).strip()
-                after_clean = re.sub(r"\s*<개정[^>]*>\s*", " ", after_full).strip()
+                after_full = append_hist_date(body.replace(old, new), amended)
+                before_clean = strip_hist_tags(before_full)
+                after_clean = strip_hist_tags(after_full)
                 loc = op.get("unitLocator") or op.get("locator") or art.get("no") or ""
                 replace_hits.append((before_full, after_full, loc))
                 if not structural:
                     phrases.append(
                         {
-                            # 화면 표기=개정 후, beforeText는 본문 매칭용(연혁 태그 유지)
-                            "text": after_clean,
+                            # 화면 표기=개정 후(+연혁), beforeText는 본문 매칭용(연혁 포함)
+                            "text": after_full,
                             "beforeText": before_full,
                             "isNew": False,
                             "historyKind": "개정",
@@ -983,9 +1018,12 @@ def _pending_phrases_only(
             unit_info = find_containing_unit(body, old)
             if unit_info:
                 before_unit, _, _ = unit_info
-                before_clean = re.sub(r"\s*<개정[^>]*>\s*", " ", before_unit).strip()
-                after_unit = before_unit.replace(old, new, 1)
-                after_clean = re.sub(r"\s*<개정[^>]*>\s*", " ", after_unit).rstrip()
+                before_clean = strip_hist_tags(before_unit)
+                after_raw = fix_josa_after_jo_replace(
+                    before_unit.replace(old, new, 1), new
+                )
+                after_unit = append_hist_date(after_raw, amended)
+                after_clean = strip_hist_tags(after_unit)
                 loc = op.get("unitLocator") or hang_locator_from_text(
                     before_unit, op.get("locator") or art.get("no") or ""
                 )
@@ -993,8 +1031,8 @@ def _pending_phrases_only(
                 if not structural:
                     phrases.append(
                         {
-                            "text": after_clean,  # 개정된 내용
-                            "beforeText": before_clean,  # 개정 전
+                            "text": after_unit,  # 개정 후(+연혁) — 화면 노란 음영
+                            "beforeText": before_unit,  # 본문 매칭용(연혁 포함, 잔여 태그 방지)
                             "isNew": False,
                             "historyKind": "개정",
                             "historyDates": [amd],
@@ -1048,21 +1086,27 @@ def _pending_phrases_only(
                 }
             )
         elif kind == "delete_mark":
+            hang_n = int(op.get("hang") or 2)
+            mark = N_TO_CIRCLE.get(hang_n, "②")
+            loc = op.get("locator") or f"제{hang_n}항"
+            unit_info = find_containing_unit(body, mark) if mark in body else None
+            before_unit = unit_info[0] if unit_info else f"{mark} (삭제 전 항)"
+            after_text = f"{mark} 삭제 {hist_rev}".strip()
             phrases.append(
                 {
-                    "text": "② 삭제",
-                    "beforeText": "② (삭제 전 항)",
+                    "text": after_text,
+                    "beforeText": before_unit,
                     "isNew": False,
                     "historyKind": "개정",
                     "historyDates": [amd],
-                    "locator": "제2항",
+                    "locator": loc,
                     "amendedDate": amd,
                     "effectiveDate": eff,
                     "beforeNote": "",
                     "pending": True,
-                    "skipHighlight": True,
-                    "compareBefore": "② (삭제 전 항)",
-                    "compareAfter": "② 삭제",
+                    "compareBefore": strip_hist_tags(before_unit)
+                    or f"{mark} (삭제 전 항)",
+                    "compareAfter": f"{mark} 삭제",
                 }
             )
 
@@ -1354,17 +1398,19 @@ def apply_ops_to_article(
             # 이미 eflaw 현행 본문에 반영된 치환은 재적용하지 않음.
             # 다만 전·후 비교 카드는 남겨 빈 카드/유령 스크럽을 막는다.
             if old not in body and new and new in body:
+                # 이미 시행·본문 반영됨 → 재치환 없이 개정 후(현행) 음영 + 호버=개정 전
                 unit_info = find_containing_unit(body, new)
                 loc = op.get("unitLocator") or op.get("locator") or art.get("no")
                 if unit_info:
                     after_unit, _, _ = unit_info
                     before_unit = after_unit.replace(new, old, 1)
                     loc = hang_locator_from_text(after_unit, loc or "")
-                    after_clean = re.sub(r"\s*<개정[^>]*>\s*", " ", after_unit).strip()
-                    before_clean = re.sub(r"\s*<개정[^>]*>\s*", " ", before_unit).strip()
+                    after_clean = strip_hist_tags(after_unit)
+                    before_clean = strip_hist_tags(before_unit)
+                    # 본문 매칭용 text는 실제 단위(연혁 포함 가능)
                     phrases.append(
                         {
-                            "text": after_clean,
+                            "text": after_unit.strip(),
                             "beforeText": before_clean,
                             "isNew": False,
                             "historyKind": "개정",
@@ -1373,7 +1419,7 @@ def apply_ops_to_article(
                             "amendedDate": amd,
                             "effectiveDate": eff,
                             "beforeNote": "",
-                            "skipHighlight": True,
+                            "pending": False,
                             "compareBefore": before_clean,
                             "compareAfter": after_clean,
                         }
@@ -1390,7 +1436,7 @@ def apply_ops_to_article(
                             "amendedDate": amd,
                             "effectiveDate": eff,
                             "beforeNote": "",
-                            "skipHighlight": True,
+                            "pending": False,
                             "compareBefore": old,
                             "compareAfter": new,
                         }
@@ -1519,10 +1565,13 @@ def apply_ops_to_article(
             )
             continue
         if kind == "delete_mark":
-            unit_info = find_containing_unit(body, "②") if "②" in body else None
+            hang_n = int(op.get("hang") or 2)
+            mark = N_TO_CIRCLE.get(hang_n, "②")
+            loc = op.get("locator") or f"제{hang_n}항"
+            unit_info = find_containing_unit(body, mark) if mark in body else None
             if unit_info:
                 before_unit, start, end = unit_info
-                after_marked = f"② 삭제 {hist_rev}"
+                after_marked = f"{mark} 삭제 {hist_rev}"
                 body = body[:start] + after_marked + body[end:]
                 phrases.append(
                     {
@@ -1531,26 +1580,30 @@ def apply_ops_to_article(
                         "isNew": False,
                         "historyKind": "개정",
                         "historyDates": [amd],
-                        "locator": "제2항",
+                        "locator": loc,
                         "amendedDate": amd,
                         "effectiveDate": eff,
                         "beforeNote": "",
+                        "compareBefore": strip_hist_tags(before_unit),
+                        "compareAfter": f"{mark} 삭제",
                     }
                 )
             else:
-                after_marked = f"② 삭제 {hist_rev}"
+                after_marked = f"{mark} 삭제 {hist_rev}"
                 body = (body + "\n" + after_marked).strip() if body else after_marked
                 phrases.append(
                     {
                         "text": after_marked,
-                        "beforeText": "② (삭제 전 항)",
+                        "beforeText": f"{mark} (삭제 전 항)",
                         "isNew": False,
                         "historyKind": "개정",
                         "historyDates": [amd],
-                        "locator": "제2항",
+                        "locator": loc,
                         "amendedDate": amd,
                         "effectiveDate": eff,
                         "beforeNote": "",
+                        "compareBefore": f"{mark} (삭제 전 항)",
+                        "compareAfter": f"{mark} 삭제",
                     }
                 )
 
@@ -1725,6 +1778,15 @@ def enrich_revision_with_articles(
             # 시행 전: 본문에 개정 전이 있으면 화면에서 개정 후로 바꿔 음영
             if ph.get("pending") and before and before in body_now and text:
                 return True
+            # 항 삭제: before가 연혁 포함 전체 항이면 매칭, 아니면 항 기호만으로도 허용
+            if (
+                ph.get("pending")
+                and text
+                and "삭제" in text
+                and before
+                and (before in body_now or (before[:1] in CIRCLE_TO_N and before[:1] in body_now))
+            ):
+                return True
             # 미시행 신설 조: 현행 법제처 본문에 조 자체가 없음 → 개정문 전문을 음영으로 채택
             if (
                 ph.get("pending")
@@ -1743,15 +1805,21 @@ def enrich_revision_with_articles(
         highlight_phrases = [ph for ph in phrases if _can_highlight(ph)]
 
         if phrases:
-            p0 = phrases[0]
-            compare_before = p0.get("compareBefore") or p0.get("beforeText") or ""
-            compare_after = p0.get("compareAfter") or re.sub(
-                r"\s*<[^>]+>\s*", "", p0.get("text") or ""
-            ).strip()
-            # pending: compareBefore/After 필드 우선
-            if p0.get("pending") and p0.get("compareBefore"):
-                compare_before = p0["compareBefore"]
-                compare_after = p0.get("compareAfter") or compare_after
+            cbs: list[str] = []
+            cas: list[str] = []
+            for ph in phrases:
+                b = (ph.get("compareBefore") or "").strip()
+                if not b:
+                    b = strip_hist_tags(ph.get("beforeText") or "")
+                a = (ph.get("compareAfter") or "").strip()
+                if not a:
+                    a = strip_hist_tags(ph.get("text") or "")
+                if b and b not in cbs:
+                    cbs.append(b)
+                if a and a not in cas:
+                    cas.append(a)
+            compare_before = "\n".join(cbs)
+            compare_after = "\n".join(cas)
         elif ch.get("newProviso"):
             compare_before = "해당 단서 없음(신설)"
             compare_after = ch["newProviso"]

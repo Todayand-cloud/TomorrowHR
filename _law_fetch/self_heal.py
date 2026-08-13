@@ -104,6 +104,106 @@ def heal_empty_compares(payload: dict, articles: dict | None = None) -> tuple[di
     return out, healed
 
 
+def heal_empty_highlights(
+    payload: dict, articles: dict | None = None
+) -> tuple[dict, list[dict]]:
+    """compare는 있는데 highlights 가 비어 노란 음영이 안 나오는 항목을 복구."""
+    articles = articles or {}
+    healed: list[dict] = []
+    out_items: list[dict] = []
+    for item in payload.get("amendments") or []:
+        if not item.get("articleLevel"):
+            out_items.append(item)
+            continue
+        phrases = _phrases(item)
+        cb = (item.get("compareBefore") or "").strip()
+        ca = (item.get("compareAfter") or "").strip()
+        if phrases or not ca:
+            out_items.append(item)
+            continue
+
+        tier = TIER_KEY.get(item.get("tier") or "", "statute")
+        body = _article_body(
+            articles, item.get("lawId") or "", tier, item.get("articleNo") or ""
+        )
+        pending = item.get("bodyApplied") is False
+        text = ca
+        before = cb
+        locator = (item.get("articleNo") or "").strip()
+
+        # 본문에 있는 더 긴 단위로 확장(시행 완료 음영 매칭)
+        if body and ca:
+            # compareAfter 전문이 본문에 있으면 그대로
+            if ca in body:
+                text = ca
+            else:
+                # 요약 화살표 new 토큰으로 단위 찾기
+                pair = _summary_pair(item)
+                needle = pair[1] if pair else ca[:24]
+                if needle and needle in body:
+                    idx = body.find(needle)
+                    start = max(0, body.rfind("\n", 0, idx) + 1)
+                    end_m = re.search(r"\n[①-⑮\d]", body[idx + len(needle) :])
+                    end = (
+                        idx
+                        + len(needle)
+                        + (end_m.start() if end_m else len(body) - idx - len(needle))
+                    )
+                    unit = body[start:end].strip()
+                    if unit:
+                        text = unit
+                        if pair and pair[0] and pair[0] in unit.replace(pair[1], pair[0], 1):
+                            before = unit.replace(pair[1], pair[0], 1)
+                        elif cb:
+                            before = cb
+            # locator: 호/항
+            t0 = text.lstrip()
+            if t0 and t0[0] in "①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮":
+                locator = f"제{'①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮'.index(t0[0]) + 1}항"
+            else:
+                hm = re.match(r"^(\d+(?:의\d+)?)\.", t0)
+                if hm:
+                    locator = hm.group(1) + "호"
+
+        # pending 인데 before가 본문에 없으면 복구해도 화면 치환 실패 → 감사로 남김
+        if pending and before and body and before not in body and not before.startswith("해당"):
+            out_items.append(item)
+            continue
+
+        aid = ""
+        if item.get("articleIds"):
+            aid = item["articleIds"][0]
+        phrase = {
+            "text": text,
+            "beforeText": before or ("해당 문구 없음(신설)" if not before else before),
+            "pending": pending,
+            "isNew": (not before) or before.startswith("해당"),
+            "locator": locator,
+            "amendedDate": item.get("amendedDate"),
+            "effectiveDate": item.get("effectiveDate"),
+            "historyKind": "개정",
+            "historyDates": [item.get("amendedDate")] if item.get("amendedDate") else [],
+            "beforeNote": "",
+            "compareBefore": cb,
+            "compareAfter": ca,
+        }
+        fixed = dict(item)
+        fixed["highlights"] = [{"articleId": aid, "phrases": [phrase]}] if aid else [
+            {"articleId": "", "phrases": [phrase]}
+        ]
+        out_items.append(fixed)
+        healed.append({"id": item.get("id"), "from": "compare_to_highlight", "locator": locator})
+
+    out = dict(payload)
+    out["amendments"] = out_items
+    if healed:
+        out["_healedHighlights"] = healed
+        print(f"::notice::self_heal healed {len(healed)} empty highlight(s)")
+        for h in healed[:20]:
+            print(f"  - {h['id']}: {h['from']} ({h.get('locator')})")
+    return out, healed
+
+
 def is_ghost_amendment(item: dict, body: str) -> str | None:
     """유령/공허 개정이면 사유 문자열, 아니면 None."""
     if not item.get("articleLevel"):
@@ -261,6 +361,34 @@ def offline_audit(payload: dict, articles: dict | None = None) -> list[str]:
             problems.append(f"date_order:{item.get('id')}")
         if not (item.get("articleNo") or "").strip():
             problems.append(f"no_articleNo:{item.get('id')}")
+        # 노란 음영 미처리: compare/요약은 있는데 highlights 없음
+        needs_yellow = bool(
+            ca
+            or cb
+            or _summary_pair(item)
+            or re.search(r"삭제|신설|→", item.get("summary") or "")
+        )
+        if needs_yellow and not phrases:
+            problems.append(f"missing_yellow_highlight:{item.get('id')}")
+        elif phrases and item.get("bodyApplied") is False and body:
+            ok_match = False
+            for p in phrases:
+                t = (p.get("text") or "").strip()
+                b = (p.get("beforeText") or "").strip()
+                if (b and b in body) or (t and t in body) or p.get("isNew"):
+                    ok_match = True
+                    break
+            if not ok_match:
+                problems.append(f"yellow_unmatched:{item.get('id')}")
+        elif phrases and item.get("bodyApplied") is not False and body:
+            if not any((p.get("text") or "").strip() in body for p in phrases):
+                ok_tok = any(
+                    len((p.get("text") or "").strip()) >= 8
+                    and (p.get("text") or "").strip()[:20] in body
+                    for p in phrases
+                )
+                if not ok_tok:
+                    problems.append(f"yellow_after_not_in_body:{item.get('id')}")
         # 빈 compare이면서 요약 화살표도 없으면 문제
         if not cb and not ca and not phrases and not _summary_pair(item):
             if not (item.get("summary") or "").strip():
@@ -283,10 +411,13 @@ def self_heal_payload(payload: dict, articles: dict | None = None) -> tuple[dict
     """heal → scrub → audit 한 사이클. 보고서 dict 함께 반환."""
     articles = articles or load_articles_db()
     payload, healed = heal_empty_compares(payload, articles)
+    payload, healed_hl = heal_empty_highlights(payload, articles)
     payload, scrubbed = scrub_ghost_amendments(payload, articles)
     problems = offline_audit(payload, articles)
     report = {
-        "healed": healed,
+        "healed": list(healed) + list(healed_hl),
+        "healedCompares": healed,
+        "healedHighlights": healed_hl,
         "scrubbed": scrubbed,
         "problems": problems,
     }

@@ -707,7 +707,12 @@ def main() -> None:
         problems = audit_payload(payload) + off_problems
         warnings = payload.pop("_auditWarnings", [])
         scrub_log = payload.pop("_scrubbedGhosts", heal_report.get("scrubbed") or [])
-        heal_log = payload.pop("_healedCompares", heal_report.get("healed") or [])
+        heal_log = payload.pop(
+            "_healedCompares", heal_report.get("healedCompares") or heal_report.get("healed") or []
+        )
+        heal_hl_log = payload.pop(
+            "_healedHighlights", heal_report.get("healedHighlights") or []
+        )
 
         payload["selfCheck"] = {
             "ok": False,  # 시뮬레이션 통과 전엔 커밋 불가
@@ -715,6 +720,7 @@ def main() -> None:
             "warnings": warnings,
             "repairAttempt": attempt,
             "healedCompares": heal_log,
+            "healedHighlights": heal_hl_log,
             "scrubbedGhosts": scrub_log,
             "freshFetch": True,
             "simulation": {
@@ -764,10 +770,18 @@ def main() -> None:
             # 대조 후 캐시 기준 재치유 → 재대조
             articles_db = load_articles_db()
             payload, heal_report2 = self_heal_payload(payload, articles_db)
-            if heal_report2.get("healed") or heal_report2.get("scrubbed"):
+            if (
+                heal_report2.get("healed")
+                or heal_report2.get("scrubbed")
+                or heal_report2.get("healedHighlights")
+            ):
                 payload["selfCheck"]["healedCompares"] = (
                     list(payload["selfCheck"].get("healedCompares") or [])
-                    + list(heal_report2.get("healed") or [])
+                    + list(heal_report2.get("healedCompares") or heal_report2.get("healed") or [])
+                )
+                payload["selfCheck"]["healedHighlights"] = (
+                    list(payload["selfCheck"].get("healedHighlights") or [])
+                    + list(heal_report2.get("healedHighlights") or [])
                 )
                 payload["selfCheck"]["scrubbedGhosts"] = (
                     list(payload["selfCheck"].get("scrubbedGhosts") or [])
