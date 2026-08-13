@@ -2331,6 +2331,7 @@
     if (extraCards.length) {
       list += extraCards.map(renderArticleLevelCard).join("");
     }
+    const shownCount = amendedOnly.length + extraCards.length;
     if (!list) {
       list =
         '<li class="empty-state" style="margin:16px;border:none">이 단에 표시할 조문 단위 개정이 없습니다.</li>';
@@ -2345,7 +2346,7 @@
           </div>
           <p class="tier__label">${escapeHtml(label)}</p>
           ${cite ? `<p class="tier__cite">${escapeHtml(cite)}</p>` : ""}
-          <p class="tier__count">개정 조문 ${amendedOnly.length}건</p>
+          <p class="tier__count">개정 조문 ${shownCount}건</p>
         </div>
         <ul class="tier__list">${list}</ul>
       </aside>
@@ -2498,6 +2499,7 @@
           (locs.length ? " · " + locs.join(" · ") : "") +
           " · 아래 법률·시행령·시행규칙 3단에서 조·항·호를 확인하세요.";
       } else {
+        // articleCount = 3단에 펼쳐지는 고유 조문 수(동일 조 복수 개정은 1건)
         summaryEl.textContent = articleCount
           ? "개정 조문 " +
             articleCount +
@@ -2512,8 +2514,8 @@
         (law.sourceUrl
           ? ` · <a href="${escapeHtml(law.sourceUrl)}" target="_blank" rel="noopener">해당 법령 보기</a>`
           : "") +
-        (detailItems.length
-          ? `<br><span class="page-hero__note">대조 기준 개정 ${detailItems.length}건 · 노란 음영에 마우스를 올리면 개정 전 조항이 나타납니다.</span>`
+        (articleCount
+          ? `<br><span class="page-hero__note">개정 조문 ${articleCount}건 · 노란 음영에 마우스를 올리면 개정 전 조항이 나타납니다.</span>`
           : "") +
         (DATA.sourceNote ? `<br><span class="page-hero__note">${escapeHtml(DATA.sourceNote)}</span>` : "");
     }
