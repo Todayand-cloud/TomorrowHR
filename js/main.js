@@ -1401,20 +1401,49 @@
     return bundledAmendments;
   }
 
+  /** 성공한 갱신 캐시인지(실패·차단 건은 갱신 시각에 쓰지 않음) */
+  function isSuccessfulRefreshPayload(payload) {
+    if (!payload || !Array.isArray(payload.amendments) || !payload.amendments.length) {
+      return false;
+    }
+    const sc = payload.selfCheck || {};
+    if (sc.commitBlocked) return false;
+    if (sc.ok === false) return false;
+    const sim = sc.simulation || {};
+    if (sim.passed === false) return false;
+    // 구버전 캐시(selfCheck 없음)는 amendments 가 있으면 성공으로 본다
+    return true;
+  }
+
+  /** 마지막 성공 갱신 시각 표시 (YYYY-MM-DD HH:mm:ss) */
+  function formatRefreshAt(iso) {
+    const raw = String(iso || "").trim();
+    if (!raw) return "";
+    return raw.replace("T", " ").replace(/\.\d+/, "").replace(/([+-]\d{2}:\d{2}|Z)$/i, "");
+  }
+
   function applyLiveAmendments(payload) {
     if (!payload || !Array.isArray(payload.amendments)) return false;
+    const success = isSuccessfulRefreshPayload(payload);
+    // 데이터는 표시하되, 갱신 시각은 성공 건만 반영
+    const prevAt =
+      (liveAmendmentsMeta && liveAmendmentsMeta.fetchedAt) ||
+      window.__lastFetchedAt ||
+      "";
+    const nextAt = success ? payload.fetchedAt || prevAt || "" : prevAt;
     // 최근 개정 목록만 라이브로 갱신. 주요 법령 조문 대조(curated)는 덮어쓰지 않음.
     liveAmendments = payload.amendments;
     liveAmendmentsMeta = {
       baseDate: payload.baseDate || "",
       from: payload.from || "",
       to: payload.to || "",
-      fetchedAt: payload.fetchedAt || "",
+      fetchedAt: nextAt,
       count: payload.count || payload.amendments.length,
       live: true,
+      refreshOk: success,
     };
-    if (liveAmendmentsMeta.fetchedAt) {
-      window.__lastFetchedAt = liveAmendmentsMeta.fetchedAt;
+    if (success && nextAt) {
+      window.__lastFetchedAt = nextAt;
     }
     return true;
   }
@@ -1448,8 +1477,11 @@
         " ~ " +
         formatDate(to) +
         " (공포 · 시행 ±6개월)";
-      if (liveAmendmentsMeta && liveAmendmentsMeta.fetchedAt) {
-        text += " · 갱신 " + liveAmendmentsMeta.fetchedAt.replace("T", " ");
+      const refreshed = formatRefreshAt(
+        liveAmendmentsMeta && liveAmendmentsMeta.fetchedAt
+      );
+      if (refreshed) {
+        text += " · 갱신 " + refreshed;
       }
       rangeEl.textContent = text;
     }
@@ -1588,9 +1620,14 @@
         if (!payload || !Array.isArray(payload.amendments) || !payload.amendments.length) {
           return;
         }
+        // 실패 캐시면 목록은 쓰되 갱신 시각은 올리지 않음(applyLiveAmendments 내부 처리)
         if (applyLiveAmendments(payload)) {
+          const at = formatRefreshAt(
+            liveAmendmentsMeta && liveAmendmentsMeta.fetchedAt
+          );
+          const ok = isSuccessfulRefreshPayload(payload);
           setRefreshStatus(
-            "저장된 수동갱신 데이터 " +
+            (ok ? "저장된 수동갱신 데이터 " : "이전 성공 데이터 표시 · ") +
               (payload.count || payload.amendments.length) +
               "건 (수집 기준일 " +
               (payload.baseDate || "") +
@@ -1598,7 +1635,11 @@
               (payload.from || "") +
               " ~ " +
               (payload.to || "") +
-              "). 기준일이 바뀌면 「수동 갱신」을 다시 실행하세요."
+              ")" +
+              (at ? " · 마지막 갱신 " + at : "") +
+              (ok
+                ? ". 기준일이 바뀌면 「수동 갱신」을 다시 실행하세요."
+                : ". 최근 갱신이 실패해 시각을 갱신하지 않았습니다.")
           );
         }
       })
@@ -1792,7 +1833,9 @@
         })
         .then(function (payload) {
           const next = payload && payload.fetchedAt;
-          if (next && next !== prevFetchedAt) {
+          const ok = isSuccessfulRefreshPayload(payload);
+          // 실패 캐시(시각만 바뀌거나 commitBlocked)는 성공으로 보지 않음
+          if (ok && next && next !== prevFetchedAt) {
             return payload;
           }
           if (Date.now() - started > maxWait) {
@@ -1801,7 +1844,11 @@
             );
           }
           const elapsed = Math.round((Date.now() - started) / 1000);
-          setRefreshStatus("법제처 수집·배포 중… (" + elapsed + "초)");
+          setRefreshStatus(
+            ok
+              ? "법제처 수집·배포 중… (" + elapsed + "초)"
+              : "법제처 수집·배포 중… (" + elapsed + "초) · 성공 캐시 대기"
+          );
           return sleepMs(5000).then(once);
         });
     }
@@ -1824,6 +1871,11 @@
         return pollUpdatedAmendmentsCache(prevFetched, 210000);
       })
       .then(function (payload) {
+        if (!isSuccessfulRefreshPayload(payload)) {
+          throw new Error(
+            "갱신은 끝났지만 검증에 실패해 성공 시각을 반영하지 않았습니다."
+          );
+        }
         applyLiveAmendments(payload);
         loadNoticesCache();
         afterAmendmentsUpdated(baseDate);
@@ -1831,6 +1883,9 @@
         setRefreshStatus(
           "갱신 완료 · " +
             (payload.count != null ? payload.count + "건 · " : "") +
+            (formatRefreshAt(payload.fetchedAt)
+              ? "시각 " + formatRefreshAt(payload.fetchedAt) + " · "
+              : "") +
             "페이지를 다시 불러오는 중…"
         );
         setTimeout(function () {
@@ -1868,6 +1923,12 @@
     setRefreshStatus("국가법령정보센터에서 기준일 ±6개월 이력을 가져오는 중…");
 
     function finishOk(body) {
+      if (!body || body.ok === false || !isSuccessfulRefreshPayload(body)) {
+        throw new Error(
+          (body && body.error) ||
+            "갱신 검증 실패 — 마지막 성공 갱신 시각을 유지합니다."
+        );
+      }
       applyLiveAmendments(body);
       loadNoticesCache();
       afterAmendmentsUpdated(baseDate);
@@ -1875,6 +1936,7 @@
       const check = body.selfCheck || {};
       const matched = audit.matchedHighlights != null ? audit.matchedHighlights : 0;
       const checkOk = check.ok !== false;
+      const at = formatRefreshAt(body.fetchedAt);
       setRefreshStatus(
         "법제처 신규 수집 완료 · " +
           body.count +
@@ -1885,7 +1947,8 @@
           ") · 조문연혁 일치 하이라이트 " +
           matched +
           "건" +
-          (checkOk ? " · 자체검증 통과" : " · 자체검증 경고 있음")
+          (checkOk ? " · 자체검증 통과" : " · 자체검증 경고 있음") +
+          (at ? " · 갱신 " + at : "")
       );
       if (location.protocol === "file:") {
         setTimeout(function () {
@@ -1894,7 +1957,9 @@
               body.count +
               "건 · 하이라이트 " +
               matched +
-              "건. 이후에도 버튼만으로 갱신하려면 " +
+              "건" +
+              (at ? " · 갱신 " + at : "") +
+              ". 이후에도 버튼만으로 갱신하려면 " +
               REFRESH_HOST +
               " 로 이용하세요."
           );
