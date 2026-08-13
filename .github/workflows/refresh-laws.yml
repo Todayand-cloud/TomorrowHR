@@ -2,11 +2,14 @@ name: Refresh law data
 
 # PC 푸시 없이 법제처 데이터를 받아 js/ 캐시를 저장소에 커밋합니다.
 # GitHub Pages는 커밋 후 자동으로 다시 배포됩니다.
+#
+# 실패 원인(과거): Actions IP → law.go.kr timed out (1시간+ 대기 후 실패)
+# 해결: LAW_FETCH_PROXY(Cloudflare Worker)로 법제처·고용부 페이지를 대리 수집
 
 on:
   schedule:
-    # 6시간마다 (자동 갱신)
-    - cron: "0 */6 * * *"
+    # 매일 한국시간 오전 09:00 = UTC 00:00
+    - cron: "0 0 * * *"
   workflow_dispatch:
     inputs:
       base:
@@ -27,8 +30,7 @@ concurrency:
 jobs:
   refresh:
     runs-on: ubuntu-latest
-    # 법제처 타임아웃이 쌓여 1시간+ 끌리지 않도록 상한
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -39,10 +41,12 @@ jobs:
           python-version: "3.12"
 
       - name: Fetch from law.go.kr and rebuild cache
-        # 법제처 차단 시에도 작업이 빨강으로 장시간 남지 않게 soft 처리
-        continue-on-error: true
         env:
           PYTHONIOENCODING: utf-8
+          # Actions → 법제처 직행 타임아웃 우회 (Worker가 대신 받음)
+          LAW_FETCH_PROXY: https://wandering-dew-09bd.shkim5.workers.dev
+          LAW_FETCH_PROXY_SECRET: ${{ secrets.LAW_FETCH_PROXY_SECRET }}
+          LAW_HTTP_TIMEOUT: "45"
         run: |
           set -e
           BASE="${{ github.event.inputs.base }}"
@@ -50,20 +54,22 @@ jobs:
             BASE="${{ github.event.client_payload.base }}"
           fi
           # CI에서는 내부 parity 생략(아래 단계에서 soft-fail로 별도 실행)
-          # → 법제처 live fetch 이중 호출·장시간 대기 방지
           if [ -n "$BASE" ]; then
             python3 _law_fetch/refresh_amendments.py --base "$BASE" --skip-parity
           else
             python3 _law_fetch/refresh_amendments.py --skip-parity
           fi
 
-      # 검증 실패·타임아웃해도 수집 결과는 커밋
+      # 검증 실패해도 수집 결과는 커밋
       - name: Parity simulation (법제처 대조)
         continue-on-error: true
         timeout-minutes: 8
         env:
           PYTHONIOENCODING: utf-8
           CI: "true"
+          LAW_FETCH_PROXY: https://wandering-dew-09bd.shkim5.workers.dev
+          LAW_FETCH_PROXY_SECRET: ${{ secrets.LAW_FETCH_PROXY_SECRET }}
+          LAW_HTTP_TIMEOUT: "45"
         run: |
           python3 _law_fetch/verify_law_parity.py --soft || {
             echo "::warning::법제처 대조 검증에 실패했습니다. 수집 데이터는 커밋합니다."
