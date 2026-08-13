@@ -58,11 +58,11 @@ jobs:
           if [ -z "$BASE" ]; then
             BASE="${{ github.event.client_payload.base }}"
           fi
-          # skip-parity 없이 실행: 불일치 시 내부에서 재수집·재검증
+          # 자율 감사·유령제거·법제처 대조·실패 시 재수집 (최대 3회)
           if [ -n "$BASE" ]; then
-            python3 _law_fetch/refresh_amendments.py --base "$BASE" --repair-attempts 2
+            python3 _law_fetch/refresh_amendments.py --base "$BASE" --repair-attempts 3
           else
-            python3 _law_fetch/refresh_amendments.py --repair-attempts 2
+            python3 _law_fetch/refresh_amendments.py --repair-attempts 3
           fi
 
       - name: Guard against empty or failed self-check
