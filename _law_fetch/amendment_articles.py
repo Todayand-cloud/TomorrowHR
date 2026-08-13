@@ -649,16 +649,69 @@ def find_containing_unit(body: str, needle: str) -> tuple[str, int, int] | None:
     return unit, line_start, line_end
 
 
+# 휴게 단서 문구 변형(법제처 개정문·조문특례 표기가 조금씩 다름)
+_REST_PROVISO_RE = re.compile(
+    r"\s*다만,\s*근로시간이\s*4시간인\s*경우로서\s*근로자가\s*"
+    r"(?:휴게시간을\s*이용하지|이를\s*사용하지)\s*아니할\s*것을\s*"
+    r"명시적으로\s*요청(?:한\s*때에는|하는\s*경우에는)\s*그러하지\s*아니하다\.\s*"
+)
+
+
 def _strip_rest_proviso(text: str) -> str:
     t = re.sub(r"\s*<개정[^>]*>\s*", " ", text)
-    t = re.sub(
-        r"\s*다만,\s*근로시간이\s*4시간인\s*경우로서\s*근로자가\s*휴게시간을\s*"
-        r"이용하지\s*아니할\s*것을\s*명시적으로\s*요청한\s*때에는\s*그러하지\s*아니하다\.\s*",
-        " ",
-        t,
-    )
+    t = _REST_PROVISO_RE.sub(" ", t)
     t = re.sub(r"\s+", " ", t).strip().rstrip(".")
     return (t + ".") if t else ""
+
+
+def attach_proviso_to_body(
+    body: str, proviso: str, hang: int | str = 1
+) -> str:
+    """본문 지정 항(기본 ①)에 단서를 붙인다.
+
+    예전 로직은 '처한다.' 뒤에만 붙여 제54조(주어야 한다.) 등에서
+    단서가 빠지고 연혁 태그만 붙는 오류가 있었다.
+    """
+    proviso = (proviso or "").strip()
+    if not proviso:
+        return body or ""
+    if proviso in (body or ""):
+        return body
+    try:
+        hang_n = int(str(hang).strip() or "1")
+    except ValueError:
+        hang_n = 1
+    mark = N_TO_CIRCLE.get(hang_n, "①")
+    text = body or ""
+
+    m = re.search(rf"(?ms)^({re.escape(mark)}.*?)(?=^[①-⑮]|\Z)", text)
+    if m:
+        block = m.group(1).rstrip()
+        if proviso in block:
+            return text
+        if re.search(r"\.\s*<", block):
+            new_block = re.sub(
+                r"(\.)(\s*<)", r"\1 " + proviso + r"\2", block, count=1
+            )
+        elif "." in block:
+            new_block = re.sub(r"(\.)", r"\1 " + proviso, block, count=1)
+        else:
+            new_block = block + " " + proviso
+        tail = text[m.end() :]
+        head = text[: m.start()]
+        joiner = "\n" if tail and not new_block.endswith("\n") else ""
+        return head + new_block + joiner + tail
+
+    # 벌칙형(처한다.) 또는 첫 문장 끝
+    if re.search(r"처한다\.\s*<", text):
+        return re.sub(
+            r"(처한다\.)(\s*<)", r"\1 " + proviso + r"\2", text, count=1
+        )
+    if "처한다." in text:
+        return text.replace("처한다.", "처한다. " + proviso, 1)
+    if "." in text:
+        return re.sub(r"(\.)", r"\1 " + proviso, text, count=1)
+    return (text.rstrip() + " " + proviso).strip()
 
 
 def apply_proviso_to_article(art: dict, proviso: str, amended: date) -> tuple[str, dict]:
@@ -938,25 +991,17 @@ def _pending_phrases_only(
                 old, new = op.get("old") or "", op.get("new") or ""
                 if old and old in after_full:
                     after_full = after_full.replace(old, new, 1)
-        proviso = next(
-            (op.get("text") or "" for op in ops if op.get("kind") == "proviso"),
-            "",
-        )
+        proviso_op = next((op for op in ops if op.get("kind") == "proviso"), None)
+        proviso = (proviso_op or {}).get("text") or ""
+        hang_for_proviso = 1
+        if proviso_op:
+            hm = re.search(r"제\s*(\d+)\s*항", str(proviso_op.get("locator") or ""))
+            if hm:
+                hang_for_proviso = int(hm.group(1))
         if proviso and proviso not in after_full:
-            if re.search(r"처한다\.\s*<", after_full):
-                after_full = re.sub(
-                    r"(처한다\.)(\s*<)",
-                    r"\1 " + proviso + r"\2",
-                    after_full,
-                    count=1,
-                )
-            else:
-                after_full = re.sub(
-                    r"(처한다\.)",
-                    r"\1 " + proviso,
-                    after_full,
-                    count=1,
-                )
+            after_full = attach_proviso_to_body(
+                after_full, proviso, hang=hang_for_proviso
+            )
         inserts = [
             re.sub(r"\s*<신설[^>]*>\s*", "", (op.get("text") or "")).strip()
             for op in ops
@@ -1025,20 +1070,9 @@ def _pending_phrases_only(
             # 단서가 있으면 치환 단위(한 줄) 개정 후에 포함 → 음영 범위 확대
             after_show = after_unit
             if proviso and proviso not in after_show:
-                if re.search(r"처한다\.\s*<", after_show):
-                    after_show = re.sub(
-                        r"(처한다\.)(\s*<)",
-                        r"\1 " + proviso + r"\2",
-                        after_show,
-                        count=1,
-                    )
-                else:
-                    after_show = re.sub(
-                        r"(처한다\.)",
-                        r"\1 " + proviso,
-                        after_show,
-                        count=1,
-                    )
+                after_show = attach_proviso_to_body(
+                    after_show, proviso, hang=hang_for_proviso
+                )
             phrases.insert(
                 0,
                 {
