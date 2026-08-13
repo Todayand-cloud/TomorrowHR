@@ -219,6 +219,42 @@ def offline_audit(payload: dict, articles: dict | None = None) -> list[str]:
         summary = item.get("summary") or ""
         if re.search(r"단서\s*.*신설|신설.*단서", summary) and "명시적" not in ca and "다만," not in ca:
             problems.append(f"proviso_missing_in_after:{item.get('id')}")
+        # 요약에 항 삭제가 있으면 하이라이트에 '삭제' phrase 필수 (제109조② 유형)
+        if re.search(r"제\s*\d+\s*항\s*삭제", summary):
+            all_ph = [
+                p
+                for h in (item.get("highlights") or [])
+                for p in (h.get("phrases") or [])
+                if not p.get("skipHighlight")
+            ]
+            if not any(re.search(r"삭제", p.get("text") or "") for p in all_ph):
+                problems.append(f"hang_delete_undisplayed:{item.get('id')}")
+            elif item.get("bodyApplied") is False and body:
+                # 삭제 before가 플레이스홀더면 본문 치환 불가
+                for p in all_ph:
+                    if "삭제" not in (p.get("text") or ""):
+                        continue
+                    b = (p.get("beforeText") or "").strip()
+                    if b and "삭제 전" in b:
+                        problems.append(f"hang_delete_placeholder:{item.get('id')}")
+                    elif b and b not in body:
+                        problems.append(f"hang_delete_before_miss:{item.get('id')}")
+        # pending 치환: before에 연혁이 없고 본문 항에는 연혁이 있으면 잔여 태그 위험
+        if item.get("bodyApplied") is False and body:
+            for p in phrases:
+                b = (p.get("beforeText") or "").strip()
+                t = (p.get("text") or "").strip()
+                if not b or not t or "삭제" in t:
+                    continue
+                if "<개정" in b or "<신설" in b:
+                    continue
+                # 본문에서 before 직후 연혁이 남아 표시가 깨지는지
+                idx = body.find(b)
+                if idx >= 0:
+                    rest = body[idx + len(b) : idx + len(b) + 80]
+                    if re.match(r"\s*<(?:개정|신설)\s", rest):
+                        problems.append(f"hist_tail_orphan_risk:{item.get('id')}")
+                        break
         amd = item.get("amendedDate") or ""
         eff = item.get("effectiveDate") or ""
         if amd and eff and amd > eff:
@@ -230,6 +266,7 @@ def offline_audit(payload: dict, articles: dict | None = None) -> list[str]:
             if not (item.get("summary") or "").strip():
                 problems.append(f"blank_card:{item.get('id')}")
     return problems
+
 
 
 def load_articles_db() -> dict:

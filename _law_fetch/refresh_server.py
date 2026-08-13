@@ -12,6 +12,8 @@ from __future__ import annotations
 import importlib
 import json
 import mimetypes
+import os
+import subprocess
 import sys
 import traceback
 import webbrowser
@@ -78,31 +80,53 @@ class Handler(BaseHTTPRequestHandler):
         base_text = (qs.get("base") or [None])[0]
         try:
             _reload_fetch_modules()
-            base = refresh_amendments.parse_base(base_text)
-            payload = refresh_amendments.build_amendments(base)
-            problems = refresh_amendments.audit_payload(payload)
-            payload["selfCheck"] = {"ok": len(problems) == 0, "problems": problems}
-            path = refresh_amendments.save_cache(payload)
+            # 사이트/로컬 수동 갱신도 Actions와 동일: 신규수집→시뮬레이션→재시도
+            cmd = [
+                sys.executable,
+                str(Path(__file__).resolve().parent / "refresh_amendments.py"),
+                "--repair-attempts",
+                "3",
+            ]
+            if base_text:
+                cmd.extend(["--base", base_text])
+            env = os.environ.copy()
+            env["PYTHONIOENCODING"] = "utf-8"
+            proc = subprocess.run(
+                cmd,
+                cwd=str(ROOT),
+                env=env,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+            )
+            payload = json.loads(
+                (ROOT / "js" / "amendments-cache.json").read_text(encoding="utf-8")
+            )
+            sc = payload.get("selfCheck") or {}
+            ok = proc.returncode == 0 and bool(sc.get("ok"))
             self._json(
-                200,
+                200 if ok else 500,
                 {
-                    "ok": True,
-                    "baseDate": payload["baseDate"],
-                    "from": payload["from"],
-                    "to": payload["to"],
+                    "ok": ok,
+                    "baseDate": payload.get("baseDate"),
+                    "from": payload.get("from"),
+                    "to": payload.get("to"),
                     "forwardDays": payload.get("forwardDays", 182),
                     "lookbackDays": payload.get("lookbackDays", 182),
                     "effForwardDays": payload.get("effForwardDays", 182),
                     "effLookbackDays": payload.get("effLookbackDays", 182),
-                    "fetchedAt": payload["fetchedAt"],
-                    "freshFetch": True,
-                    "count": payload["count"],
-                    "errors": payload["errors"],
+                    "fetchedAt": payload.get("fetchedAt"),
+                    "freshFetch": payload.get("freshFetch", True),
+                    "count": payload.get("count"),
+                    "errors": payload.get("errors"),
                     "audit": payload.get("audit"),
-                    "selfCheck": payload["selfCheck"],
+                    "selfCheck": sc,
+                    "simulationLog": payload.get("simulationLog"),
                     "noticesRefresh": payload.get("noticesRefresh"),
-                    "cache": str(path),
-                    "amendments": payload["amendments"],
+                    "returncode": proc.returncode,
+                    "logTail": (proc.stdout or "")[-2500:],
+                    "amendments": payload.get("amendments"),
                 },
             )
         except Exception as exc:  # noqa: BLE001

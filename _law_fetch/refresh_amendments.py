@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import time
 from datetime import date, datetime, timedelta
@@ -644,12 +645,17 @@ def audit_payload(payload: dict) -> list[str]:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(
+        description=(
+            "법제처에서 매번 새로 수집 → 자율정정 → 법제처 대조 시뮬레이션. "
+            "상이하면 재수집·재검증을 반복하고, 통과한 신규 데이터만 남긴다."
+        )
+    )
     parser.add_argument("--base", help="기준일 YYYY-MM-DD (기본: 오늘)")
     parser.add_argument(
         "--skip-parity",
         action="store_true",
-        help="법제처 대조 시뮬레이션 생략",
+        help="법제처 대조 시뮬레이션 생략(로컬 디버그용 — CI/자동갱신에서는 사용 금지)",
     )
     parser.add_argument(
         "--repair-attempts",
@@ -662,22 +668,40 @@ def main() -> None:
 
     from self_heal import load_articles_db, offline_audit, self_heal_payload
 
-    # 불일치 시 롤백용 이전 캐시
+    # 롤백·감사 추적용. 성공 커밋 대상으로는 쓰지 않는다.
     prev_cache = ""
     if CACHE_PATH.is_file():
         prev_cache = CACHE_PATH.read_text(encoding="utf-8")
 
     attempts = max(1, int(args.repair_attempts or 1))
+    # CI/자동·수동 갱신은 항상 법제처 대조(스킵 금지)
+    if os.environ.get("CI") == "true" and args.skip_parity:
+        print("::warning::CI 에서는 --skip-parity 를 무시하고 법제처 대조를 실행합니다")
+        args.skip_parity = False
+
     payload: dict = {}
     path = CACHE_PATH
     notices_report = None
+    simulation_log: list[dict] = []
+
+    print(
+        f"::notice::fresh refresh start base={base.isoformat()} "
+        f"attempts={attempts} parity={'off' if args.skip_parity else 'on'}"
+    )
 
     for attempt in range(1, attempts + 1):
-        print(f"::notice::self_heal cycle {attempt}/{attempts} — build")
+        cycle: dict = {"attempt": attempt, "maxAttempts": attempts}
+        print(
+            f"::notice::simulation cycle {attempt}/{attempts} — "
+            "법제처 신규 수집(전문·개정문·예고)"
+        )
+        # 매 시도마다 네트워크에서 다시 받음(이전 캐시 재사용 없음)
         payload = build_amendments(base)
+        payload["freshFetch"] = True
+        payload["simulationCycle"] = attempt
         articles_db = load_articles_db()
 
-        # 1) 빈 compare 복구 → 유령 제거 → 오프라인 감사 (사용자 지적 전 자율 정정)
+        print(f"::notice::simulation cycle {attempt}/{attempts} — 자율정정(유령제거·복구)")
         payload, heal_report = self_heal_payload(payload, articles_db)
         off_problems = list(heal_report.get("problems") or [])
         problems = audit_payload(payload) + off_problems
@@ -686,37 +710,58 @@ def main() -> None:
         heal_log = payload.pop("_healedCompares", heal_report.get("healed") or [])
 
         payload["selfCheck"] = {
-            "ok": len(problems) == 0,
+            "ok": False,  # 시뮬레이션 통과 전엔 커밋 불가
             "problems": problems,
             "warnings": warnings,
             "repairAttempt": attempt,
             "healedCompares": heal_log,
             "scrubbedGhosts": scrub_log,
+            "freshFetch": True,
+            "simulation": {
+                "attempt": attempt,
+                "maxAttempts": attempts,
+                "passed": False,
+            },
         }
-        path = save_cache(payload) or CACHE_PATH
+        path = save_cache(payload, force=True) or CACHE_PATH
         notices_report = payload.get("noticesRefresh")
+        cycle["offlineProblems"] = len(off_problems)
+        cycle["buildCount"] = payload.get("count")
+        cycle["buildErrors"] = len(payload.get("errors") or [])
 
         if args.skip_parity:
-            # skip 이어도 오프라인 감사 실패 시 재빌드
             if problems and attempt < attempts:
                 print(
                     f"::warning::offline audit {len(problems)}건 — "
-                    f"{attempt}/{attempts} 재빌드"
+                    f"{attempt}/{attempts} 재수집"
                 )
+                cycle["result"] = "retry_offline"
+                simulation_log.append(cycle)
                 continue
+            payload["selfCheck"]["ok"] = len(problems) == 0
+            payload["selfCheck"]["simulation"]["passed"] = len(problems) == 0
+            payload["selfCheck"]["simulation"]["paritySkipped"] = True
+            save_cache(payload, force=True)
+            cycle["result"] = "skip_parity_done"
+            simulation_log.append(cycle)
             break
 
         try:
             from verify_law_parity import run_simulation
 
-            print(f"::notice::self_heal cycle {attempt}/{attempts} — parity")
+            print(
+                f"::notice::simulation cycle {attempt}/{attempts} — "
+                "법제처 현행·개정문 대조 시뮬레이션"
+            )
             parity = run_simulation(verbose=attempt == attempts)
             payload["selfCheck"]["parity"] = {
                 "ok": parity.get("ok"),
                 "problemCount": len(parity.get("problems") or []),
                 "problems": (parity.get("problems") or [])[:30],
             }
-            # parity 후 캐시 기준 재치유·재감사
+            cycle["parityProblems"] = list(parity.get("problems") or [])[:20]
+
+            # 대조 후 캐시 기준 재치유 → 재대조
             articles_db = load_articles_db()
             payload, heal_report2 = self_heal_payload(payload, articles_db)
             if heal_report2.get("healed") or heal_report2.get("scrubbed"):
@@ -728,70 +773,120 @@ def main() -> None:
                     list(payload["selfCheck"].get("scrubbedGhosts") or [])
                     + list(heal_report2.get("scrubbed") or [])
                 )
+                print(
+                    f"::notice::simulation cycle {attempt}/{attempts} — "
+                    "치유 후 재대조"
+                )
                 parity = run_simulation(verbose=False)
                 payload["selfCheck"]["parity"] = {
                     "ok": parity.get("ok"),
                     "problemCount": len(parity.get("problems") or []),
                     "problems": (parity.get("problems") or [])[:30],
                 }
+                cycle["parityProblems"] = list(parity.get("problems") or [])[:20]
+
             off_problems = offline_audit(payload, articles_db)
             parity_ok = bool(parity.get("ok"))
             all_problems = list(off_problems) + [
                 f"parity:{p}" for p in (parity.get("problems") or [])[:20]
             ]
+            passed = parity_ok and not off_problems
             payload["selfCheck"]["problems"] = all_problems
-            payload["selfCheck"]["ok"] = parity_ok and not off_problems
-            save_cache(payload)
+            payload["selfCheck"]["ok"] = passed
+            payload["selfCheck"]["simulation"] = {
+                "attempt": attempt,
+                "maxAttempts": attempts,
+                "passed": passed,
+                "parityOk": parity_ok,
+                "offlineProblemCount": len(off_problems),
+                "parityProblemCount": len(parity.get("problems") or []),
+            }
+            payload["simulationLog"] = simulation_log + [
+                {**cycle, "result": "passed" if passed else "failed"}
+            ]
+            save_cache(payload, force=True)
 
-            if not payload["selfCheck"]["ok"]:
-                if attempt < attempts:
-                    print(
-                        f"::warning::자율검증 실패 "
-                        f"offline={len(off_problems)} parity="
-                        f"{len(parity.get('problems') or [])} — "
-                        f"{attempt}/{attempts} 재수집·재검증"
-                    )
-                    continue
-                if prev_cache:
-                    try:
-                        prev = json.loads(prev_cache)
-                    except Exception:  # noqa: BLE001
-                        prev = {}
-                    if prev.get("amendments") and (prev.get("count") or 0) > 0:
-                        prev = dict(prev)
-                        prev["lastFailedParity"] = payload["selfCheck"].get("parity")
-                        CACHE_PATH.write_text(
-                            json.dumps(prev, ensure_ascii=False, indent=2),
-                            encoding="utf-8",
-                        )
-                        print("::warning::최종 실패 — 이전 캐시로 롤백")
-                        payload = prev
+            if passed:
                 print(
-                    json.dumps(
-                        {
-                            "ok": False,
-                            "baseDate": payload.get("baseDate"),
-                            "count": payload.get("count"),
-                            "selfCheck": payload.get("selfCheck"),
-                            "cache": str(path),
-                        },
-                        ensure_ascii=False,
-                    )
+                    "::notice::simulation PASSED — "
+                    "법제처와 일치하는 신규 캐시로 갱신 완료"
                 )
-                raise SystemExit(1)
+                cycle["result"] = "passed"
+                simulation_log.append(cycle)
+                break
 
-            print("::notice::self_heal passed — 법제처 대조·유령제거 완료")
-            break
+            if attempt < attempts:
+                print(
+                    f"::warning::simulation FAILED "
+                    f"offline={len(off_problems)} parity="
+                    f"{len(parity.get('problems') or [])} — "
+                    f"법제처에서 다시 수집합니다 ({attempt}/{attempts})"
+                )
+                for p in (parity.get("problems") or [])[:8]:
+                    print(f"  - {p}")
+                cycle["result"] = "retry"
+                simulation_log.append(cycle)
+                continue
+
+            # 최종 실패: 잘못된 신규 데이터를 성공인 양 커밋하지 않음
+            payload["selfCheck"]["ok"] = False
+            payload["selfCheck"]["simulation"]["passed"] = False
+            payload["selfCheck"]["commitBlocked"] = True
+            if prev_cache:
+                try:
+                    prev = json.loads(prev_cache)
+                except Exception:  # noqa: BLE001
+                    prev = {}
+                payload["selfCheck"]["lastKnownGoodCount"] = prev.get("count")
+                payload["lastFailedParity"] = payload["selfCheck"].get("parity")
+            save_cache(payload, force=True)
+            print(
+                "::error::simulation FINAL FAIL — "
+                "상이한 데이터 커밋을 차단합니다(옛 캐시로 성공 위장하지 않음)"
+            )
+            cycle["result"] = "final_fail"
+            simulation_log.append(cycle)
+            print(
+                json.dumps(
+                    {
+                        "ok": False,
+                        "baseDate": payload.get("baseDate"),
+                        "count": payload.get("count"),
+                        "selfCheck": payload.get("selfCheck"),
+                        "simulationLog": simulation_log,
+                        "cache": str(path),
+                    },
+                    ensure_ascii=False,
+                )
+            )
+            raise SystemExit(1)
+
         except SystemExit:
             raise
         except Exception as exc:  # noqa: BLE001
+            payload.setdefault("selfCheck", {})
             payload["selfCheck"]["parity"] = {"ok": False, "error": str(exc)}
             payload["selfCheck"]["ok"] = False
-            save_cache(payload)
+            payload["selfCheck"]["commitBlocked"] = True
+            payload["selfCheck"]["simulation"] = {
+                "attempt": attempt,
+                "maxAttempts": attempts,
+                "passed": False,
+                "error": str(exc),
+            }
+            save_cache(payload, force=True)
+            cycle["result"] = "exception"
+            cycle["error"] = str(exc)
+            simulation_log.append(cycle)
             if attempt < attempts:
-                print(f"::warning::parity 예외 — 재시도: {exc}")
+                print(f"::warning::parity 예외 — 재수집 재시도: {exc}")
                 continue
             raise SystemExit(1)
+
+    payload["simulationLog"] = simulation_log
+    if "selfCheck" in payload:
+        payload["selfCheck"]["simulationLog"] = simulation_log
+    save_cache(payload, force=True)
 
     print(
         json.dumps(
@@ -804,6 +899,7 @@ def main() -> None:
                 "errors": payload.get("errors"),
                 "audit": payload.get("audit"),
                 "selfCheck": payload.get("selfCheck"),
+                "simulationLog": simulation_log,
                 "noticesRefresh": notices_report,
                 "cache": str(path),
             },

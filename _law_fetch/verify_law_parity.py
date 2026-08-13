@@ -48,18 +48,26 @@ LIVE_PROBES = [
         "file": "full-labor-statute.txt",
         "amendments": [
             {
+                # 개정후=제104조 / 개정전=제104조제2항 (방향 고정)
                 "amendedDate": "2026-04-07",
                 "noticeNo": "21533",
+                "effectiveDate": "2026-12-08",
                 "compareBefore": "제104조제2항",
                 "compareAfter": "제104조",
                 "requireHighlight": True,
+                "requireBodyApplied": False,
+                "requirePhraseAfter": "제104조",
+                "forbidPhraseAfter": "제104조제2항",
             },
             {
                 "amendedDate": "2026-06-09",
                 "noticeNo": "21784",
+                "effectiveDate": "2027-06-10",
                 "compareBefore": "제4항 및 제5항",
                 "compareAfter": "제4항부터 제6항까지",
                 "requireHighlight": True,
+                "requireBodyApplied": False,
+                "requirePhraseAfter": "제4항부터 제6항까지",
             },
         ],
     },
@@ -137,6 +145,33 @@ LIVE_PROBES = [
                 "compareAfter": "다음 각 호의 어느 하나에 해당하는",
                 "requireHighlight": True,
                 "requireBodyApplied": False,
+            },
+        ],
+    },
+    {
+        # 법률 제21533호: 제109조 ① 인용목록 축소 + ② 삭제 (시행 2026.10.8)
+        "lsId": "001872",
+        "lawId": "labor-standards",
+        "tier": "statute",
+        "article": "제109조",
+        "must_in_live": [
+            "제36조, 제43조, 제44조",
+            "피해자의 명시적인 의사와 다르게",
+        ],
+        "must_not_in_live": ["② 삭제"],
+        "must_not_after": "2026-10-08",
+        "file": "full-labor-statute.txt",
+        "amendments": [
+            {
+                "amendedDate": "2026-04-07",
+                "noticeNo": "21533",
+                "effectiveDate": "2026-10-08",
+                "compareBefore": "제36조, 제43조",
+                "compareAfter": "제65조, 제72조",
+                "requireHighlight": True,
+                "requireBodyApplied": False,
+                "requireDeleteHang": "제2항",
+                "requirePhraseAfter": "제65조, 제72조 또는 제76조의3제6항",
             },
         ],
     },
@@ -375,6 +410,82 @@ def run_simulation(verbose: bool = True) -> dict:
                                 f"highlight_not_in_body {item.get('id')}"
                             )
                             row["ok"] = False
+            # 항 삭제 개정이면 노란 음영 phrase에 '삭제'가 있어야 함
+            if amd.get("requireDeleteHang"):
+                del_loc = amd["requireDeleteHang"]
+                del_phrases = [
+                    p
+                    for h in (item.get("highlights") or [])
+                    for p in (h.get("phrases") or [])
+                    if not p.get("skipHighlight")
+                    and "삭제" in (p.get("text") or "")
+                    and (
+                        del_loc in (p.get("locator") or "")
+                        or del_loc.replace("제", "").replace("항", "")
+                        in (p.get("text") or "")
+                    )
+                ]
+                if not del_phrases:
+                    # 텍스트에 ② 삭제 형태만 있어도 통과
+                    del_phrases = [
+                        p
+                        for h in (item.get("highlights") or [])
+                        for p in (h.get("phrases") or [])
+                        if not p.get("skipHighlight")
+                        and re.search(r"[①-⑮]\s*삭제", p.get("text") or "")
+                    ]
+                if not del_phrases:
+                    problems.append(
+                        f"delete_hang_missing {item.get('id')}: {del_loc}"
+                    )
+                    row["ok"] = False
+                    row["details"].append(f"delete_hang_missing:{del_loc}")
+                else:
+                    # 삭제 before가 현행 본문 항과 맞는지
+                    bp = (del_phrases[0].get("beforeText") or "").strip()
+                    if item.get("bodyApplied") is False and body and bp and bp not in body:
+                        problems.append(
+                            f"delete_before_not_in_body {item.get('id')}"
+                        )
+                        row["ok"] = False
+            if amd.get("requirePhraseAfter"):
+                needle = amd["requirePhraseAfter"]
+                texts = " ".join(
+                    (p.get("text") or "")
+                    for h in (item.get("highlights") or [])
+                    for p in (h.get("phrases") or [])
+                    if not p.get("skipHighlight")
+                )
+                blob = texts + " " + (item.get("compareAfter") or "")
+                if needle not in blob:
+                    problems.append(
+                        f"phrase_after_missing {item.get('id')}: {needle[:40]}"
+                    )
+                    row["ok"] = False
+            if amd.get("forbidPhraseAfter"):
+                bad = amd["forbidPhraseAfter"]
+                texts = " ".join(
+                    (p.get("text") or "")
+                    for h in (item.get("highlights") or [])
+                    for p in (h.get("phrases") or [])
+                    if not p.get("skipHighlight")
+                )
+                # 개정 후(text/compareAfter)에 금지 토큰이 있으면 전·후 뒤집힘으로 본다
+                if bad in texts or bad in (item.get("compareAfter") or ""):
+                    problems.append(
+                        f"phrase_after_forbidden {item.get('id')}: {bad}"
+                    )
+                    row["ok"] = False
+                if bad not in (item.get("compareBefore") or "") and bad not in "".join(
+                    (p.get("beforeText") or "")
+                    for h in (item.get("highlights") or [])
+                    for p in (h.get("phrases") or [])
+                ):
+                    # before 쪽에도 없으면 수집 누락
+                    problems.append(
+                        f"phrase_before_missing_forbidden_token {item.get('id')}: {bad}"
+                    )
+                    row["ok"] = False
 
         checks.append(row)
         if verbose:
@@ -473,6 +584,28 @@ def run_simulation(verbose: bool = True) -> dict:
             if body and after and "명시적으로 요청" in after and "명시적으로 요청" in body:
                 problems.append(f"pending_body_polluted {item.get('id')}")
                 display_gaps += 1
+        # 미시행·하이라이트 없음·개정 전 문구가 본문에 없으면 오귀속 유령 카드
+        # (이미 시행되어 개정 후만 본문에 남은 경우는 정상)
+        if item.get("articleLevel") and not phrases:
+            cb = (item.get("compareBefore") or "").strip()
+            ca = (item.get("compareAfter") or "").strip()
+            if item.get("bodyApplied") is False:
+                if cb and not cb.startswith("해당") and body and cb not in body:
+                    problems.append(f"ghost_amendment {item.get('id')}")
+                    display_gaps += 1
+                if not cb and not ca:
+                    problems.append(f"ghost_amendment {item.get('id')}")
+                    display_gaps += 1
+            elif (
+                body
+                and cb
+                and ca
+                and not cb.startswith("해당")
+                and cb not in body
+                and ca not in body
+            ):
+                problems.append(f"ghost_amendment {item.get('id')}")
+                display_gaps += 1
     if verbose:
         print(f"[INFO] 4법 display_gap count={display_gaps}")
 
@@ -515,42 +648,48 @@ def run_simulation(verbose: bool = True) -> dict:
         if verbose:
             print(f"[FAIL] amended empty bodies without text: {orphan_empty}")
 
-    # --- 개정문에 있는 조가 캐시에 모두 펼쳐졌는지 (제61조 누락 등 회귀 방지) ---
+    # --- 개정문 파서가 뽑은 조가 캐시에 있는지 (제61조 누락 등) ---
     try:
-        from amendment_articles import (
-            expected_amended_articles_from_doc,
-            fetch_doc_map,
-        )
+        from datetime import date as _date
 
-        law_ls = {
-            "labor-standards": "001872",
-            "retirement": "009883",
-            "equal-employment": "000130",
-            "fixed-term": "010356",
+        from amendment_articles import extract_article_changes, fetch_doc_map
+
+        law_meta = {
+            "labor-standards": ("001872", "근로기준법"),
+            "retirement": ("009883", "근로자퇴직급여 보장법"),
+            "equal-employment": ("000130", "남녀고용평등과 일ㆍ가정 양립 지원에 관한 법률"),
+            "fixed-term": ("010356", "기간제 및 단시간근로자 보호 등에 관한 법률"),
         }
-        doc_maps: dict[str, dict] = {}
-        for law_id, ls_id in law_ls.items():
-            notices = sorted(
-                {
-                    str(a.get("noticeNo") or "")
-                    for a in amendments
-                    if a.get("lawId") == law_id
-                    and a.get("tier") == "법률"
-                    and a.get("noticeNo")
-                }
-            )
-            if not notices:
+        for law_id, (ls_id, law_name) in law_meta.items():
+            notice_dates: dict[str, tuple[str, str]] = {}
+            for a in amendments:
+                if a.get("lawId") != law_id or a.get("tier") != "법률":
+                    continue
+                n = str(a.get("noticeNo") or "")
+                if not n:
+                    continue
+                notice_dates.setdefault(
+                    n, (a.get("amendedDate") or "", a.get("effectiveDate") or "")
+                )
+            if not notice_dates:
                 continue
             try:
-                doc_maps[ls_id] = fetch_doc_map(ls_id)
+                docs = fetch_doc_map(ls_id)
             except Exception as exc:  # noqa: BLE001
                 problems.append(f"doc_fetch_fail {ls_id}: {exc}")
                 continue
-            for notice in notices:
-                text = (doc_maps[ls_id] or {}).get(notice) or ""
+            for notice, (amd_s, eff_s) in notice_dates.items():
+                text = (docs or {}).get(notice) or ""
                 if len(text) < 40:
                     continue
-                expected = expected_amended_articles_from_doc(text)
+                try:
+                    amd = _date.fromisoformat(amd_s)
+                    eff = _date.fromisoformat(eff_s) if eff_s else amd
+                except Exception:  # noqa: BLE001
+                    continue
+                parsed = extract_article_changes(
+                    text, amd, eff, law_id=law_id, law_name=law_name
+                )
                 have = {
                     a.get("articleNo")
                     for a in amendments
@@ -559,11 +698,41 @@ def run_simulation(verbose: bool = True) -> dict:
                     and a.get("articleLevel")
                     and a.get("articleNo")
                 }
-                for jo in expected:
-                    if jo not in have:
-                        problems.append(f"doc_article_missing {law_id} {notice} {jo}")
-                        if verbose:
-                            print(f"[FAIL] doc_article_missing {law_id} {notice} {jo}")
+                for ch in parsed:
+                    jo = ch.get("articleNo")
+                    if not jo or jo in have:
+                        continue
+                    # 본문에 적용 불가한 치환만 있는 파싱 결과는 누락으로 보지 않음
+                    body = find_article_body(articles, law_id, "statute", jo)
+                    ops = ch.get("ops") or []
+                    applicable = False
+                    for op in ops:
+                        k = op.get("kind")
+                        if k in (
+                            "new_article",
+                            "proviso",
+                            "insert",
+                            "delete_mark",
+                            "delete_proviso",
+                            "delete_ho",
+                            "renumber",
+                            "renumber_ho",
+                        ):
+                            applicable = True
+                            break
+                        if k == "replace" and (
+                            (op.get("old") or "") in body
+                            or (op.get("new") or "") in body
+                        ):
+                            applicable = True
+                            break
+                    if ch.get("newProviso"):
+                        applicable = True
+                    if not applicable:
+                        continue
+                    problems.append(f"doc_article_missing {law_id} {notice} {jo}")
+                    if verbose:
+                        print(f"[FAIL] doc_article_missing {law_id} {notice} {jo}")
     except Exception as exc:  # noqa: BLE001
         problems.append(f"doc_coverage_error: {exc}")
 
@@ -577,6 +746,12 @@ def run_simulation(verbose: bool = True) -> dict:
             pass
         if "조문 전문을 표시하고" in main_src and "변경된 호(없으면" in main_src:
             problems.append("ui_two_guide_texts_still_present")
+        # 제110조처럼 같은 호에 미시행 개정이 겹칠 때 연쇄 합성 필요
+        if "composePendingPhrases" not in main_src:
+            problems.append("ui_missing_compose_pending_phrases")
+        # 제109조 ①치환+②삭제가 한 덩어리로 합쳐지지 않도록 locator 그룹 합성
+        if "composePendingGroup" not in main_src:
+            problems.append("ui_missing_compose_pending_group")
 
     # FULL_TARGETS 파일에 조문 헤더가 있는지 가볍게 확인
     # 기간제 시행규칙 등은 본래 조문이 2개뿐이라 하한을 낮춤
@@ -619,12 +794,12 @@ def main() -> None:
     (FETCH / "_parity_report.json").write_text(
         json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8"
     )
-    soft = args.soft or (os.environ.get("CI") == "true")
+    soft = args.soft  # CI 자동 soft 금지 — 갱신 파이프라인은 refresh가 재시도·차단
     if not result["ok"]:
         for p in result.get("problems") or []:
             print(f"::warning title=parity::{p}")
         if soft:
-            print("parity soft-fail (CI): problems recorded, exit 0")
+            print("parity soft-fail: problems recorded, exit 0")
             raise SystemExit(0)
     raise SystemExit(0 if result["ok"] else 1)
 
