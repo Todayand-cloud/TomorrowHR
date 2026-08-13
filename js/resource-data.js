@@ -145,7 +145,7 @@ window.LAW_DATA.upcomingLaws = [
 window.LAW_DATA.noticesMeta = {
   "sourcePortal": "https://www.moel.go.kr/info/lawinfo/lawmaking/list.do",
   "note": "고용노동부 「입법·행정예고」 게시판을 기준일 기준으로 자동 수집한 결과입니다.",
-  "fetchedAt": "2026-08-13T23:49:41",
+  "fetchedAt": "2026-08-13T23:53:54",
   "baseDate": "2026-08-14"
 };
 
@@ -200,7 +200,7 @@ window.LAW_DATA.notices = [
     "title": "도산등사실인정 및 확인업무 처리규정 일부개정예규안 행정예고",
     "dept": "퇴직연금복지과",
     "date": "2026-08-03",
-    "views": 1988,
+    "views": 1989,
     "summary": "행정예고 · 퇴직연금복지과",
     "url": "https://www.moel.go.kr/info/lawinfo/lawmaking/view.do?bbs_seq=20260800042",
     "bbsSeq": "20260800042"
@@ -211,7 +211,7 @@ window.LAW_DATA.notices = [
     "title": "유해·위험작업의 취업 제한에 관한 규칙 일부개정령안 입법예고",
     "dept": "산업안전기준과",
     "date": "2026-07-30",
-    "views": 2754,
+    "views": 2755,
     "summary": "입법예고 · 산업안전기준과",
     "url": "https://www.moel.go.kr/info/lawinfo/lawmaking/view.do?bbs_seq=20260701059",
     "bbsSeq": "20260701059"
@@ -222,7 +222,7 @@ window.LAW_DATA.notices = [
     "title": "남녀고용평등과 일ㆍ가정 양립 지원에 관한 법률 시행령 일부개정령안 재입법예고",
     "dept": "고용문화개선정책과",
     "date": "2026-07-27",
-    "views": 3445,
+    "views": 3446,
     "summary": "입법예고 · 고용문화개선정책과",
     "url": "https://www.moel.go.kr/info/lawinfo/lawmaking/view.do?bbs_seq=20260700877",
     "bbsSeq": "20260700877"
@@ -233,7 +233,7 @@ window.LAW_DATA.notices = [
     "title": "고령자고용연장지원금액 등 고시 폐지(안) 행정예고",
     "dept": "고령사회인력정책과",
     "date": "2026-07-24",
-    "views": 2873,
+    "views": 2874,
     "summary": "행정예고 · 고령사회인력정책과",
     "url": "https://www.moel.go.kr/info/lawinfo/lawmaking/view.do?bbs_seq=20260700860",
     "bbsSeq": "20260700860"
@@ -244,7 +244,7 @@ window.LAW_DATA.notices = [
     "title": "노동감독관 직무집행법 시행규칙 제정안 입법예고",
     "dept": "근로감독기획과",
     "date": "2026-07-24",
-    "views": 2542,
+    "views": 2543,
     "summary": "입법예고 · 근로감독기획과",
     "url": "https://www.moel.go.kr/info/lawinfo/lawmaking/view.do?bbs_seq=20260700840",
     "bbsSeq": "20260700840"
