@@ -17,7 +17,7 @@ import json
 import os
 import re
 import time
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 import sys
 
@@ -41,12 +41,41 @@ EFF_LOOKBACK_DAYS = 182
 # 하위 호환(메타 from/to는 공포 창 기준)
 FORWARD_DAYS = AMD_FORWARD_DAYS
 LOOKBACK_DAYS = AMD_LOOKBACK_DAYS
+KST = timezone(timedelta(hours=9))
 UA = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0 Safari/537.36",
     "Accept": "text/html,application/xhtml+xml",
     "Cache-Control": "no-cache",
     "Pragma": "no-cache",
 }
+
+
+def now_kst_iso() -> str:
+    """마지막 성공 갱신 시각(한국시간, timezone-naive ISO)."""
+    return datetime.now(KST).strftime("%Y-%m-%dT%H:%M:%S")
+
+
+def read_prev_fetched_at() -> str:
+    if not CACHE_PATH.is_file():
+        return ""
+    try:
+        prev = json.loads(CACHE_PATH.read_text(encoding="utf-8"))
+    except Exception:  # noqa: BLE001
+        return ""
+    return str(prev.get("fetchedAt") or "")
+
+
+def keep_prev_fetched_at(payload: dict, prev_fetched_at: str) -> None:
+    """실패·중간 저장 시 갱신 시각을 올리지 않는다."""
+    if prev_fetched_at:
+        payload["fetchedAt"] = prev_fetched_at
+    else:
+        payload.pop("fetchedAt", None)
+
+
+def stamp_success_fetched_at(payload: dict) -> None:
+    """자동·수동 갱신이 성공했을 때만 갱신 시각을 기록한다."""
+    payload["fetchedAt"] = now_kst_iso()
 
 LAW_CATALOG = [
     {"lawId": "labor-standards", "lawName": "근로기준법", "tier": "법률", "lsId": "001872"},
@@ -561,7 +590,7 @@ def build_amendments(base: date) -> dict:
         "effLookbackDays": EFF_LOOKBACK_DAYS,
         "effWindowLabel": "±6개월",
         "amdWindowLabel": "±6개월",
-        "fetchedAt": datetime.now().isoformat(timespec="seconds"),
+        "fetchedAt": now_kst_iso(),
         "freshFetch": True,
         "count": len(collected),
         "errors": errors,
@@ -598,7 +627,7 @@ def save_cache(payload: dict, *, force: bool = False) -> Path | None:
             )
             prev = dict(prev)
             prev["lastFailedFetch"] = {
-                "at": payload.get("fetchedAt"),
+                "at": now_kst_iso(),
                 "baseDate": payload.get("baseDate"),
                 "errors": errors[:30],
                 "fullTexts": payload.get("fullTexts"),
@@ -670,8 +699,10 @@ def main() -> None:
 
     # 롤백·감사 추적용. 성공 커밋 대상으로는 쓰지 않는다.
     prev_cache = ""
+    prev_fetched_at = ""
     if CACHE_PATH.is_file():
         prev_cache = CACHE_PATH.read_text(encoding="utf-8")
+        prev_fetched_at = read_prev_fetched_at()
 
     attempts = max(1, int(args.repair_attempts or 1))
     # CI/자동·수동 갱신은 항상 법제처 대조(스킵 금지)
@@ -699,6 +730,8 @@ def main() -> None:
         payload = build_amendments(base)
         payload["freshFetch"] = True
         payload["simulationCycle"] = attempt
+        # 중간 저장·실패 시에는 이전 성공 시각 유지
+        keep_prev_fetched_at(payload, prev_fetched_at)
         articles_db = load_articles_db()
 
         print(f"::notice::simulation cycle {attempt}/{attempts} — 자율정정(유령제거·복구)")
@@ -747,6 +780,10 @@ def main() -> None:
             payload["selfCheck"]["ok"] = len(problems) == 0
             payload["selfCheck"]["simulation"]["passed"] = len(problems) == 0
             payload["selfCheck"]["simulation"]["paritySkipped"] = True
+            if payload["selfCheck"]["ok"]:
+                stamp_success_fetched_at(payload)
+            else:
+                keep_prev_fetched_at(payload, prev_fetched_at)
             save_cache(payload, force=True)
             cycle["result"] = "skip_parity_done"
             simulation_log.append(cycle)
@@ -818,6 +855,10 @@ def main() -> None:
             payload["simulationLog"] = simulation_log + [
                 {**cycle, "result": "passed" if passed else "failed"}
             ]
+            if passed:
+                stamp_success_fetched_at(payload)
+            else:
+                keep_prev_fetched_at(payload, prev_fetched_at)
             save_cache(payload, force=True)
 
             if passed:
@@ -846,6 +887,12 @@ def main() -> None:
             payload["selfCheck"]["ok"] = False
             payload["selfCheck"]["simulation"]["passed"] = False
             payload["selfCheck"]["commitBlocked"] = True
+            keep_prev_fetched_at(payload, prev_fetched_at)
+            payload["lastFailedFetch"] = {
+                "at": now_kst_iso(),
+                "baseDate": payload.get("baseDate"),
+                "reason": "parity_final_fail",
+            }
             if prev_cache:
                 try:
                     prev = json.loads(prev_cache)
@@ -888,6 +935,13 @@ def main() -> None:
                 "passed": False,
                 "error": str(exc),
             }
+            keep_prev_fetched_at(payload, prev_fetched_at)
+            payload["lastFailedFetch"] = {
+                "at": now_kst_iso(),
+                "baseDate": payload.get("baseDate"),
+                "reason": "parity_exception",
+                "error": str(exc),
+            }
             save_cache(payload, force=True)
             cycle["result"] = "exception"
             cycle["error"] = str(exc)
@@ -900,6 +954,11 @@ def main() -> None:
     payload["simulationLog"] = simulation_log
     if "selfCheck" in payload:
         payload["selfCheck"]["simulationLog"] = simulation_log
+    # 루프 종료 시점: 성공이면 이미 stamp 됨. 실패면 이전 시각 유지.
+    if not bool((payload.get("selfCheck") or {}).get("ok")):
+        keep_prev_fetched_at(payload, prev_fetched_at)
+    elif not payload.get("fetchedAt"):
+        stamp_success_fetched_at(payload)
     save_cache(payload, force=True)
 
     print(
