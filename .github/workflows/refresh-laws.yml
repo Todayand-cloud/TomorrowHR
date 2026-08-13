@@ -1,140 +1,318 @@
 name: Refresh law data
 
-# PC 푸시 없이 법제처 데이터를 받아 js/ 캐시를 저장소에 커밋합니다.
-# GitHub Pages는 커밋 후 자동으로 다시 배포됩니다.
+
+
+# 자동(매일) / 수동(버튼·workflow_dispatch) 갱신마다:
+
+#   1) 법제처에서 전문·개정문·예고를 새로 수집 (옛 캐시 재사용 없음)
+
+#   2) 자율정정(유령 제거 등)
+
+#   3) 법제처 대조 시뮬레이션 — 상이하면 재수집·재검증 (최대 3회)
+
+#   4) 통과한 신규 데이터만 커밋 (실패·옛 캐시 성공 위장 커밋 금지)
+
 #
+
 # 실패 원인(과거):
+
 #  1) Actions IP → law.go.kr timed out
+
 #  2) 버튼 연타로 동시 실행 → git push 충돌로 Commit 단계 실패
+
 # 해결: Cloudflare 프록시 수집 + concurrency cancel + pull --rebase 후 푸시
 
+
+
 on:
+
   schedule:
+
     # 매일 한국시간 오전 09:00 = UTC 00:00
+
     - cron: "0 0 * * *"
+
   workflow_dispatch:
+
     inputs:
+
       base:
+
         description: "기준일 YYYY-MM-DD (비우면 오늘)"
+
         required: false
+
         default: ""
+
   repository_dispatch:
+
     types: [refresh-laws]
 
+
+
 permissions:
+
   contents: write
+
   actions: read
 
+
+
 concurrency:
+
   group: refresh-laws
+
   cancel-in-progress: true
 
+
+
 jobs:
+
   refresh:
+
     runs-on: ubuntu-latest
+
     timeout-minutes: 25
+
     steps:
+
       - name: Checkout
+
         uses: actions/checkout@v4
+
         with:
+
           fetch-depth: 0
+
           token: ${{ secrets.GITHUB_TOKEN }}
 
+
+
       - name: Setup Python
+
         uses: actions/setup-python@v5
+
         with:
+
           python-version: "3.12"
 
-      - name: Fetch from law.go.kr, verify vs 법제처, repair if mismatch
+
+
+      - name: Fresh fetch + 법제처 시뮬레이션 (mismatch 시 재수집)
+
         timeout-minutes: 20
+
         env:
+
           PYTHONIOENCODING: utf-8
+
+          CI: "true"
+
           LAW_FETCH_PROXY: https://wandering-dew-09bd.shkim5.workers.dev
+
           LAW_FETCH_PROXY_SECRET: ${{ secrets.LAW_FETCH_PROXY_SECRET }}
+
           LAW_HTTP_TIMEOUT: "45"
+
         run: |
+
           set -euo pipefail
+
           BASE="${{ github.event.inputs.base }}"
+
           if [ -z "$BASE" ]; then
+
             BASE="${{ github.event.client_payload.base }}"
-          fi
-          # 자율 감사·유령제거·법제처 대조·실패 시 재수집 (최대 3회)
-          if [ -n "$BASE" ]; then
-            python3 _law_fetch/refresh_amendments.py --base "$BASE" --repair-attempts 3
-          else
-            python3 _law_fetch/refresh_amendments.py --repair-attempts 3
+
           fi
 
-      - name: Guard against empty or failed self-check
+          # 매 갱신: 신규 수집 → 대조 → 실패 시 재수집 (최대 3회). skip-parity 금지.
+
+          if [ -n "$BASE" ]; then
+
+            python3 _law_fetch/refresh_amendments.py --base "$BASE" --repair-attempts 3
+
+          else
+
+            python3 _law_fetch/refresh_amendments.py --repair-attempts 3
+
+          fi
+
+
+
+      - name: Guard — 시뮬레이션 통과·신규 수집만 커밋 허용
+
         id: guard
+
         run: |
+
           python3 - <<'PY'
+
           import json, os, sys
+
           p = json.load(open("js/amendments-cache.json", encoding="utf-8"))
+
           count = int(p.get("count") or len(p.get("amendments") or []))
+
           sc = p.get("selfCheck") or {}
+
           parity = sc.get("parity") or {}
+
+          sim = sc.get("simulation") or {}
+
           print(f"count={count}")
+
+          print(f"freshFetch={p.get('freshFetch')}")
+
           print(f"selfCheck.ok={sc.get('ok')}")
+
           print(f"parity.ok={parity.get('ok')}")
+
+          print(f"simulation.passed={sim.get('passed')}")
+
+          print(f"commitBlocked={sc.get('commitBlocked')}")
+
           with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as out:
+
               out.write(f"count={count}\n")
+
+              out.write(f"ok={'1' if sc.get('ok') else '0'}\n")
+
           if count <= 0:
+
               print("::error::빈 캐시 — 커밋 중단")
+
               sys.exit(1)
-          if sc.get("ok") is False or parity.get("ok") is False:
-              print("::error::법제처 대조 실패 — 잘못된 데이터 커밋 중단")
+
+          if sc.get("commitBlocked"):
+
+              print("::error::시뮬레이션 최종 실패로 커밋 차단")
+
+              sys.exit(1)
+
+          if p.get("freshFetch") is False:
+
+              print("::error::신규 수집 표시 없음 — 옛 캐시 커밋 금지")
+
+              sys.exit(1)
+
+          if sc.get("ok") is False or parity.get("ok") is False or sim.get("passed") is False:
+
+              print("::error::법제처 대조 미통과 — 잘못된 데이터 커밋 중단")
+
               for x in (sc.get("problems") or [])[:15]:
+
                   print(" -", x)
+
               sys.exit(1)
+
+          if not sc.get("ok") or not parity.get("ok"):
+
+              print("::error::selfCheck/parity 미확인 — 커밋 중단")
+
+              sys.exit(1)
+
+          print("guard ok — 신규·검증 통과 데이터만 커밋 진행")
+
           PY
 
+
+
       # git-auto-commit 대신 직접 커밋: 동시 실행/원격 앞지름 시 rebase 재시도
+
       - name: Commit and push updated data
-        if: steps.guard.outputs.count != '0'
+
+        if: steps.guard.outputs.count != '0' && steps.guard.outputs.ok == '1'
+
         env:
+
           GIT_AUTHOR_NAME: github-actions[bot]
+
           GIT_AUTHOR_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
+
           GIT_COMMITTER_NAME: github-actions[bot]
+
           GIT_COMMITTER_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
+
         run: |
+
           set -euo pipefail
+
           git config user.name "$GIT_AUTHOR_NAME"
+
           git config user.email "$GIT_AUTHOR_EMAIL"
 
+
+
           git add \
+
             js/amendments-cache.json \
+
             js/notices-cache.json \
+
             js/resource-data.js \
+
             js/law-articles.js \
+
             js/law-articles-raw.json \
+
             js/law-articles-seed.json \
+
             _law_fetch/_parity_report.json \
+
             _law_fetch/full-*.txt \
+
             || true
 
+
+
           if git diff --cached --quiet; then
+
             echo "변경된 캐시 없음 — 커밋 생략(성공 처리)"
+
             exit 0
+
           fi
 
-          git commit -m "data: 법제처 기준 개정·조문 캐시 자동 갱신"
+
+
+          git commit -m "data: 법제처 신규수집·시뮬레이션 통과 캐시 갱신"
+
+
 
           BRANCH="${GITHUB_REF_NAME:-main}"
+
           for attempt in 1 2 3 4 5; do
+
             git fetch origin "$BRANCH"
+
             git pull --rebase origin "$BRANCH" || {
+
               echo "::warning::rebase 충돌 — 재시도 $attempt"
+
               git rebase --abort || true
+
               sleep $((attempt * 2))
+
               continue
+
             }
+
             if git push origin "HEAD:$BRANCH"; then
+
               echo "push ok (attempt $attempt)"
+
               exit 0
+
             fi
+
             echo "::warning::push 실패 — 재시도 $attempt"
+
             sleep $((attempt * 2))
+
           done
+
           echo "::error::push 최종 실패"
+
           exit 1
+
