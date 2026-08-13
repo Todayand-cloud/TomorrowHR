@@ -33,15 +33,22 @@ QUOTE_SWAP_RE = re.compile(
     r'(?:"([^"]{1,320})"|「([^」]{1,320})」)\s*(?:으로|로)'
 )
 # 제61조제1항 각 호 외의 부분 중 "A"을 각각 "B"로 한다/하고 (부칙·타법개정 포함)
+# ※ 조·항·호와 '중' 사이는 허용 문구만 — 문장 넘어 다음 제N조 중 과 결합 금지
+#   (예: …제52조제2항제2호…아니하다. 제108조 중 "근로감독관" → 제52조 오귀속)
+_LOCATED_MID = (
+    r"(?:\s*(?:각\s*호(?:\s*외의\s*부분)?|제목(?:\s*외의\s*부분)?|"
+    r"단서|본문|전단|후단))?"
+)
 LOCATED_SWAP_RE = re.compile(
     r"제\s*(\d+)\s*조(?:의\s*(\d+))?"
     r"(?:제\s*(\d+)\s*항)?"
     r"(?:제\s*(\d+)\s*호)?"
-    r"(?:[^\"「\n]{0,40}?)중\s*"
-    r'(?:"([^"]{1,320})"|「([^」]{1,320})」)\s*[을를]\s*'
-    r'(?:각각\s*)?'
-    r'(?:"([^"]{1,320})"|「([^」]{1,320})」)\s*(?:으로|로)'
-    r'(?:\s*한다|\s*하고|\s*하며)?'
+    + _LOCATED_MID
+    + r"\s*중\s*"
+    + r'(?:"([^"]{1,320})"|「([^」]{1,320})」)\s*[을를]\s*'
+    + r"(?:각각\s*)?"
+    + r'(?:"([^"]{1,320})"|「([^」]{1,320})」)\s*(?:으로|로)'
+    + r"(?:\s*한다|\s*하고|\s*하며)?"
 )
 JO_TOKEN_RE = re.compile(r"제\s*([0-9]+)\s*조(?:의\s*([0-9]+))?")
 UNIT_HANG_HO_RE = re.compile(
@@ -209,8 +216,10 @@ _STMT_START_RE = re.compile(
     r"(?:^|(?<=\.\s)|(?<=다\.\s)|(?<=자\s)|(?<=다\s)|(?<=고\s)|(?<=며\s))"
     r"제\s*([0-9]+)\s*조(?:의\s*([0-9]+))?"
     r"(?="
-    # 제61조제1항 각 호 외의 부분 중 … / 제60조제6항제3호 중 …
-    r"(?:제\s*\d+\s*항)?(?:제\s*\d+\s*호)?(?:[^\"「]{0,40}?)중\s"
+    # 제61조제1항 각 호 외의 부분 중 … (임의 문자 확장은 다음 조와 오결합)
+    r"(?:제\s*\d+\s*항)?(?:제\s*\d+\s*호)?"
+    r"(?:\s*(?:각\s*호(?:\s*외의\s*부분)?|제목(?:\s*외의\s*부분)?|단서|본문))?"
+    r"\s*중\s"
     r"|\s*제목"
     r"|\s*중\s"
     r"|\s*[을를]\s"
@@ -229,11 +238,12 @@ def expected_amended_articles_from_doc(doc_text: str) -> list[str]:
     found: list[str] = []
     seen: set[str] = set()
     patterns = [
-        # 제N조…중 "…"을 "…"로
+        # 제N조…중 "…"을 "…"로 (인용 속 제52조제2항제2호 오탐 방지)
         re.compile(
             r"제\s*(\d+)\s*조(?:의\s*(\d+))?"
             r"(?:제\s*\d+\s*항)?(?:제\s*\d+\s*호)?"
-            r"(?:[^\"「]{0,40}?)중\s*[\"「]"
+            r"(?:\s*(?:각\s*호(?:\s*외의\s*부분)?|제목(?:\s*외의\s*부분)?|단서|본문))?"
+            r"\s*중\s*[\"「]"
         ),
         # 단서 신설
         re.compile(
@@ -241,10 +251,10 @@ def expected_amended_articles_from_doc(doc_text: str) -> list[str]:
         ),
         # 조 신설
         re.compile(r"제\s*(\d+)\s*조(?:의\s*(\d+))?를\s*다음과\s*같이\s*신설"),
-        # 제N조제M항제K호를 다음과 같이 / 중
+        # 제N조제M항…를 다음과 같이
         re.compile(
             r"제\s*(\d+)\s*조(?:의\s*(\d+))?제\s*\d+\s*항(?:제\s*\d+\s*호)?"
-            r"(?:를\s*다음과|.\s*중\s*[\"「])"
+            r"를\s*다음과"
         ),
     ]
     for pat in patterns:
@@ -1341,8 +1351,50 @@ def apply_ops_to_article(
             continue
         if kind == "replace":
             old, new = op["old"], op["new"]
-            # 이미 eflaw 현행 본문에 반영된 치환은 재적용하지 않음
+            # 이미 eflaw 현행 본문에 반영된 치환은 재적용하지 않음.
+            # 다만 전·후 비교 카드는 남겨 빈 카드/유령 스크럽을 막는다.
             if old not in body and new and new in body:
+                unit_info = find_containing_unit(body, new)
+                loc = op.get("unitLocator") or op.get("locator") or art.get("no")
+                if unit_info:
+                    after_unit, _, _ = unit_info
+                    before_unit = after_unit.replace(new, old, 1)
+                    loc = hang_locator_from_text(after_unit, loc or "")
+                    after_clean = re.sub(r"\s*<개정[^>]*>\s*", " ", after_unit).strip()
+                    before_clean = re.sub(r"\s*<개정[^>]*>\s*", " ", before_unit).strip()
+                    phrases.append(
+                        {
+                            "text": after_clean,
+                            "beforeText": before_clean,
+                            "isNew": False,
+                            "historyKind": "개정",
+                            "historyDates": [amd],
+                            "locator": loc,
+                            "amendedDate": amd,
+                            "effectiveDate": eff,
+                            "beforeNote": "",
+                            "skipHighlight": True,
+                            "compareBefore": before_clean,
+                            "compareAfter": after_clean,
+                        }
+                    )
+                else:
+                    phrases.append(
+                        {
+                            "text": new,
+                            "beforeText": old,
+                            "isNew": False,
+                            "historyKind": "개정",
+                            "historyDates": [amd],
+                            "locator": loc,
+                            "amendedDate": amd,
+                            "effectiveDate": eff,
+                            "beforeNote": "",
+                            "skipHighlight": True,
+                            "compareBefore": old,
+                            "compareAfter": new,
+                        }
+                    )
                 continue
             # 인용 번호 일괄 변경(제60조제7항→제8항 등): 조 전체에 여러 번 등장
             if _is_cite_token(old) and body.count(old) > 1:
@@ -1703,6 +1755,34 @@ def enrich_revision_with_articles(
         elif ch.get("newProviso"):
             compare_before = "해당 단서 없음(신설)"
             compare_after = ch["newProviso"]
+
+        # 미시행인데 본문에 없는 치환만 있으면 유령 카드 제외
+        # (제52조←제108조 오귀속). 이미 시행되어 개정 후만 본문에 있는 경우는 유지.
+        body_check = art.get("body") or ""
+        ops_hit = False
+        for op in ops:
+            kind = op.get("kind")
+            if kind in (
+                "new_article",
+                "proviso",
+                "insert",
+                "delete_mark",
+                "delete_proviso",
+                "delete_ho",
+                "renumber",
+                "renumber_ho",
+            ):
+                ops_hit = True
+                break
+            if kind == "replace":
+                old, new = op.get("old") or "", op.get("new") or ""
+                if old in body_check or (new and new in body_check):
+                    ops_hit = True
+                    break
+        if ch.get("newProviso"):
+            ops_hit = True
+        if (not apply_body) and (not ops_hit) and (not highlight_phrases):
+            continue
 
         highlights = (
             [{"articleId": article_id, "phrases": highlight_phrases}]

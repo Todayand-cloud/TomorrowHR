@@ -654,11 +654,13 @@ def main() -> None:
     parser.add_argument(
         "--repair-attempts",
         type=int,
-        default=2,
-        help="법제처 불일치 시 전문 재수집·재빌드 횟수(기본 2)",
+        default=3,
+        help="불일치 시 재수집·자율정정·재검증 횟수(기본 3)",
     )
     args = parser.parse_args()
     base = parse_base(args.base)
+
+    from self_heal import load_articles_db, offline_audit, self_heal_payload
 
     # 불일치 시 롤백용 이전 캐시
     prev_cache = ""
@@ -671,44 +673,85 @@ def main() -> None:
     notices_report = None
 
     for attempt in range(1, attempts + 1):
+        print(f"::notice::self_heal cycle {attempt}/{attempts} — build")
         payload = build_amendments(base)
-        problems = audit_payload(payload)
+        articles_db = load_articles_db()
+
+        # 1) 빈 compare 복구 → 유령 제거 → 오프라인 감사 (사용자 지적 전 자율 정정)
+        payload, heal_report = self_heal_payload(payload, articles_db)
+        off_problems = list(heal_report.get("problems") or [])
+        problems = audit_payload(payload) + off_problems
         warnings = payload.pop("_auditWarnings", [])
+        scrub_log = payload.pop("_scrubbedGhosts", heal_report.get("scrubbed") or [])
+        heal_log = payload.pop("_healedCompares", heal_report.get("healed") or [])
+
         payload["selfCheck"] = {
             "ok": len(problems) == 0,
             "problems": problems,
             "warnings": warnings,
             "repairAttempt": attempt,
+            "healedCompares": heal_log,
+            "scrubbedGhosts": scrub_log,
         }
         path = save_cache(payload) or CACHE_PATH
         notices_report = payload.get("noticesRefresh")
 
         if args.skip_parity:
+            # skip 이어도 오프라인 감사 실패 시 재빌드
+            if problems and attempt < attempts:
+                print(
+                    f"::warning::offline audit {len(problems)}건 — "
+                    f"{attempt}/{attempts} 재빌드"
+                )
+                continue
             break
 
         try:
             from verify_law_parity import run_simulation
 
+            print(f"::notice::self_heal cycle {attempt}/{attempts} — parity")
             parity = run_simulation(verbose=attempt == attempts)
             payload["selfCheck"]["parity"] = {
                 "ok": parity.get("ok"),
                 "problemCount": len(parity.get("problems") or []),
                 "problems": (parity.get("problems") or [])[:30],
             }
-            if not parity.get("ok"):
-                payload["selfCheck"]["ok"] = False
-                payload["selfCheck"]["problems"] = (
-                    list(payload["selfCheck"].get("problems") or [])
-                    + [f"parity:{p}" for p in (parity.get("problems") or [])[:20]]
+            # parity 후 캐시 기준 재치유·재감사
+            articles_db = load_articles_db()
+            payload, heal_report2 = self_heal_payload(payload, articles_db)
+            if heal_report2.get("healed") or heal_report2.get("scrubbed"):
+                payload["selfCheck"]["healedCompares"] = (
+                    list(payload["selfCheck"].get("healedCompares") or [])
+                    + list(heal_report2.get("healed") or [])
                 )
-                save_cache(payload)
+                payload["selfCheck"]["scrubbedGhosts"] = (
+                    list(payload["selfCheck"].get("scrubbedGhosts") or [])
+                    + list(heal_report2.get("scrubbed") or [])
+                )
+                parity = run_simulation(verbose=False)
+                payload["selfCheck"]["parity"] = {
+                    "ok": parity.get("ok"),
+                    "problemCount": len(parity.get("problems") or []),
+                    "problems": (parity.get("problems") or [])[:30],
+                }
+            off_problems = offline_audit(payload, articles_db)
+            parity_ok = bool(parity.get("ok"))
+            all_problems = list(off_problems) + [
+                f"parity:{p}" for p in (parity.get("problems") or [])[:20]
+            ]
+            payload["selfCheck"]["problems"] = all_problems
+            payload["selfCheck"]["ok"] = parity_ok and not off_problems
+            save_cache(payload)
+
+            if not payload["selfCheck"]["ok"]:
                 if attempt < attempts:
                     print(
-                        f"::warning::법제처 불일치 {len(parity.get('problems') or [])}건 "
-                        f"— {attempt}/{attempts} 재수집·재검증"
+                        f"::warning::자율검증 실패 "
+                        f"offline={len(off_problems)} parity="
+                        f"{len(parity.get('problems') or [])} — "
+                        f"{attempt}/{attempts} 재수집·재검증"
                     )
                     continue
-                # 최종 실패: 이전 정상 캐시가 있으면 롤백(빈/틀린 화면 방지)
                 if prev_cache:
                     try:
                         prev = json.loads(prev_cache)
@@ -721,7 +764,7 @@ def main() -> None:
                             json.dumps(prev, ensure_ascii=False, indent=2),
                             encoding="utf-8",
                         )
-                        print("::warning::parity 최종 실패 — 이전 캐시로 롤백")
+                        print("::warning::최종 실패 — 이전 캐시로 롤백")
                         payload = prev
                 print(
                     json.dumps(
@@ -736,9 +779,9 @@ def main() -> None:
                     )
                 )
                 raise SystemExit(1)
-            else:
-                save_cache(payload)
-                break
+
+            print("::notice::self_heal passed — 법제처 대조·유령제거 완료")
+            break
         except SystemExit:
             raise
         except Exception as exc:  # noqa: BLE001
