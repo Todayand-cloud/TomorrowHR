@@ -56,6 +56,103 @@ UNIT_HANG_HO_RE = re.compile(
 )
 UNIT_HO_RE = re.compile(r"제\s*\d+\s*조(?:의\s*\d+)?(?:제\s*\d+\s*항)?제\s*(\d+)\s*호")
 UNIT_HANG_RE = re.compile(r"제\s*\d+\s*조(?:의\s*\d+)?제\s*(\d+)\s*항")
+
+
+def resolve_unit_locator(prefix: str) -> str:
+    """개정문 prefix에서 같은 조/같은 항을 포함한 항·호 위치를 해석한다.
+
+    예: 「같은 조 제2항제1호」「같은 항 제2호」「같은 항에」
+    인용부("…"·「…」) 안의 조문 번호는 위치 지시가 아니므로 무시한다.
+    """
+    # 인용 안 조항호(예: "제44조의4제1항ㆍ제4항")가 같은 항 위치를 오염시키지 않게
+    def _blank(m: re.Match[str]) -> str:
+        return " " * (m.end() - m.start())
+
+    cleaned = re.sub(r'"[^"]*"', _blank, prefix or "")
+    cleaned = re.sub(r"「[^」]*」", _blank, cleaned)
+    hang: int | None = None
+    ho: int | None = None
+    events: list[tuple[int, str, tuple[int, ...]]] = []
+    for m in re.finditer(
+        r"제\s*\d+\s*조(?:의\s*\d+)?제\s*(\d+)\s*항제\s*(\d+)\s*호", cleaned
+    ):
+        events.append((m.start(), "hang_ho", (int(m.group(1)), int(m.group(2)))))
+    for m in re.finditer(r"같은\s*조\s*제\s*(\d+)\s*항제\s*(\d+)\s*호", cleaned):
+        events.append((m.start(), "hang_ho", (int(m.group(1)), int(m.group(2)))))
+    for m in re.finditer(r"같은\s*항\s*제\s*(\d+)\s*호", cleaned):
+        events.append((m.start(), "same_ho", (int(m.group(1)),)))
+    for m in re.finditer(
+        r"제\s*\d+\s*조(?:의\s*\d+)?제\s*(\d+)\s*항(?!\s*제\s*\d+\s*호)", cleaned
+    ):
+        events.append((m.start(), "hang", (int(m.group(1)),)))
+    for m in re.finditer(r"같은\s*항에", cleaned):
+        events.append((m.start(), "same_hang", ()))
+    for _pos, kind, vals in sorted(events, key=lambda x: x[0]):
+        if kind == "hang_ho":
+            hang, ho = vals[0], vals[1]
+        elif kind == "same_ho":
+            ho = vals[0]
+        elif kind == "hang":
+            hang = vals[0]
+            ho = None
+        elif kind == "same_hang":
+            ho = None
+    if hang is not None and ho is not None:
+        return f"제{hang}항제{ho}호"
+    if hang is not None:
+        return f"제{hang}항"
+    if ho is not None:
+        return f"제{ho}호"
+    return ""
+
+
+def _extract_trailing_hos(chunk: str, after_pos: int) -> list[str]:
+    """신설 각 호 본문: 개정 지시문 끝(…한다.) 뒤의 1. 2. … 목록."""
+    tail = chunk[after_pos:]
+    last_handa = None
+    for m in re.finditer(r"한다\.", chunk):
+        if m.end() > after_pos:
+            last_handa = m
+    if last_handa:
+        tail = chunk[last_handa.end() :]
+    hos: list[str] = []
+    for hos_m in re.finditer(
+        r"(\d+(?:의\d+)?\.\s*.+?)(?=\s*\d+(?:의\d+)?\.|\s*$)",
+        tail,
+        flags=re.S,
+    ):
+        text = re.sub(r"\s+", " ", hos_m.group(1)).strip()
+        if len(text) >= 4:
+            hos.append(text)
+    return hos
+
+
+def find_ho_in_hang(
+    body: str, hang: int | None, ho: int
+) -> tuple[str, int, int] | None:
+    """지정 항 블록 안의 N호 한 줄을 찾는다."""
+    text = body or ""
+    search = text
+    base = 0
+    if hang:
+        mark = N_TO_CIRCLE.get(int(hang))
+        if mark:
+            m = re.search(rf"(?ms)^({re.escape(mark)}.*?)(?=^[①-⑮]|\Z)", text)
+            if not m:
+                return None
+            search = m.group(1)
+            base = m.start()
+    for hm in re.finditer(
+        rf"(?ms)^({ho}(?:의\d+)?\.\s+.*?)(?=^\d+\.\s|^[①-⑮]|\Z)",
+        search,
+    ):
+        raw = hm.group(1)
+        start = base + hm.start()
+        end = start + len(raw)
+        while end > start and text[end - 1] in "\r\n":
+            end -= 1
+        return text[start:end].rstrip(), start, end
+    return None
 NEW_ARTICLE_RE = re.compile(
     r"제\s*([0-9]+)\s*조(?:의\s*([0-9]+))?를\s*다음과\s*같이\s*신설한다\.\s*"
     r"(제\s*\1\s*조(?:의\s*\2)?\(([^)]+)\)\s*)"
@@ -469,9 +566,11 @@ def extract_article_changes(
                 continue
             if re.search(r"제목\s*[\"「]", prefix[-20:]):
                 continue
-            unit_loc = ""
-            for hm in UNIT_HANG_HO_RE.finditer(prefix):
-                unit_loc = f"제{hm.group(1)}항제{hm.group(2)}호"
+            # 같은 조/같은 항 포함 (제116조: 같은 조 제2항제1호, 같은 항 제2호)
+            unit_loc = resolve_unit_locator(prefix)
+            if not unit_loc:
+                for hm in UNIT_HANG_HO_RE.finditer(prefix):
+                    unit_loc = f"제{hm.group(1)}항제{hm.group(2)}호"
             if not unit_loc:
                 for hm in UNIT_HO_RE.finditer(prefix):
                     unit_loc = f"제{hm.group(1)}호"
@@ -526,30 +625,44 @@ def extract_article_changes(
                 )
                 entry["summaryParts"].append(f"{jo} 단서 신설")
 
-        # 조 단위 각 호 신설: 「같은 조에 각 호를 다음과 같이 신설한다」
-        hm = re.search(r"각\s*호를\s*다음과\s*같이\s*신설한다\.", chunk)
+        # 각 호 신설: 「같은 항에 각 호를 다음과 같이 신설하며/한다」
+        hm = re.search(
+            r"(?:같은\s*항에|제\s*(\d+)\s*항에|같은\s*조에)\s*"
+            r"각\s*호를\s*다음과\s*같이\s*신설(?:한다\.|하며|하고)",
+            chunk,
+        )
+        if not hm:
+            hm = re.search(
+                r"각\s*호를\s*다음과\s*같이\s*신설(?:한다\.|하며|하고)",
+                chunk,
+            )
         if hm:
-            rest = chunk[hm.end() :]
-            stop = _STMT_START_RE.search(rest)
-            block = rest[: stop.start()] if stop else rest
-            for hos in re.findall(
-                r"(\d+(?:의\d+)?\.\s*.+?)(?=\s*\d+(?:의\d+)?\.|\s*$)",
-                block,
-                flags=re.S,
-            ):
-                text = re.sub(r"\s+", " ", hos).strip()
-                if len(text) < 4:
-                    continue
+            hang_loc = resolve_unit_locator(chunk[: hm.start() + 1])
+            hang_n = None
+            if hm.lastindex and hm.group(1):
+                hang_n = int(hm.group(1))
+            else:
+                m_hang = re.search(r"제\s*(\d+)\s*항", hang_loc or "")
+                if m_hang:
+                    hang_n = int(m_hang.group(1))
+            for text in _extract_trailing_hos(chunk, hm.end()):
                 if any(
                     op.get("kind") == "insert" and op.get("text") == text
                     for op in entry["ops"]
                 ):
                     continue
+                ho_n = text.split(".", 1)[0]
+                loc = (
+                    f"제{hang_n}항제{ho_n}호"
+                    if hang_n is not None
+                    else f"{jo} 제{ho_n}호"
+                )
                 entry["ops"].append(
                     {
                         "kind": "insert",
                         "text": text,
-                        "locator": f"{jo} 제{text.split('.', 1)[0]}호",
+                        "locator": loc,
+                        "hang": hang_n,
                         "isNew": True,
                     }
                 )
@@ -575,18 +688,65 @@ def extract_article_changes(
             chunk,
         )
         if del_ho:
+            hang_loc = resolve_unit_locator(chunk[: del_ho.start()])
+            hang_n = None
+            m_hang = re.search(r"제\s*(\d+)\s*항", hang_loc or "")
+            if m_hang:
+                hang_n = int(m_hang.group(1))
             entry["ops"].append(
                 {
                     "kind": "delete_ho",
                     "fromHo": int(del_ho.group(1)),
                     "toHo": int(del_ho.group(2)),
-                    "locator": jo,
+                    "hang": hang_n,
+                    "locator": (
+                        f"제{hang_n}항"
+                        if hang_n is not None
+                        else jo
+                    ),
                     "isNew": False,
                 }
             )
             entry["summaryParts"].append(
                 f"제{del_ho.group(1)}호·제{del_ho.group(2)}호 삭제"
             )
+
+        # 단일 호 삭제: 같은 항 제4호를 삭제한다
+        for del_one in re.finditer(
+            r"(?:같은\s*항\s*)?제\s*(\d+)\s*호를\s*삭제한다",
+            chunk,
+        ):
+            # 「제1호 및 제2호를 각각 삭제」와 중복 방지
+            if re.search(
+                r"제\s*\d+\s*호\s*및\s*제\s*\d+\s*호를\s*각각\s*삭제",
+                chunk[max(0, del_one.start() - 30) : del_one.end()],
+            ):
+                continue
+            n = int(del_one.group(1))
+            hang_loc = resolve_unit_locator(chunk[: del_one.start()])
+            hang_n = None
+            m_hang = re.search(r"제\s*(\d+)\s*항", hang_loc or "")
+            if m_hang:
+                hang_n = int(m_hang.group(1))
+            if any(
+                op.get("kind") == "delete_ho"
+                and int(op.get("fromHo") or 0) <= n <= int(op.get("toHo") or 0)
+                and op.get("hang") == hang_n
+                for op in entry["ops"]
+            ):
+                continue
+            loc = f"제{hang_n}항제{n}호" if hang_n is not None else f"제{n}호"
+            entry["ops"].append(
+                {
+                    "kind": "delete_ho",
+                    "fromHo": n,
+                    "toHo": n,
+                    "hang": hang_n,
+                    "locator": loc,
+                    "isNew": False,
+                }
+            )
+            entry["summaryParts"].append(f"{loc} 삭제")
 
         # 호 번호 이동: 제3호 및 제4호를 각각 제1호 및 제2호로
         renum_ho = re.search(
@@ -724,7 +884,7 @@ def find_containing_unit(body: str, needle: str) -> tuple[str, int, int] | None:
         unit = body[start:end].rstrip()
         return unit, start, end
 
-    for m in re.finditer(r"(?ms)^(\d+)\.\s+.*?(?=^\d+\.\s|\Z)", body):
+    for m in re.finditer(r"(?ms)^(\d+)\.\s+.*?(?=^\d+\.\s|^[①-⑮]|\Z)", body):
         if needle in m.group(0):
             return _clip(m)
     for m in re.finditer(r"(?ms)^([①-⑮]).*?(?=^[①-⑮]|\Z)", body):
@@ -896,8 +1056,12 @@ def hang_locator_from_text(text: str, fallback: str = "") -> str:
             return fallback
         return base
     if re.match(r"^\d+(?:의\d+)?\.", t):
+        ho_label = t.split(".", 1)[0]
+        hm = re.search(r"제\s*(\d+)\s*항", fallback or "")
+        if hm:
+            return f"제{hm.group(1)}항제{ho_label}호"
         # 호 단위는 번호 표기를 우선 (제2조 안의 14. → 14호)
-        return t.split(".", 1)[0] + "호"
+        return ho_label + "호"
     return fallback
 
 
@@ -915,14 +1079,39 @@ def _pending_phrases_only(
     hist_rev = hist_tag(amended, "개정")
     hist_new = hist_tag(amended, "신설")
     has_renumber = any(op.get("kind") == "renumber" for op in ops)
+    # proviso/renumber_ho 만 전문 병합 구조개정.
+    # insert·delete_ho 는 단위 음영을 유지(제116조 같은 조 제2항제1호 등).
     structural = any(
-        op.get("kind") in ("proviso", "insert", "delete_proviso", "delete_ho", "renumber_ho")
+        op.get("kind") in ("proviso", "delete_proviso", "renumber_ho")
         for op in ops
     )
+    folded_inserts: set[int] = set()
+
+    def _hang_n_from_loc(loc: str) -> int | None:
+        m = re.search(r"제\s*(\d+)\s*항", loc or "")
+        return int(m.group(1)) if m else None
+
+    def _fold_inserts_into(after_unit: str, hang_n: int | None) -> str:
+        if hang_n is None:
+            return after_unit
+        parts = [after_unit.rstrip()]
+        for i, op in enumerate(ops):
+            if op.get("kind") != "insert" or i in folded_inserts:
+                continue
+            if _hang_n_from_loc(str(op.get("locator") or "")) != hang_n:
+                continue
+            raw = re.sub(r"\s*<신설[^>]*>\s*", "", (op.get("text") or "")).strip()
+            if not raw:
+                continue
+            if hist_new not in raw and hist_rev not in raw:
+                raw = raw.rstrip() + " " + hist_new
+            parts.append(raw)
+            folded_inserts.add(i)
+        return "\n".join(parts)
 
     replace_hits: list[tuple[str, str, str]] = []  # before_unit, after_unit, loc
 
-    for op in ops:
+    for op_i, op in enumerate(ops):
         kind = op.get("kind")
         if kind in ("renumber", "renumber_ho", "delete_ho", "delete_proviso"):
             continue
@@ -1023,10 +1212,18 @@ def _pending_phrases_only(
                     before_unit.replace(old, new, 1), new
                 )
                 after_unit = append_hist_date(after_raw, amended)
-                after_clean = strip_hist_tags(after_unit)
                 loc = op.get("unitLocator") or hang_locator_from_text(
                     before_unit, op.get("locator") or art.get("no") or ""
                 )
+                # 항 본문(①…) 치환이면 같은 항 각 호 신설을 음영 블록에 합침
+                hang_n = _hang_n_from_loc(loc)
+                if (
+                    hang_n is not None
+                    and "호" not in (loc or "")
+                    and before_unit.lstrip()[:1] in CIRCLE_TO_N
+                ):
+                    after_unit = _fold_inserts_into(after_unit, hang_n)
+                after_clean = strip_hist_tags(after_unit)
                 replace_hits.append((before_unit, after_unit, loc))
                 if not structural:
                     phrases.append(
@@ -1064,10 +1261,13 @@ def _pending_phrases_only(
                     }
                 )
         elif kind == "insert":
+            if op_i in folded_inserts:
+                continue
             para = (op.get("text") or "").strip()
             if hist_new not in para and hist_rev not in para:
                 para = para.rstrip() + " " + hist_new
             loc = hang_locator_from_text(para, op.get("locator") or art.get("no") or "")
+            # 항 단위로 접히지 않은 호 신설은 비교 카드용(본문에 자리 없어 음영 제외)
             phrases.append(
                 {
                     "text": para,
@@ -1075,7 +1275,7 @@ def _pending_phrases_only(
                     "isNew": True,
                     "historyKind": "신설",
                     "historyDates": [amd],
-                    "locator": loc,
+                    "locator": op.get("locator") or loc,
                     "amendedDate": amd,
                     "effectiveDate": eff,
                     "beforeNote": "",
@@ -1285,23 +1485,57 @@ def _pending_phrases_only(
                 }
             )
         elif kind == "delete_ho":
-            phrases.append(
-                {
-                    "text": f"제{op.get('fromHo')}호·제{op.get('toHo')}호 삭제",
-                    "beforeText": f"제{op.get('fromHo')}호·제{op.get('toHo')}호",
-                    "isNew": False,
-                    "historyKind": "개정",
-                    "historyDates": [amd],
-                    "locator": op.get("locator") or art.get("no"),
-                    "amendedDate": amd,
-                    "effectiveDate": eff,
-                    "beforeNote": "",
-                    "pending": True,
-                    "skipHighlight": True,
-                    "compareBefore": f"제{op.get('fromHo')}호·제{op.get('toHo')}호",
-                    "compareAfter": f"제{op.get('fromHo')}호·제{op.get('toHo')}호 삭제",
-                }
-            )
+            from_ho = int(op.get("fromHo") or 0)
+            to_ho = int(op.get("toHo") or from_ho)
+            hang_n = op.get("hang")
+            if hang_n is None:
+                hang_n = _hang_n_from_loc(str(op.get("locator") or ""))
+            if from_ho and from_ho == to_ho:
+                found = find_ho_in_hang(body, hang_n, from_ho)
+                before_unit = found[0] if found else f"{from_ho}."
+                loc = (
+                    op.get("locator")
+                    or (
+                        f"제{hang_n}항제{from_ho}호"
+                        if hang_n is not None
+                        else f"제{from_ho}호"
+                    )
+                )
+                after_text = f"{from_ho}. 삭제 {hist_rev}".strip()
+                phrases.append(
+                    {
+                        "text": after_text,
+                        "beforeText": before_unit,
+                        "isNew": False,
+                        "historyKind": "개정",
+                        "historyDates": [amd],
+                        "locator": loc,
+                        "amendedDate": amd,
+                        "effectiveDate": eff,
+                        "beforeNote": "",
+                        "pending": True,
+                        "compareBefore": strip_hist_tags(before_unit),
+                        "compareAfter": f"{from_ho}. 삭제",
+                    }
+                )
+            else:
+                phrases.append(
+                    {
+                        "text": f"제{from_ho}호·제{to_ho}호 삭제",
+                        "beforeText": f"제{from_ho}호·제{to_ho}호",
+                        "isNew": False,
+                        "historyKind": "개정",
+                        "historyDates": [amd],
+                        "locator": op.get("locator") or art.get("no"),
+                        "amendedDate": amd,
+                        "effectiveDate": eff,
+                        "beforeNote": "",
+                        "pending": True,
+                        "skipHighlight": True,
+                        "compareBefore": f"제{from_ho}호·제{to_ho}호",
+                        "compareAfter": f"제{from_ho}호·제{to_ho}호 삭제",
+                    }
+                )
         elif kind == "renumber_ho":
             phrases.append(
                 {

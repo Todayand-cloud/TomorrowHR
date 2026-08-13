@@ -123,6 +123,39 @@ LIVE_PROBES = [
         ],
     },
     {
+        # 법률 제21533호: 제116조 과태료 — 제1항 각호 신설 + 제2항제1·2호 개정 + 제4호 삭제
+        "lsId": "001872",
+        "lawId": "labor-standards",
+        "tier": "statute",
+        "article": "제116조",
+        "must_in_live": [
+            "직장 내 괴롭힘을 한 경우에는 1천만원 이하의 과태료",
+            "근로감독관",
+            "제48조",
+            "제102조에 따른 근로감독관",
+        ],
+        "must_not_in_live": [
+            "다음 각 호의 어느 하나에 해당하는 경우에는 1천만원",
+            "노동감독관",
+            "제44조의4제1항ㆍ제4항ㆍ제5항, 제48조",
+        ],
+        "must_not_after": "2027-01-01",
+        "file": "full-labor-statute.txt",
+        "amendments": [
+            {
+                "amendedDate": "2026-04-07",
+                "noticeNo": "21533",
+                "effectiveDate": "2027-01-01",
+                "compareBefore": "직장 내 괴롭힘을 한 경우에는",
+                "compareAfter": "다음 각 호의 어느 하나에 해당하는",
+                "requireHighlight": True,
+                "requireBodyApplied": False,
+                "requirePhraseAfter": "수급인이 제44조의4제6항",
+                "requireLocators": ["제1항", "제2항제1호", "제2항제2호", "제2항제4호"],
+            },
+        ],
+    },
+    {
         # 법률 제21475호: 본문 시행 2026.7.1 / 제43·44조만 2026.9.18
         # 기준일(오늘)이 9.18 이전이면 현행 본문은 짧은 구문이어야 함
         "lsId": "009883",
@@ -462,6 +495,21 @@ def run_simulation(verbose: bool = True) -> dict:
                         f"phrase_after_missing {item.get('id')}: {needle[:40]}"
                     )
                     row["ok"] = False
+            if amd.get("requireLocators"):
+                locs = {
+                    (p.get("locator") or "").strip()
+                    for h in (item.get("highlights") or [])
+                    for p in (h.get("phrases") or [])
+                    if not p.get("skipHighlight")
+                }
+                locs.update(str(x).strip() for x in (item.get("locators") or []) if x)
+                for want in amd["requireLocators"]:
+                    if not any(want in loc for loc in locs):
+                        problems.append(
+                            f"locator_missing {item.get('id')}: {want}"
+                        )
+                        row["ok"] = False
+                        row["details"].append(f"locator_missing:{want}")
             if amd.get("forbidPhraseAfter"):
                 bad = amd["forbidPhraseAfter"]
                 texts = " ".join(
