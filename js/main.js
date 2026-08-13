@@ -161,11 +161,151 @@
     );
   }
 
+  function stripHistTags(text) {
+    return String(text || "")
+      .replace(/\s*<(?:개정|신설)\s[^>]*>/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  /** before/after 전문에서 최소 치환(old→new) 추출 — 연쇄 pending 합성용 */
+  function minimalSubstitution(before, after) {
+    const b = stripHistTags(before);
+    const a = stripHistTags(after);
+    if (!b || !a || b === a) return null;
+    let pre = 0;
+    while (pre < b.length && pre < a.length && b.charAt(pre) === a.charAt(pre)) {
+      pre += 1;
+    }
+    let suf = 0;
+    while (
+      suf < b.length - pre &&
+      suf < a.length - pre &&
+      b.charAt(b.length - 1 - suf) === a.charAt(a.length - 1 - suf)
+    ) {
+      suf += 1;
+    }
+    // '제2항'처럼 너무 짧으면 다른 항까지 지워지므로, 본문에 1회만 나오도록 좌측 확장
+    while (pre > 0) {
+      const old = b.slice(pre, b.length - suf);
+      const occurrences = old ? b.split(old).length - 1 : 0;
+      if (old.length >= 8 && occurrences === 1) break;
+      if (old.length >= 24 && occurrences >= 1) break;
+      pre -= 1;
+    }
+    return {
+      old: b.slice(pre, b.length - suf),
+      neu: a.slice(pre, a.length - suf),
+    };
+  }
+
+  function replaceFirst(haystack, oldStr, newStr) {
+    const at = haystack.indexOf(oldStr);
+    if (at === -1) return haystack;
+    return haystack.slice(0, at) + newStr + haystack.slice(at + oldStr.length);
+  }
+
+  function fixJosaJoEul(text) {
+    // 제104조제2항을 → 제104조을 잔여를 제104조를 로 보정
+    return String(text || "").replace(/조을(?=\s|위반|위반한|,|\.|$)/g, "조를");
+  }
+
+  /**
+   * 같은 조·호에 미시행 개정이 여러 건이면 시행일 순으로 합성.
+   * (예: 제110조 제1호 — 제104조제2항→제104조 후 제4항 및 제5항→부터)
+   */
+  function composePendingPhrases(body, phrases) {
+    const raw = body || "";
+    const pending = [];
+    const rest = [];
+    (phrases || []).forEach(function (p) {
+      if (p && p.pending && !p.isNew && p.beforeText && p.text) pending.push(p);
+      else rest.push(p);
+    });
+    if (pending.length <= 1) return phrases || [];
+
+    pending.sort(function (a, b) {
+      const de = parseYMD(a.effectiveDate) - parseYMD(b.effectiveDate);
+      if (de !== 0) return de;
+      return parseYMD(a.amendedDate) - parseYMD(b.amendedDate);
+    });
+
+    // 본문에 실제로 있는 before 를 앵커로 사용
+    let anchor = null;
+    for (let i = 0; i < pending.length; i += 1) {
+      const b = pending[i].beforeText || "";
+      if (b && raw.indexOf(b) !== -1) {
+        anchor = b;
+        break;
+      }
+      const bs = stripHistTags(b);
+      if (bs && raw.indexOf(bs) !== -1) {
+        anchor = bs;
+        break;
+      }
+    }
+    if (!anchor) return phrases || [];
+
+    let working = stripHistTags(anchor);
+    const applied = [];
+    pending.forEach(function (p) {
+      const sub = minimalSubstitution(p.beforeText, p.text);
+      if (sub && sub.old && working.indexOf(sub.old) !== -1) {
+        working = replaceFirst(working, sub.old, sub.neu);
+        working = fixJosaJoEul(working);
+        applied.push(p);
+        return;
+      }
+      const pb = stripHistTags(p.beforeText);
+      const pa = stripHistTags(p.text);
+      if (pb && working.indexOf(pb) !== -1) {
+        working = replaceFirst(working, pb, pa);
+        working = fixJosaJoEul(working);
+        applied.push(p);
+      }
+    });
+
+    if (applied.length <= 1) return phrases || [];
+
+    const latest = applied[applied.length - 1];
+    const composed = {
+      text: working,
+      beforeText: anchor,
+      beforeNote: latest.beforeNote || "",
+      pending: true,
+      isNew: false,
+      amendedDate: latest.amendedDate,
+      effectiveDate: latest.effectiveDate,
+      amendmentTitle: latest.amendmentTitle,
+      locator: latest.locator || applied[0].locator || "",
+      composedFrom: applied.map(function (p) {
+        return p.amendedDate;
+      }),
+    };
+
+    // 합성에 쓴 pending 은 개별 적용하지 않음
+    const used = {};
+    applied.forEach(function (p) {
+      used[
+        (p.text || "") + "|" + (p.locator || "") + "|" + (p.amendedDate || "")
+      ] = true;
+    });
+    const leftover = rest.concat(
+      pending.filter(function (p) {
+        return !used[
+          (p.text || "") + "|" + (p.locator || "") + "|" + (p.amendedDate || "")
+        ];
+      })
+    );
+    return [composed].concat(leftover);
+  }
+
   function highlightBody(body, phrases) {
     let html = escapeHtml(body || "");
     if (!phrases || !phrases.length) return html;
 
-    const list = phrases
+    const composed = composePendingPhrases(body, phrases);
+    const list = composed
       .slice()
       .filter(function (p) {
         return p && p.text;
@@ -194,6 +334,15 @@
       if (html.indexOf(afterEsc) === -1) {
         if (phrase.pending && beforeEsc && html.indexOf(beforeEsc) !== -1) {
           searchEsc = beforeEsc;
+          // 연혁 태그 없이 매칭된 경우 바로 뒤 &lt;개정…&gt; 까지 함께 치환
+          // (잔여 `<개정` 조각이 노란 음영 밖으로 남는 오류 방지)
+          const histTail = /^\s*&lt;(?:개정|신설)\s[\s\S]*?&gt;/;
+          const at = html.indexOf(beforeEsc);
+          if (at !== -1) {
+            const rest = html.slice(at + beforeEsc.length);
+            const hm = rest.match(histTail);
+            if (hm) searchEsc = beforeEsc + hm[0];
+          }
         } else {
           return;
         }
@@ -1201,7 +1350,7 @@
 
     if (!filtered.length) {
       root.innerHTML =
-        '<div class="empty-state">기준일 기준 공포 또는 시행 ±6개월 범위에 해당하는 개정이 없습니다. 「수동 갱신」으로 최신 이력을 가져올 수 있습니다.</div>';
+        '<div class="empty-state">기준일 기준 공포 또는 시행 ±6개월 범위에 해당하는 개정이 없습니다. 「지금 갱신」으로 최신 이력을 가져올 수 있습니다.</div>';
       return;
     }
 
