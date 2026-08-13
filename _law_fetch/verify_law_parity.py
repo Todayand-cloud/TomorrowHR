@@ -93,6 +93,28 @@ LIVE_PROBES = [
         ],
     },
     {
+        # 법률 제21784호: 제61조 인용 제60조제7항→제8항 (시행 2027.6.10)
+        "lsId": "001872",
+        "lawId": "labor-standards",
+        "tier": "statute",
+        "article": "제61조",
+        "must_in_live": ["제60조제7항"],
+        "must_not_in_live": ["제60조제8항"],
+        "must_not_after": "2027-06-10",
+        "file": "full-labor-statute.txt",
+        "amendments": [
+            {
+                "amendedDate": "2026-06-09",
+                "noticeNo": "21784",
+                "effectiveDate": "2027-06-10",
+                "compareBefore": "제60조제7항",
+                "compareAfter": "제60조제8항",
+                "requireHighlight": True,
+                "requireBodyApplied": False,
+            },
+        ],
+    },
+    {
         # 법률 제21475호: 본문 시행 2026.7.1 / 제43·44조만 2026.9.18
         # 기준일(오늘)이 9.18 이전이면 현행 본문은 짧은 구문이어야 함
         "lsId": "009883",
@@ -492,6 +514,58 @@ def run_simulation(verbose: bool = True) -> dict:
     if orphan_empty:
         if verbose:
             print(f"[FAIL] amended empty bodies without text: {orphan_empty}")
+
+    # --- 개정문에 있는 조가 캐시에 모두 펼쳐졌는지 (제61조 누락 등 회귀 방지) ---
+    try:
+        from amendment_articles import (
+            expected_amended_articles_from_doc,
+            fetch_doc_map,
+        )
+
+        law_ls = {
+            "labor-standards": "001872",
+            "retirement": "009883",
+            "equal-employment": "000130",
+            "fixed-term": "010356",
+        }
+        doc_maps: dict[str, dict] = {}
+        for law_id, ls_id in law_ls.items():
+            notices = sorted(
+                {
+                    str(a.get("noticeNo") or "")
+                    for a in amendments
+                    if a.get("lawId") == law_id
+                    and a.get("tier") == "법률"
+                    and a.get("noticeNo")
+                }
+            )
+            if not notices:
+                continue
+            try:
+                doc_maps[ls_id] = fetch_doc_map(ls_id)
+            except Exception as exc:  # noqa: BLE001
+                problems.append(f"doc_fetch_fail {ls_id}: {exc}")
+                continue
+            for notice in notices:
+                text = (doc_maps[ls_id] or {}).get(notice) or ""
+                if len(text) < 40:
+                    continue
+                expected = expected_amended_articles_from_doc(text)
+                have = {
+                    a.get("articleNo")
+                    for a in amendments
+                    if a.get("lawId") == law_id
+                    and str(a.get("noticeNo") or "") == notice
+                    and a.get("articleLevel")
+                    and a.get("articleNo")
+                }
+                for jo in expected:
+                    if jo not in have:
+                        problems.append(f"doc_article_missing {law_id} {notice} {jo}")
+                        if verbose:
+                            print(f"[FAIL] doc_article_missing {law_id} {notice} {jo}")
+    except Exception as exc:  # noqa: BLE001
+        problems.append(f"doc_coverage_error: {exc}")
 
     # UI: 안내문 중복 문구가 main.js 에 남아 있지 않은지
     if MAIN_JS.is_file():
