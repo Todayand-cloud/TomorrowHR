@@ -665,6 +665,68 @@
     return map;
   }
 
+  /**
+   * 3단에 실제로 펼쳐지는 고유 조문 키 집합.
+   * 동일 조에 공포가 여러 번 있어도 1건(홈·상세·단별 건수 공통).
+   */
+  function collectDisplayedArticleKeys(lawId, baseDate) {
+    const map = buildHighlightMap(lawId, baseDate);
+    const items = getDetailAmendmentsForLaw(lawId, baseDate);
+    const keys = {};
+    Object.keys(map).forEach(function (aid) {
+      keys[aid] = true;
+    });
+    items.forEach(function (item) {
+      const aid = firstArticleId(item);
+      if (aid && keys[aid]) return;
+      if (item.articleLevel || hasPhraseHighlights(item)) {
+        keys[aid || "extra:" + item.id] = true;
+      }
+    });
+    return keys;
+  }
+
+  function countDisplayedArticlesForLaw(lawId, baseDate) {
+    return Object.keys(collectDisplayedArticleKeys(lawId, baseDate)).length;
+  }
+
+  /** 고유 조문을 법률·시행령·시행규칙 단별로 집계 */
+  function countDisplayedArticlesByTier(lawId, baseDate) {
+    const items = getDetailAmendmentsForLaw(lawId, baseDate);
+    const keys = collectDisplayedArticleKeys(lawId, baseDate);
+    const buckets = { 법률: {}, 시행령: {}, 시행규칙: {} };
+
+    function tierOf(key) {
+      if (String(key).indexOf("extra:") === 0) {
+        const id = String(key).slice(6);
+        const hit = items.find(function (it) {
+          return it.id === id;
+        });
+        return (hit && hit.tier) || "법률";
+      }
+      const hit = items.find(function (it) {
+        return (
+          (it.articleIds || []).indexOf(key) >= 0 ||
+          (it.highlights || []).some(function (h) {
+            return h.articleId === key;
+          })
+        );
+      });
+      return (hit && hit.tier) || "법률";
+    }
+
+    Object.keys(keys).forEach(function (key) {
+      const t = tierOf(key);
+      if (buckets[t]) buckets[t][key] = true;
+    });
+
+    return {
+      법률: Object.keys(buckets["법률"]).length,
+      시행령: Object.keys(buckets["시행령"]).length,
+      시행규칙: Object.keys(buckets["시행규칙"]).length,
+    };
+  }
+
   function renderAmendmentMeta(highlightInfo) {
     if (!highlightInfo || !highlightInfo.amendments.length) return "";
     // 4법 공통: 안내문은 한 줄만 (개정일·시행일·중복 힌트 없음)
@@ -809,13 +871,12 @@
     );
 
     const laws = DATA.laws || [];
-    const comparable = filterAmendments(date).filter(function (a) {
-      return a.articleLevel || hasPhraseHighlights(a) || hasArticleDetail(a);
-    });
+    const base = date;
+    let articleTotal = 0;
     const touched = laws.filter(function (law) {
-      return comparable.some(function (a) {
-        return a.lawId === law.id;
-      });
+      const n = countDisplayedArticlesForLaw(law.id, base);
+      articleTotal += n;
+      return n > 0;
     }).length;
     setText(
       "laws",
@@ -824,8 +885,8 @@
             laws.length +
             "개 · 조문 3단 " +
             touched +
-            "개 · " +
-            comparable.length +
+            "개 · 개정 조문 " +
+            articleTotal +
             "건"
         : "등록된 법령 없음"
     );
@@ -2115,35 +2176,29 @@
   }
 
   /* ---------- home: law shortcuts (recent amendment driven) ---------- */
-  function countByTier(items) {
-    const counts = { 법률: 0, 시행령: 0, 시행규칙: 0 };
-    items.forEach(function (item) {
-      if (counts[item.tier] != null) counts[item.tier] += 1;
-    });
-    return counts;
-  }
-
   function renderLawLinks(baseDate) {
     const root = document.getElementById("lawsRoot");
     if (!root) return;
 
     const base = baseDate || currentBaseDate || getBaseDateBounds().today;
-    const windowItems = filterAmendments(base).filter(function (a) {
-      return a.articleLevel || hasPhraseHighlights(a) || hasArticleDetail(a);
-    });
 
     const ranked = (DATA.laws || [])
       .map(function (law) {
-        const related = windowItems.filter(function (a) {
-          return a.lawId === law.id;
-        });
+        const related = getDetailAmendmentsForLaw(law.id, base);
+        const counts = countDisplayedArticlesByTier(law.id, base);
+        const total =
+          counts["법률"] + counts["시행령"] + counts["시행규칙"];
         const latest = related[0] || null;
-        return { law: law, related: related, latest: latest };
+        return {
+          law: law,
+          related: related,
+          latest: latest,
+          counts: counts,
+          total: total,
+        };
       })
       .sort(function (a, b) {
-        if (b.related.length !== a.related.length) {
-          return b.related.length - a.related.length;
-        }
+        if (b.total !== a.total) return b.total - a.total;
         if (a.latest && b.latest) {
           return parseYMD(b.latest.amendedDate) - parseYMD(a.latest.amendedDate);
         }
@@ -2155,10 +2210,10 @@
     root.innerHTML = ranked
       .map(function (entry) {
         const law = entry.law;
-        const counts = countByTier(entry.related);
-        const meta = entry.related.length
-          ? "조문 단위 개정 " +
-            entry.related.length +
+        const counts = entry.counts;
+        const meta = entry.total
+          ? "개정 조문 " +
+            entry.total +
             "건 · 법률 " +
             counts["법률"] +
             " · 시행령 " +
@@ -2168,7 +2223,7 @@
             (entry.latest
               ? " · 최신 공포 " + entry.latest.amendedDate.replace(/-/g, ".")
               : "")
-          : "조문 단위 변경 없음 · 최근 개정 목록에서 이력 확인";
+          : "개정 조문 없음 · 최근 개정 목록에서 이력 확인";
         return `
       <a class="law-link" href="law.html?id=${encodeURIComponent(law.id)}">
         <h3 class="law-link__name">${escapeHtml(law.shortName)}</h3>
@@ -2293,7 +2348,7 @@
     return [parseInt(m[1], 10), parseInt(m[2] || "0", 10)];
   }
 
-  function renderTier(label, name, articles, cite, highlightMap, tierItems) {
+  function renderTier(label, name, articles, cite, highlightMap, tierItems, articleCountHint) {
     // 법제처식 3단: 조회기간 내 조문 단위 개정을 모두 나열
     const shownIds = {};
     const amendedOnly = (articles || [])
@@ -2331,7 +2386,10 @@
     if (extraCards.length) {
       list += extraCards.map(renderArticleLevelCard).join("");
     }
-    const shownCount = amendedOnly.length + extraCards.length;
+    const shownCount =
+      articleCountHint != null
+        ? articleCountHint
+        : amendedOnly.length + extraCards.length;
     if (!list) {
       list =
         '<li class="empty-state" style="margin:16px;border:none">이 단에 표시할 조문 단위 개정이 없습니다.</li>';
@@ -2473,7 +2531,9 @@
           return item.id === focusAmendId;
         })
       : null;
-    const articleCount = Object.keys(highlightMap).length;
+    // 홈 카드·단별 건수와 동일: 고유 조문 수(동일 조 복수 공포 = 1건)
+    const articleCount = countDisplayedArticlesForLaw(law.id, base);
+    const tierCounts = countDisplayedArticlesByTier(law.id, base);
 
     document.title = `${law.name} — 인사 관련 법령문 개정 현황`;
 
@@ -2533,7 +2593,8 @@
         pack.statute,
         meta.statuteCite,
         highlightMap,
-        byTier("법률")
+        byTier("법률"),
+        tierCounts["법률"]
       ) +
       renderTier(
         "시행령",
@@ -2541,7 +2602,8 @@
         pack.decree,
         meta.decreeCite,
         highlightMap,
-        byTier("시행령")
+        byTier("시행령"),
+        tierCounts["시행령"]
       ) +
       renderTier(
         "시행규칙",
@@ -2549,7 +2611,8 @@
         pack.rule,
         meta.ruleCite,
         highlightMap,
-        byTier("시행규칙")
+        byTier("시행규칙"),
+        tierCounts["시행규칙"]
       );
 
     bindArticleToggles(root);
