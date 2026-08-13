@@ -64,6 +64,35 @@ LIVE_PROBES = [
         ],
     },
     {
+        # 법률 제21784호: 제54조 단서 신설 — 시행 2026.12.10 전 현행 본문에 단서 없어야 함
+        "lsId": "001872",
+        "lawId": "labor-standards",
+        "tier": "statute",
+        "article": "제54조",
+        "must_in_live": [
+            "근로시간이 4시간인 경우에는 30분 이상",
+            "휴게시간은 근로자가 자유롭게 이용할 수 있다",
+        ],
+        "must_not_in_live": [
+            "명시적으로 요청",
+            "이용하지 아니할 것을",
+            "사용하지 아니할 것을",
+        ],
+        "must_not_after": "2026-12-10",
+        "file": "full-labor-statute.txt",
+        "amendments": [
+            {
+                "amendedDate": "2026-06-09",
+                "noticeNo": "21784",
+                "effectiveDate": "2026-12-10",
+                "compareBefore": "주어야 한다",
+                "compareAfter": "명시적으로 요청",
+                "requireHighlight": True,
+                "requireBodyApplied": False,
+            },
+        ],
+    },
+    {
         # 법률 제21475호: 본문 시행 2026.7.1 / 제43·44조만 2026.9.18
         # 기준일(오늘)이 9.18 이전이면 현행 본문은 짧은 구문이어야 함
         "lsId": "009883",
@@ -401,6 +430,27 @@ def run_simulation(verbose: bool = True) -> dict:
         if is_new_article and after and len(after) >= 40 and not phrases:
             problems.append(f"new_article_no_highlight {item.get('id')}")
             display_gaps += 1
+
+        # 미시행 개정: 전·후가 동일하면(연혁 태그만 추가) 법제처와 불일치한 파싱
+        def _norm_cmp(s: str) -> str:
+            s = re.sub(r"\s*<[^>]+>\s*", " ", s or "")
+            return re.sub(r"\s+", " ", s).strip()
+
+        if item.get("bodyApplied") is False and before and after:
+            if _norm_cmp(before) == _norm_cmp(after) and not before.startswith("해당"):
+                problems.append(f"pending_empty_diff {item.get('id')}")
+                display_gaps += 1
+            summary = item.get("summary") or ""
+            # 단서 '신설'인데 개정 후 문구에 단서/명시 요청이 없으면 파싱 누락
+            if re.search(r"단서\s*.*신설|신설.*단서", summary) and not (
+                "다만," in after or "명시적" in after
+            ):
+                problems.append(f"pending_proviso_missing {item.get('id')}")
+                display_gaps += 1
+            # 시행 전인데 로컬 본문에 개정 후 전용 토큰이 있으면 오염
+            if body and after and "명시적으로 요청" in after and "명시적으로 요청" in body:
+                problems.append(f"pending_body_polluted {item.get('id')}")
+                display_gaps += 1
     if verbose:
         print(f"[INFO] 4법 display_gap count={display_gaps}")
 
