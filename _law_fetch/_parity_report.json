@@ -1,8 +1,6 @@
 {
-  "ok": false,
-  "problems": [
-    "highlight_not_in_body live-009883-2026-03-17-21475-제43조"
-  ],
+  "ok": true,
+  "problems": [],
   "checks": [
     {
       "lsId": "001872",
@@ -15,7 +13,7 @@
       "lsId": "009883",
       "article": "제43조",
       "liveChars": 75,
-      "ok": false,
+      "ok": true,
       "details": []
     },
     {
