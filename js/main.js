@@ -104,6 +104,7 @@
       amendedDate: phrase.amendedDate || item.amendedDate,
       effectiveDate: phrase.effectiveDate || item.effectiveDate,
       amendmentTitle: phrase.amendmentTitle || item.title,
+      amendmentSummary: item.summary || item.briefSummary || "",
       locator: phrase.locator || "",
     };
   }
@@ -135,59 +136,15 @@
     );
   }
 
-  /** 합성 개정(제114조 등)은 공포·시행 칩을 개정 건수만큼 모두 표시 */
-  function phraseDatePairs(phrase) {
-    const raw = phrase && Array.isArray(phrase.composedFrom) ? phrase.composedFrom : null;
-    const pairs = [];
-    const seen = {};
-    function pushPair(amd, eff) {
-      if (!amd && !eff) return;
-      const key = String(amd || "") + "|" + String(eff || "");
-      if (seen[key]) return;
-      seen[key] = true;
-      pairs.push({ amendedDate: amd || "", effectiveDate: eff || "" });
-    }
-    if (raw && raw.length) {
-      raw.forEach(function (c) {
-        if (c && typeof c === "object") {
-          pushPair(c.amendedDate, c.effectiveDate);
-        } else if (typeof c === "string") {
-          pushPair(c, phrase.effectiveDate);
-        }
-      });
-    }
-    if (!pairs.length) {
-      pushPair(phrase.amendedDate, phrase.effectiveDate);
-    }
-    pairs.sort(function (a, b) {
-      const de = parseYMD(a.effectiveDate) - parseYMD(b.effectiveDate);
-      if (de !== 0) return de;
-      return parseYMD(a.amendedDate) - parseYMD(b.amendedDate);
-    });
-    return pairs;
-  }
-
+  /** 음영 1개 = 공포·시행 칩 1쌍 (다중 칩 금지 — 제110조 이중 일자 오류 방지) */
   function buildAmendMark(phrase, afterEsc) {
-    const pairs = phraseDatePairs(phrase);
-    const primary = pairs[0] || {
-      amendedDate: phrase.amendedDate || "",
-      effectiveDate: phrase.effectiveDate || "",
-    };
-    let dateChips = "";
-    pairs.forEach(function (pair) {
-      dateChips +=
-        '<span class="amend-mark__chip">공포 ' +
-        escapeHtml(formatDotDate(pair.amendedDate)) +
-        "</span>" +
-        '<span class="amend-mark__chip amend-mark__chip--eff">시행 ' +
-        escapeHtml(formatDotDate(pair.effectiveDate)) +
-        "</span>";
-    });
+    const amd = phrase.amendedDate || "";
+    const eff = phrase.effectiveDate || "";
     return (
       '<mark class="amend-mark" tabindex="0" data-amended="' +
-      escapeHtml(primary.amendedDate) +
+      escapeHtml(amd) +
       '" data-effective="' +
-      escapeHtml(primary.effectiveDate) +
+      escapeHtml(eff) +
       '">' +
       afterEsc +
       '<span class="amend-mark__meta" aria-hidden="true">' +
@@ -196,7 +153,12 @@
           escapeHtml(phrase.locator) +
           "</span>"
         : "") +
-      dateChips +
+      '<span class="amend-mark__chip">공포 ' +
+      escapeHtml(formatDotDate(amd)) +
+      "</span>" +
+      '<span class="amend-mark__chip amend-mark__chip--eff">시행 ' +
+      escapeHtml(formatDotDate(eff)) +
+      "</span>" +
       "</span>" +
       renderBeforeMemo(phrase) +
       "</mark>"
@@ -247,6 +209,54 @@
     return haystack.slice(0, at) + newStr + haystack.slice(at + oldStr.length);
   }
 
+  /** 최소 치환이 '제'를 공통접두로 빼면 음영이 '104조'처럼 끊김 → 본문에 '제'+old 있으면 복원 */
+  function withJoPrefix(raw, oldStr, newStr) {
+    if (!oldStr || !newStr) return { old: oldStr, neu: newStr };
+    if (oldStr.charAt(0) === "제") return { old: oldStr, neu: newStr };
+    const prefixed = "제" + oldStr;
+    if (raw.indexOf(prefixed) !== -1) {
+      return { old: prefixed, neu: "제" + newStr };
+    }
+    return { old: oldStr, neu: newStr };
+  }
+
+  function isCleanSpan(oldStr, newStr) {
+    if (!oldStr || !newStr) return false;
+    if (oldStr.length < 4 || newStr.length < 2) return false;
+    if (/^[\s,·ㆍ]/.test(oldStr) || /[\s,·ㆍ]$/.test(oldStr)) return false;
+    if (/^[\s,·ㆍ]/.test(newStr) || /[\s,·ㆍ]$/.test(newStr)) return false;
+    return true;
+  }
+
+  /** 요약 「A」→「B」 또는 최소 치환으로 독립 음영 구간 확정 */
+  function resolveIndependentSpan(p, raw) {
+    const summary = p.amendmentSummary || p.amendmentTitle || "";
+    const sm = String(summary).match(/「([^」]{2,120})」\s*→\s*「([^」]{2,120})」/);
+    let sub = null;
+    if (sm && raw.indexOf(sm[1]) !== -1 && isCleanSpan(sm[1], sm[2])) {
+      sub = { old: sm[1], neu: sm[2] };
+    } else {
+      const sub0 = minimalSubstitution(p.beforeText, p.text);
+      if (!(sub0 && sub0.old && raw.indexOf(sub0.old) !== -1)) return null;
+      sub = withJoPrefix(raw, sub0.old, sub0.neu);
+      if (raw.indexOf(sub.old) === -1) return null;
+      if (!isCleanSpan(sub.old, sub.neu)) return null;
+    }
+    // 조사 을/를 이 old 바로 뒤에 있으면 함께 치환 (제104조제2항을 → 제104조를)
+    if (raw.indexOf(sub.old + "을") !== -1) {
+      sub = {
+        old: sub.old + "을",
+        neu: /[을를]$/.test(sub.neu) ? sub.neu : sub.neu + "를",
+      };
+    } else if (raw.indexOf(sub.old + "를") !== -1) {
+      sub = {
+        old: sub.old + "를",
+        neu: /[을를]$/.test(sub.neu) ? sub.neu : sub.neu + "를",
+      };
+    }
+    return sub;
+  }
+
   function fixJosaJoEul(text) {
     // 제104조제2항을 → 제104조을 잔여를 제104조를 로 보정
     return String(text || "").replace(/조을(?=\s|위반|위반한|,|\.|$)/g, "조를");
@@ -262,7 +272,12 @@
     );
   }
 
-  /** 같은 항·호(locator)끼리만 연쇄 합성. 제1항+제2항 삭제는 절대 합치지 않음. */
+  /**
+   * 같은 항·호에 미시행 개정이 여러 건이면:
+   * 1) 현행 본문에 각각 최소 치환이 독립 매칭되면 음영을 쪼갠다
+   *    (제110조: 제104조 변경=4.7/12.8, 제4항부터=6.9/2027.6.10 — 칩 1쌍씩)
+   * 2) 연쇄 의존일 때만 본문을 합성하고, 그래도 칩은 대표 1쌍만 유지
+   */
   function composePendingGroup(raw, group) {
     if (!group || group.length <= 1) return group || [];
 
@@ -271,6 +286,32 @@
       if (de !== 0) return de;
       return parseYMD(a.amendedDate) - parseYMD(b.amendedDate);
     });
+
+    // 독립 최소 치환 시도
+    const spans = [];
+    let canSplit = true;
+    sorted.forEach(function (p) {
+      const sub = resolveIndependentSpan(p, raw);
+      if (!sub) {
+        canSplit = false;
+        return;
+      }
+      spans.push({
+        text: fixJosaJoEul(sub.neu),
+        beforeText: sub.old,
+        beforeNote: p.beforeNote || "",
+        pending: true,
+        isNew: false,
+        amendedDate: p.amendedDate,
+        effectiveDate: p.effectiveDate,
+        amendmentTitle: p.amendmentTitle,
+        locator: p.locator || "",
+        spanHighlight: true,
+      });
+    });
+    if (canSplit && spans.length === sorted.length) {
+      return spans;
+    }
 
     let anchor = null;
     for (let i = 0; i < sorted.length; i += 1) {
@@ -308,8 +349,7 @@
 
     if (applied.length <= 1) return group;
 
-    // 시행일이 빠른 쪽을 대표 칩으로, composedFrom 에 모든 공포·시행을 남김
-    // (제114조: 4.7/12.8 + 6.9/2027.6.10 — 최신만 남기면 일자 오류)
+    // 연쇄 합성: 본문은 합치되 칩은 가장 빠른 시행 1쌍만 (다중 칩 금지)
     const byEff = applied.slice().sort(function (a, b) {
       const de = parseYMD(a.effectiveDate) - parseYMD(b.effectiveDate);
       if (de !== 0) return de;
@@ -327,12 +367,6 @@
       effectiveDate: primary.effectiveDate,
       amendmentTitle: latest.amendmentTitle,
       locator: latest.locator || applied[0].locator || "",
-      composedFrom: byEff.map(function (p) {
-        return {
-          amendedDate: p.amendedDate,
-          effectiveDate: p.effectiveDate,
-        };
-      }),
     };
 
     const used = {};
