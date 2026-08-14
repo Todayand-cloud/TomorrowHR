@@ -101,6 +101,9 @@
           : "개정 전 전문은 법제처 조문 연혁·비교보기에서 확인하세요."),
       pending: Boolean(phrase.pending),
       isNew: isNew,
+      pendingDelete:
+        Boolean(phrase.pendingDelete) ||
+        (Boolean(phrase.pending) && /^\d+(?:의\d+)?\.\s*삭제\b/.test(text)),
       amendedDate: phrase.amendedDate || item.amendedDate,
       effectiveDate: phrase.effectiveDate || item.effectiveDate,
       amendmentTitle: phrase.amendmentTitle || item.title,
@@ -114,6 +117,22 @@
   }
 
   function renderBeforeMemo(phrase) {
+    // 미시행 호 삭제: 본문은 현행 유지 → 호버에 시행 후(삭제) 안내
+    if (phrase.pending && phrase.pendingDelete && phrase.text) {
+      return (
+        '<span class="amend-mark__memo" role="tooltip">' +
+        '<span class="amend-mark__memo-label">시행 후 조항</span>' +
+        '<span class="amend-mark__memo-body">' +
+        escapeHtml(phrase.text) +
+        "</span>" +
+        (phrase.beforeNote
+          ? '<span class="amend-mark__memo-empty">' +
+            escapeHtml(phrase.beforeNote) +
+            "</span>"
+          : "") +
+        "</span>"
+      );
+    }
     const hasBefore = Boolean(phrase.beforeText);
     const body = hasBefore
       ? '<span class="amend-mark__memo-body">' + escapeHtml(phrase.beforeText) + "</span>"
@@ -140,11 +159,16 @@
   function buildAmendMark(phrase, afterEsc) {
     const amd = phrase.amendedDate || "";
     const eff = phrase.effectiveDate || "";
+    const deleteChip =
+      phrase.pending && phrase.pendingDelete
+        ? '<span class="amend-mark__chip amend-mark__chip--del">삭제예정</span>'
+        : "";
     return (
       '<mark class="amend-mark" tabindex="0" data-amended="' +
       escapeHtml(amd) +
       '" data-effective="' +
       escapeHtml(eff) +
+      (phrase.pendingDelete ? '" data-pending-delete="1' : "") +
       '">' +
       afterEsc +
       '<span class="amend-mark__meta" aria-hidden="true">' +
@@ -153,6 +177,7 @@
           escapeHtml(phrase.locator) +
           "</span>"
         : "") +
+      deleteChip +
       '<span class="amend-mark__chip">공포 ' +
       escapeHtml(formatDotDate(amd)) +
       "</span>" +
@@ -494,6 +519,27 @@
       const afterEsc = escapeHtml(phrase.text);
       const beforeEsc = escapeHtml(phrase.beforeText || "");
       if (!afterEsc) return;
+
+      // 미시행 호 삭제: 법제처처럼 현행 문구를 노란 음영으로 두고, 시행 후 삭제는 호버·칩으로
+      if (
+        phrase.pending &&
+        phrase.pendingDelete &&
+        beforeEsc &&
+        html.indexOf(beforeEsc) !== -1
+      ) {
+        let searchEsc = beforeEsc;
+        const histTail = /^\s*&lt;(?:개정|신설)\s[\s\S]*?&gt;/;
+        const at = html.indexOf(beforeEsc);
+        if (at !== -1) {
+          const rest = html.slice(at + beforeEsc.length);
+          const hm = rest.match(histTail);
+          if (hm) searchEsc = beforeEsc + hm[0];
+        }
+        html = html
+          .split(searchEsc)
+          .join(buildAmendMark(phrase, beforeEsc));
+        return;
+      }
 
       // 본문에 개정 후가 있으면 그대로, 없으면(시행 전) 개정 전 자리에 개정 후를 표기
       let searchEsc = afterEsc;
