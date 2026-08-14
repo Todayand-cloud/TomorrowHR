@@ -135,12 +135,59 @@
     );
   }
 
+  /** 합성 개정(제114조 등)은 공포·시행 칩을 개정 건수만큼 모두 표시 */
+  function phraseDatePairs(phrase) {
+    const raw = phrase && Array.isArray(phrase.composedFrom) ? phrase.composedFrom : null;
+    const pairs = [];
+    const seen = {};
+    function pushPair(amd, eff) {
+      if (!amd && !eff) return;
+      const key = String(amd || "") + "|" + String(eff || "");
+      if (seen[key]) return;
+      seen[key] = true;
+      pairs.push({ amendedDate: amd || "", effectiveDate: eff || "" });
+    }
+    if (raw && raw.length) {
+      raw.forEach(function (c) {
+        if (c && typeof c === "object") {
+          pushPair(c.amendedDate, c.effectiveDate);
+        } else if (typeof c === "string") {
+          pushPair(c, phrase.effectiveDate);
+        }
+      });
+    }
+    if (!pairs.length) {
+      pushPair(phrase.amendedDate, phrase.effectiveDate);
+    }
+    pairs.sort(function (a, b) {
+      const de = parseYMD(a.effectiveDate) - parseYMD(b.effectiveDate);
+      if (de !== 0) return de;
+      return parseYMD(a.amendedDate) - parseYMD(b.amendedDate);
+    });
+    return pairs;
+  }
+
   function buildAmendMark(phrase, afterEsc) {
+    const pairs = phraseDatePairs(phrase);
+    const primary = pairs[0] || {
+      amendedDate: phrase.amendedDate || "",
+      effectiveDate: phrase.effectiveDate || "",
+    };
+    let dateChips = "";
+    pairs.forEach(function (pair) {
+      dateChips +=
+        '<span class="amend-mark__chip">공포 ' +
+        escapeHtml(formatDotDate(pair.amendedDate)) +
+        "</span>" +
+        '<span class="amend-mark__chip amend-mark__chip--eff">시행 ' +
+        escapeHtml(formatDotDate(pair.effectiveDate)) +
+        "</span>";
+    });
     return (
       '<mark class="amend-mark" tabindex="0" data-amended="' +
-      escapeHtml(phrase.amendedDate || "") +
+      escapeHtml(primary.amendedDate) +
       '" data-effective="' +
-      escapeHtml(phrase.effectiveDate || "") +
+      escapeHtml(primary.effectiveDate) +
       '">' +
       afterEsc +
       '<span class="amend-mark__meta" aria-hidden="true">' +
@@ -149,12 +196,7 @@
           escapeHtml(phrase.locator) +
           "</span>"
         : "") +
-      '<span class="amend-mark__chip">공포 ' +
-      escapeHtml(formatDotDate(phrase.amendedDate)) +
-      "</span>" +
-      '<span class="amend-mark__chip amend-mark__chip--eff">시행 ' +
-      escapeHtml(formatDotDate(phrase.effectiveDate)) +
-      "</span>" +
+      dateChips +
       "</span>" +
       renderBeforeMemo(phrase) +
       "</mark>"
@@ -266,6 +308,14 @@
 
     if (applied.length <= 1) return group;
 
+    // 시행일이 빠른 쪽을 대표 칩으로, composedFrom 에 모든 공포·시행을 남김
+    // (제114조: 4.7/12.8 + 6.9/2027.6.10 — 최신만 남기면 일자 오류)
+    const byEff = applied.slice().sort(function (a, b) {
+      const de = parseYMD(a.effectiveDate) - parseYMD(b.effectiveDate);
+      if (de !== 0) return de;
+      return parseYMD(a.amendedDate) - parseYMD(b.amendedDate);
+    });
+    const primary = byEff[0];
     const latest = applied[applied.length - 1];
     const composed = {
       text: working,
@@ -273,12 +323,15 @@
       beforeNote: latest.beforeNote || "",
       pending: true,
       isNew: false,
-      amendedDate: latest.amendedDate,
-      effectiveDate: latest.effectiveDate,
+      amendedDate: primary.amendedDate,
+      effectiveDate: primary.effectiveDate,
       amendmentTitle: latest.amendmentTitle,
       locator: latest.locator || applied[0].locator || "",
-      composedFrom: applied.map(function (p) {
-        return p.amendedDate;
+      composedFrom: byEff.map(function (p) {
+        return {
+          amendedDate: p.amendedDate,
+          effectiveDate: p.effectiveDate,
+        };
       }),
     };
 
@@ -2376,22 +2429,52 @@
     const openClass = startOpen && isAmended ? " is-open" : "";
     let badge = "";
     if (isAmended) {
-      const latest = highlightInfo.amendments
-        .slice()
-        .sort(function (a, b) {
-          return parseYMD(b.amendedDate) - parseYMD(a.amendedDate);
-        })[0];
+      const amds = (highlightInfo.amendments || []).slice().sort(function (a, b) {
+        const de = parseYMD(a.effectiveDate) - parseYMD(b.effectiveDate);
+        if (de !== 0) return de;
+        return parseYMD(a.amendedDate) - parseYMD(b.amendedDate);
+      });
+      const first = amds[0];
+      const last = amds[amds.length - 1];
+      let dateLabel = "";
+      let dateTitle = "";
+      if (first && amds.length === 1) {
+        dateLabel =
+          "개정 " +
+          formatDotDate(first.amendedDate) +
+          " · 시행 " +
+          formatDotDate(first.effectiveDate);
+        dateTitle =
+          "개정일 " +
+          formatDotDate(first.amendedDate) +
+          " / 시행일 " +
+          formatDotDate(first.effectiveDate);
+      } else if (first && last) {
+        dateLabel =
+          "개정 " +
+          amds.length +
+          "건 · 시행 " +
+          formatDotDate(first.effectiveDate) +
+          "~" +
+          formatDotDate(last.effectiveDate);
+        dateTitle = amds
+          .map(function (a) {
+            return (
+              "개정 " +
+              formatDotDate(a.amendedDate) +
+              " / 시행 " +
+              formatDotDate(a.effectiveDate)
+            );
+          })
+          .join(" · ");
+      }
       badge =
         '<span class="amend-badge">개정</span>' +
-        (latest
-          ? '<span class="amend-badge amend-badge--date" title="개정일 ' +
-            escapeHtml(formatDotDate(latest.amendedDate)) +
-            " / 시행일 " +
-            escapeHtml(formatDotDate(latest.effectiveDate)) +
-            '">개정 ' +
-            escapeHtml(formatDotDate(latest.amendedDate)) +
-            " · 시행 " +
-            escapeHtml(formatDotDate(latest.effectiveDate)) +
+        (dateLabel
+          ? '<span class="amend-badge amend-badge--date" title="' +
+            escapeHtml(dateTitle) +
+            '">' +
+            escapeHtml(dateLabel) +
             "</span>"
           : "");
     }
