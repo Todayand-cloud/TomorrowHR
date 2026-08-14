@@ -10,7 +10,7 @@
   "effLookbackDays": 182,
   "effWindowLabel": "±6개월",
   "amdWindowLabel": "±6개월",
-  "fetchedAt": "2026-08-14T08:54:22",
+  "fetchedAt": "2026-08-14T09:03:22",
   "freshFetch": true,
   "count": 35,
   "errors": [],
@@ -21,7 +21,7 @@
   },
   "fullTexts": {
     "ok": true,
-    "asOf": "2026-08-13",
+    "asOf": "2026-08-14",
     "files": [
       {
         "lawId": "labor-standards",
