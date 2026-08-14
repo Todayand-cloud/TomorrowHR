@@ -126,6 +126,27 @@ COMPOSE_PROBES = [
             "3. 제37조제6항을 위반한 자",
         ],
     },
+    {
+        # 남녀고용평등법 제19조: 21373 ⑥⑦⑧ 신설+⑥→⑨, 21476 배우자 돌봄
+        "lawId": "equal-employment",
+        "articleNo": "제19조",
+        "articleId": "equal-employment-statute-19",
+        "requireInComposed": [
+            "모성을 보호하려는 경우, 남성 근로자가",
+            "⑥ 사업주는 근로자가 만 8세 이하",
+            "⑦ 제6항에 따른 육아휴직",
+            "⑧ 사업주는 제6항 단서",
+            "⑨ 육아휴직의 신청방법",
+        ],
+        "requireOrder": [
+            "모성을 보호하려는 경우, 남성 근로자가",
+            "⑥ 사업주는 근로자가 만 8세 이하",
+            "⑦ 제6항에 따른 육아휴직",
+            "⑧ 사업주는 제6항 단서",
+            "⑨ 육아휴직의 신청방법",
+        ],
+        "forbidInComposed": ["경우에는는", "는는"],
+    },
 ]
 
 LIVE_PROBES = [
@@ -755,11 +776,13 @@ def _insert_index_for_new_phrase(html: str, phrase: dict) -> int:
 
     if hang_m:
         hang_n = int(hang_m.group(1))
-        if 1 <= hang_n < len(CIRCLE_HANGS):
-            next_circle = CIRCLE_HANGS[hang_n]
-            at = html.find(next_circle)
-            if at != -1:
-                return at
+        if 1 <= hang_n <= len(CIRCLE_HANGS):
+            # 다음·이후 항 중 본문에 있는 첫 자리 앞 (⑥→⑨ 이동 후 신설 ⑥ 삽입)
+            for n in range(hang_n, len(CIRCLE_HANGS)):
+                next_circle = CIRCLE_HANGS[n]
+                at = html.find(next_circle)
+                if at != -1:
+                    return at
     return -1
 
 
@@ -1170,6 +1193,115 @@ def check_composed_unit_order(
                 print(f"[FAIL] hang_order {art_no}: {hang_nums}")
     if verbose:
         print(f"[INFO] unit_order scan articles_with_multi_new={checked}")
+
+
+def check_corrupt_and_duplicate_phrases(
+    amendments: list[dict], problems: list[str], verbose: bool
+) -> None:
+    """오염 치환(경우에는는) · 동일 before 중복 phrase 전수 차단."""
+    corrupt_n = 0
+    dup_n = 0
+    for item in amendments:
+        if item.get("lawId") not in MAJOR_LAWS:
+            continue
+        seen: dict[tuple[str, str], int] = {}
+        for h in item.get("highlights") or []:
+            for p in h.get("phrases") or []:
+                if p.get("skipHighlight"):
+                    continue
+                text = p.get("text") or ""
+                before = p.get("beforeText") or ""
+                if "는는" in text or "경우에는는" in text:
+                    problems.append(f"corrupt_phrase {item.get('id')}: 는는")
+                    corrupt_n += 1
+                if (
+                    before
+                    and not before.startswith("해당")
+                    and not p.get("isNew")
+                ):
+                    key = (
+                        (p.get("locator") or "").strip(),
+                        re.sub(r"\s*<[^>]+>\s*", " ", before).strip(),
+                    )
+                    seen[key] = seen.get(key, 0) + 1
+        for key, n in seen.items():
+            if n > 1:
+                problems.append(
+                    f"duplicate_before_phrase {item.get('id')}: "
+                    f"{key[0]} x{n}"
+                )
+                dup_n += 1
+    if verbose:
+        print(
+            f"[INFO] phrase quality corrupt={corrupt_n} duplicate_before={dup_n}"
+        )
+
+
+def check_doc_expected_articles(
+    amendments: list[dict], problems: list[str], verbose: bool
+) -> None:
+    """개정문에 명시된 조가 캐시에 빠지지 않았는지(제19조 누락 회귀) 검사."""
+    try:
+        from amendment_articles import (
+            expected_amended_articles_from_doc,
+            fetch_doc_map,
+        )
+    except Exception as exc:  # noqa: BLE001
+        if verbose:
+            print(f"[WARN] doc coverage skipped: {exc}")
+        return
+
+    # noticeNo → law lsId
+    ls_by_law = {
+        "labor-standards": "001872",
+        "retirement": "009883",
+        "equal-employment": "000130",
+        "fixed-term": "001901",
+    }
+    # probe notices that must include specific articles
+    must = {
+        ("000130", "21373"): ["제19조"],
+        ("000130", "21476"): ["제19조"],
+    }
+    doc_cache: dict[str, dict] = {}
+    checked = 0
+    for (ls_id, notice), arts in must.items():
+        if ls_id not in doc_cache:
+            try:
+                doc_cache[ls_id] = fetch_doc_map(ls_id)
+            except Exception as exc:  # noqa: BLE001
+                problems.append(f"doc_map_fetch_fail {ls_id}: {exc}")
+                continue
+        doc = (doc_cache.get(ls_id) or {}).get(notice) or ""
+        if not doc:
+            problems.append(f"doc_missing {ls_id}/{notice}")
+            continue
+        expected = expected_amended_articles_from_doc(doc)
+        for art in arts:
+            if art not in expected:
+                # expected 패턴이 약하면 doc 원문 직접 확인
+                if not re.search(
+                    rf"제\s*{re.escape(art[1:-1])}\s*조", doc.replace("의", "의")
+                ) and art not in doc:
+                    # 제19조 bare
+                    bare = art.replace("제", "").replace("조", "")
+                    if f"제{bare}조" not in doc and art not in doc:
+                        problems.append(
+                            f"doc_expected_pattern_weak {ls_id}/{notice}: {art}"
+                        )
+            present = any(
+                a.get("noticeNo") == notice
+                and a.get("articleNo") == art
+                and (a.get("highlights") or [])
+                for a in amendments
+            )
+            if not present:
+                problems.append(
+                    f"doc_article_missing_in_cache {ls_id}/{notice}: {art}"
+                )
+            checked += 1
+    if verbose:
+        print(f"[INFO] doc_expected_article checks={checked}")
 
 
 def run_simulation(verbose: bool = True) -> dict:
@@ -1643,6 +1775,10 @@ def run_simulation(verbose: bool = True) -> dict:
     check_compose_probes(amendments, articles, problems, verbose)
     # 신설 호·항 번호 순서 전수 검증 (2→1→3 회귀 차단)
     check_composed_unit_order(amendments, articles, problems, verbose)
+    # 오염 치환·동일 before 중복 phrase
+    check_corrupt_and_duplicate_phrases(amendments, problems, verbose)
+    # 개정문 명시 조 ↔ 캐시 누락 (제19조 등)
+    check_doc_expected_articles(amendments, problems, verbose)
     # 공포·시행 칩 2쌍 회귀 전수 차단
     check_no_dual_date_chips(amendments, articles, problems, verbose)
 
