@@ -45,43 +45,28 @@ COMPOSE_PROBES = [
         "lawId": "labor-standards",
         "articleNo": "제110조",
         "articleId": "labor-standards-statute-110",
-        # 21533·21784 은 독립 최소 치환 → 음영·일자 칩을 각각 1쌍씩
+        # 21533·21784 → 호 전문 1음영(조각 분리 금지), 최종 문구에 두 변경 모두
         "requireInComposed": ["제104조를", "제4항부터 제6항까지"],
         "forbidInComposed": ["제104조제2항"],
-        "requireSpanDates": [
-            {
-                "requireAfter": "제104조",
-                "amendedDate": "2026-04-07",
-                "effectiveDate": "2026-12-08",
-            },
-            {
-                "requireAfter": "제4항부터 제6항까지",
-                "amendedDate": "2026-06-09",
-                "effectiveDate": "2027-06-10",
-            },
-        ],
         "forbidDualDateChips": True,
+        "forbidSpanHighlight": True,
+        "requireHangUnit": [
+            {
+                "locator": "제1호",
+                "mustInclude": "제104조",
+                "minLen": 40,
+            }
+        ],
     },
     {
         "lawId": "labor-standards",
         "articleNo": "제114조",
         "articleId": "labor-standards-statute-114",
-        # 21533(제103조 삭제) + 21784(제60조제9항) — 독립 치환·칩 1쌍씩
+        # 21533 + 21784 → 호 전문 1음영
         "requireInComposed": ["제60조제9항", "제95조 및 제100조"],
         "forbidInComposed": ["제103조"],
-        "requireSpanDates": [
-            {
-                "requireAfter": "제95조 및 제100조",
-                "amendedDate": "2026-04-07",
-                "effectiveDate": "2026-12-08",
-            },
-            {
-                "requireAfter": "제60조제9항",
-                "amendedDate": "2026-06-09",
-                "effectiveDate": "2027-06-10",
-            },
-        ],
         "forbidDualDateChips": True,
+        "forbidSpanHighlight": True,
     },
     {
         "lawId": "labor-standards",
@@ -110,6 +95,7 @@ COMPOSE_PROBES = [
             }
         ],
         "forbidDualDateChips": True,
+        "forbidSpanHighlight": True,
     },
     {
         # 퇴직급여법 제43조: 각 호 신설은 1→2→3 순서 (길이순 삽입 회귀 방지)
@@ -149,6 +135,29 @@ COMPOSE_PROBES = [
         "forbidInComposed": ["경우에는는", "는는"],
     },
     {
+        # 제19조의4 제1항: 21373+21476 → 항 전문 1음영(조각·이중칩 금지)
+        "lawId": "equal-employment",
+        "articleNo": "제19조의4",
+        "articleId": "equal-employment-statute-19조의4",
+        "requireInComposed": [
+            "모성을 보호하거나 남성 근로자가 고용노동부령",
+            "제19조제6항에 따른 육아휴직을 사용한 횟수",
+        ],
+        "forbidDualDateChips": True,
+        "forbidSpanHighlight": True,
+        "requireSingleMarkPerLocator": [
+            {"locator": "제1항"},
+        ],
+        "requireHangUnit": [
+            {
+                "locator": "제1항",
+                "mustStartWith": "①",
+                "mustInclude": "모성을 보호하거나",
+                "minLen": 80,
+            }
+        ],
+    },
+    {
         # 남녀고용평등법 제18조: 동일 개정의 제1항은 항 전문 1음영·칩 1쌍
         "lawId": "equal-employment",
         "articleNo": "제18조",
@@ -160,6 +169,7 @@ COMPOSE_PROBES = [
         ],
         "forbidInComposed": ["제3장에 제18조의4"],
         "forbidDualDateChips": True,
+        "forbidSpanHighlight": True,
         "requireSingleMarkPerLocator": [
             {"locator": "제1항", "amendedDate": "2026-03-17"},
             {"locator": "제2항", "amendedDate": "2026-03-17"},
@@ -596,8 +606,7 @@ def _resolve_independent_span(p: dict, raw: str) -> tuple[str, str] | None:
 def compose_pending_phrases(body: str, phrases: list[dict]) -> list[dict]:
     """main.js composePendingPhrases 시뮬레이션.
 
-    - 서로 다른 공포·시행: 독립 최소 치환이면 음영 분리(칩 1쌍씩)
-    - 동일 개정: 항·호 단위 1음영·칩 1쌍 (제18조 제1항 회귀 방지)
+    항·호 단위 1음영만 허용. 서로 다른 개정일이어도 조각(span) 음영으로 쪼개지 않는다.
     """
     pending = [
         p
@@ -635,48 +644,13 @@ def compose_pending_phrases(body: str, phrases: list[dict]) -> list[dict]:
                 p.get("amendedDate") or "",
             ),
         )
-
-        def _date_key(p: dict) -> str:
-            return f"{p.get('amendedDate') or ''}|{p.get('effectiveDate') or ''}"
-
-        same_amd = all(_date_key(p) == _date_key(sorted_g[0]) for p in sorted_g)
-
-        if not same_amd:
-            spans: list[dict] = []
-            can_split = True
-            for p in sorted_g:
-                sub = _resolve_independent_span(p, raw)
-                if not sub:
-                    can_split = False
-                    break
-                old, neu = sub
-                spans.append(
-                    {
-                        "text": _fix_josa_jo_eul(neu),
-                        "beforeText": old,
-                        "pending": True,
-                        "isNew": False,
-                        "amendedDate": p.get("amendedDate"),
-                        "effectiveDate": p.get("effectiveDate"),
-                        "locator": p.get("locator") or "",
-                        "spanHighlight": True,
-                    }
-                )
-            if can_split and len(spans) == len(sorted_g):
-                out.extend(spans)
-                continue
-
-        anchor = None
-        candidates = (
-            sorted(
-                sorted_g,
-                key=lambda p: len(p.get("beforeText") or ""),
-                reverse=True,
-            )
-            if same_amd
-            else sorted_g
+        by_len = sorted(
+            sorted_g,
+            key=lambda p: len(p.get("beforeText") or ""),
+            reverse=True,
         )
-        for p in candidates:
+        anchor = None
+        for p in by_len:
             b = p.get("beforeText") or ""
             if b and b in raw:
                 anchor = b
@@ -704,16 +678,13 @@ def compose_pending_phrases(body: str, phrases: list[dict]) -> list[dict]:
                 working = _fix_josa_jo_eul(working)
                 applied.append(p)
         if len(applied) <= 1:
-            if same_amd and len(sorted_g) > 1:
-                full = max(
-                    sorted_g, key=lambda p: len(p.get("beforeText") or "")
-                )
-                if _strip_hist_tags(full.get("beforeText") or "") != _strip_hist_tags(
-                    full.get("text") or ""
-                ):
-                    out.append(full)
-                    continue
-            out.extend(group)
+            full = by_len[0]
+            if full and _strip_hist_tags(full.get("beforeText") or "") != _strip_hist_tags(
+                full.get("text") or ""
+            ):
+                out.append(full)
+            else:
+                out.append(group[0])
             continue
         by_eff = sorted(
             applied,
@@ -722,41 +693,19 @@ def compose_pending_phrases(body: str, phrases: list[dict]) -> list[dict]:
                 p.get("amendedDate") or "",
             ),
         )
-        primary = by_eff[0]
+        primary = by_eff[-1]  # 최종 합성문 기준 = 가장 늦은 시행
         latest = applied[-1]
-        composed = {
-            "text": working,
-            "beforeText": anchor,
-            "pending": True,
-            "isNew": False,
-            "amendedDate": primary.get("amendedDate"),
-            "effectiveDate": primary.get("effectiveDate"),
-            "locator": latest.get("locator") or applied[0].get("locator") or "",
-        }
-        used = {
-            (
-                (p.get("text") or "")
-                + "|"
-                + (p.get("locator") or "")
-                + "|"
-                + (p.get("amendedDate") or "")
-            )
-            for p in applied
-        }
-        leftover = [
-            p
-            for p in group
-            if (
-                (p.get("text") or "")
-                + "|"
-                + (p.get("locator") or "")
-                + "|"
-                + (p.get("amendedDate") or "")
-            )
-            not in used
-        ]
-        out.append(composed)
-        out.extend(leftover)
+        out.append(
+            {
+                "text": working,
+                "beforeText": anchor,
+                "pending": True,
+                "isNew": False,
+                "amendedDate": primary.get("amendedDate"),
+                "effectiveDate": primary.get("effectiveDate"),
+                "locator": latest.get("locator") or applied[0].get("locator") or "",
+            }
+        )
     return out
 
 
@@ -987,12 +936,16 @@ def check_no_dual_date_chips(
                 problems.append(
                     f"same_amendment_multi_mark {law_id} {art_no}: {dk} x{n}"
                 )
-    if "sameAmendment" not in main_js and "same_amd" not in main_js:
-        # UI/파이썬 합성기 중 하나라도 동일개정 병합 가드가 빠지면 회귀
-        if "sameAmendment" not in main_js:
-            problems.append(
-                "same_amendment_guard_missing: composePendingGroup lacks sameAmendment"
-            )
+    if "spanHighlight: true" in main_js or "spanHighlight:true" in main_js.replace(
+        " ", ""
+    ):
+        problems.append(
+            "span_highlight_regression: composePendingGroup still emits spanHighlight"
+        )
+    if "항·호 단위" not in main_js and "항·호 전문" not in main_js:
+        problems.append(
+            "unit_highlight_guard_missing: composePendingGroup lacks unit-level comment"
+        )
     if verbose:
         print(f"[INFO] dual_date_chip scan groups={scanned}")
 
@@ -1109,6 +1062,15 @@ def check_compose_probes(
                     problems.append(
                         f"compose_dual_date_chips {art_no}: "
                         f"locator={p.get('locator')} composedFrom={len(cf)}"
+                    )
+                    ok = False
+        # 조각(단어) 음영 금지 — 항·호 단위만
+        if probe.get("forbidSpanHighlight"):
+            for p in composed:
+                if p.get("spanHighlight"):
+                    problems.append(
+                        f"compose_span_highlight {art_no}: "
+                        f"locator={p.get('locator')} (항·호 전문 음영이어야 함)"
                     )
                     ok = False
         # 동일 개정(같은 공포일)이면 locator당 phrase 1개 — 조각 음영·칩 중복 금지
