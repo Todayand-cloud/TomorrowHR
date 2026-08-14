@@ -56,6 +56,25 @@ COMPOSE_PROBES = [
         "requireInComposed": ["제60조제9항", "제95조 및 제100조"],
         "forbidInComposed": ["제103조"],
     },
+    {
+        "lawId": "labor-standards",
+        "articleNo": "제116조",
+        "articleId": "labor-standards-statute-116",
+        # 제1항제2호(수급인)는 ②·④⑤ 끝이 아니라 ① 블록 안(② 앞)
+        "requireInComposed": [
+            "수급인이 제44조의4제6항",
+            "노동감독관",
+            "제44조의4제1항ㆍ제4항ㆍ제5항, 제48조",
+            "4. 삭제",
+        ],
+        "requireOrder": [
+            "다음 각 호의 어느 하나에 해당하는 경우에는 1천만원",
+            "수급인이 제44조의4제6항",
+            "② 다음 각 호의",
+            "노동감독관",
+            "④ 삭제",
+        ],
+    },
 ]
 
 LIVE_PROBES = [
@@ -529,6 +548,45 @@ def compose_pending_phrases(body: str, phrases: list[dict]) -> list[dict]:
     return out
 
 
+CIRCLE_HANGS = "①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮"
+
+
+def _insert_index_for_new_phrase(html: str, phrase: dict) -> int:
+    """main.js insertIndexForNewPhrase 와 동일 — 신설 호를 다음 항 앞에 둠."""
+    loc = re.sub(r"\s+", "", phrase.get("locator") or "")
+    hang_m = re.search(r"제(\d+)항", loc)
+    if hang_m:
+        hang_n = int(hang_m.group(1))
+        if 1 <= hang_n < len(CIRCLE_HANGS):
+            next_circle = CIRCLE_HANGS[hang_n]
+            at = html.find(next_circle)
+            if at != -1:
+                return at
+    ho_only = re.fullmatch(r"제(\d+)호", loc)
+    if ho_only:
+        next_num = str(int(ho_only.group(1)) + 1)
+        m = re.search(rf"(^|\n){re.escape(next_num)}\.", html)
+        if m:
+            return m.start() + (len(m.group(1)) if m.group(1) else 0)
+    return -1
+
+
+def _insert_new_pending_phrase(html: str, phrase: dict) -> str:
+    after = phrase.get("text") or ""
+    if not after or after in html:
+        return html
+    at = _insert_index_for_new_phrase(html, phrase)
+    if at < 0:
+        return (html.rstrip() + "\n" + after) if html.strip() else after
+    prefix = html[:at]
+    suffix = html[at:]
+    if prefix and not prefix.endswith("\n"):
+        prefix += "\n"
+    if suffix and not suffix.startswith("\n"):
+        suffix = "\n" + suffix
+    return prefix + after + suffix
+
+
 def simulate_article_highlight_after(
     body: str, phrases: list[dict]
 ) -> str:
@@ -547,12 +605,18 @@ def simulate_article_highlight_after(
         if not after:
             continue
         if after in html:
-            html = html.replace(after, after)
             continue
         if phrase.get("pending") and before and before in html:
             html = html.replace(before, after, 1)
         elif phrase.get("pending") and phrase.get("isNew") and after not in html:
-            html = (html.rstrip() + "\n" + after) if html.strip() else after
+            html = _insert_new_pending_phrase(html, phrase)
+    # isNew 가 before 매칭 루프에서 스킵된 경우 한 번 더
+    for phrase in ordered:
+        if not (phrase.get("pending") and phrase.get("isNew")):
+            continue
+        after = phrase.get("text") or ""
+        if after and after not in html:
+            html = _insert_new_pending_phrase(html, phrase)
     return html
 
 
@@ -602,6 +666,24 @@ def check_compose_probes(
             if token in after:
                 problems.append(f"compose_forbidden {art_no}: {token}")
                 ok = False
+        order = probe.get("requireOrder") or []
+        if order:
+            positions = []
+            cursor = -1
+            for token in order:
+                at = after.find(token)
+                if at == -1:
+                    problems.append(f"compose_order_missing {art_no}: {token}")
+                    ok = False
+                    positions.append(-1)
+                    continue
+                if at < cursor:
+                    problems.append(
+                        f"compose_order_violation {art_no}: {token} at {at} < {cursor}"
+                    )
+                    ok = False
+                cursor = at
+                positions.append(at)
         if verbose:
             status = "OK" if ok else "FAIL"
             print(f"[{status}] compose {art_no} phrases={len(phrases)}")
