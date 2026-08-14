@@ -927,13 +927,38 @@ def run_simulation(verbose: bool = True) -> dict:
         cache = json.loads(CACHE_PATH.read_text(encoding="utf-8"))
     amendments = cache.get("amendments") or []
 
+    # 같은 lsId XML 중복 요청 방지 + CI에서는 방금 받은 full-*.txt 를 live 로 재사용
+    use_local_full = os.environ.get("LAW_PARITY_USE_LOCAL_FULL", "").strip() in (
+        "1",
+        "true",
+        "TRUE",
+    )
+    xml_cache: dict[str, str] = {}
+    full_cache: dict[str, str] = {}
+
+    def live_article_text(probe: dict) -> str:
+        art_no = probe["article"]
+        file_name = probe.get("file") or ""
+        if use_local_full and file_name:
+            path = FETCH / file_name
+            if path.is_file():
+                if file_name not in full_cache:
+                    full_cache[file_name] = path.read_text(encoding="utf-8")
+                chunk = article_chunk(full_cache[file_name], art_no)
+                if chunk.strip():
+                    return chunk
+        ls_id = probe["lsId"]
+        if ls_id not in xml_cache:
+            xml_cache[ls_id] = fetch_xml(ls_id)
+        xml = xml_cache[ls_id]
+        live_full = xml_to_full_text(xml)
+        return article_chunk(live_full, art_no) or extract_live_article(xml, art_no)
+
     for probe in LIVE_PROBES:
         ls_id = probe["lsId"]
         art_no = probe["article"]
         try:
-            xml = fetch_xml(ls_id)
-            live_full = xml_to_full_text(xml)
-            live_art = article_chunk(live_full, art_no) or extract_live_article(xml, art_no)
+            live_art = live_article_text(probe)
         except Exception as exc:  # noqa: BLE001
             problems.append(f"live_fetch_fail {ls_id}: {exc}")
             continue
