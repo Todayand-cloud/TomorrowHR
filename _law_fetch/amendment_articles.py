@@ -1923,15 +1923,18 @@ def _pending_phrases_only(
                 after_text = f"{from_ho}. 삭제 {hist_rev}".strip()
                 phrases.append(
                     {
+                        # 시행 전: 법제처 본문과 같이 현행 호 문구를 유지하고
+                        # UI 는 pendingDelete 로 '삭제예정' 칩·호버(시행 후 삭제) 표시
                         "text": after_text,
                         "beforeText": before_unit,
                         "isNew": False,
+                        "pendingDelete": True,
                         "historyKind": "개정",
                         "historyDates": [amd],
                         "locator": loc,
                         "amendedDate": amd,
                         "effectiveDate": eff,
-                        "beforeNote": "",
+                        "beforeNote": "시행일 이후 이 호는 삭제됩니다.",
                         "pending": True,
                         "compareBefore": strip_hist_tags(before_unit),
                         "compareAfter": f"{from_ho}. 삭제",
