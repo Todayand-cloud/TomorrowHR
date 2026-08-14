@@ -303,10 +303,24 @@
     if (pending.length <= 1) return phrases || [];
 
     // locator(제1항/제2항/제1호…) 단위로만 합성 — 항 삭제와 다른 항 치환을 섞지 않음
+    // 제110조처럼 '제1호'와 '제110조제1호'가 섞여도 같은 호로 묶음
+    function normalizeLocatorKey(loc) {
+      const s = String(loc || "").trim();
+      if (!s) return "_";
+      const ho = s.match(/제\s*(\d+(?:의\d+)?)\s*호\s*$/);
+      const hang = s.match(/제\s*(\d+)\s*항(?:제\s*(\d+(?:의\d+)?)\s*호)?\s*$/);
+      if (hang) {
+        return hang[2]
+          ? "제" + hang[1] + "항제" + hang[2] + "호"
+          : "제" + hang[1] + "항";
+      }
+      if (ho) return "제" + ho[1] + "호";
+      return s;
+    }
     const groups = {};
     const order = [];
     pending.forEach(function (p) {
-      const key = (p.locator || "").trim() || "_";
+      const key = normalizeLocatorKey(p.locator);
       if (!groups[key]) {
         groups[key] = [];
         order.push(key);
