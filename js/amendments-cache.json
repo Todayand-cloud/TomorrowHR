@@ -10,17 +10,48 @@
   "effLookbackDays": 182,
   "effWindowLabel": "±6개월",
   "amdWindowLabel": "±6개월",
-  "fetchedAt": "2026-08-14T14:10:10",
+  "fetchedAt": "2026-08-14T15:58:31",
   "freshFetch": true,
-  "count": 37,
-  "errors": [],
+  "count": 36,
+  "errors": [
+    {
+      "lsId": "003058",
+      "lawName": "근로기준법 시행령",
+      "error": "The read operation timed out"
+    },
+    {
+      "lsId": "006859",
+      "lawName": "근로기준법 시행규칙",
+      "error": "The read operation timed out"
+    },
+    {
+      "lsId": "010035",
+      "lawName": "근로자퇴직급여 보장법 시행령",
+      "error": "doc:The read operation timed out"
+    },
+    {
+      "lsId": "010356",
+      "lawName": "기간제법",
+      "error": "The read operation timed out"
+    },
+    {
+      "lsId": "010461",
+      "lawName": "기간제법 시행령",
+      "error": "The read operation timed out"
+    },
+    {
+      "lsId": "010473",
+      "lawName": "기간제법 시행규칙",
+      "error": "doc:The read operation timed out"
+    }
+  ],
   "audit": {
-    "matchedHighlights": 33,
+    "matchedHighlights": 32,
     "unmatchedRevisions": 4,
     "rejectedDemoRule": "highlight only when article history date == promulgation date"
   },
   "fullTexts": {
-    "ok": true,
+    "ok": false,
     "asOf": "2026-08-14",
     "files": [
       {
@@ -35,36 +66,6 @@
           "efYd": "20251023",
           "ancYd": "20241022",
           "noticeNo": "20520",
-          "status": "현행"
-        }
-      },
-      {
-        "lawId": "labor-standards",
-        "tier": "decree",
-        "lsId": "003058",
-        "file": "full-labor-decree.txt",
-        "bytes": 55082,
-        "articles": 80,
-        "eflaw": {
-          "mst": "270551",
-          "efYd": "20251023",
-          "ancYd": "20250408",
-          "noticeNo": "35436",
-          "status": "현행"
-        }
-      },
-      {
-        "lawId": "labor-standards",
-        "tier": "rule",
-        "lsId": "006859",
-        "file": "full-labor-rule.txt",
-        "bytes": 14294,
-        "articles": 23,
-        "eflaw": {
-          "mst": "269393",
-          "efYd": "20250223",
-          "ancYd": "20250221",
-          "noticeNo": "00436",
           "status": "현행"
         }
       },
@@ -85,21 +86,6 @@
       },
       {
         "lawId": "retirement",
-        "tier": "decree",
-        "lsId": "010035",
-        "file": "full-retire-decree.txt",
-        "bytes": 92078,
-        "articles": 79,
-        "eflaw": {
-          "mst": "284693",
-          "efYd": "20260324",
-          "ancYd": "20260324",
-          "noticeNo": "36220",
-          "status": "현행"
-        }
-      },
-      {
-        "lawId": "retirement",
         "tier": "rule",
         "lsId": "010043",
         "file": "full-retire-rule.txt",
@@ -114,17 +100,32 @@
         }
       },
       {
-        "lawId": "equal-employment",
-        "tier": "statute",
-        "lsId": "000130",
-        "file": "full-equal-statute.txt",
-        "bytes": 70883,
-        "articles": 72,
+        "lawId": "labor-standards",
+        "tier": "rule",
+        "lsId": "006859",
+        "file": "full-labor-rule.txt",
+        "bytes": 14294,
+        "articles": 23,
         "eflaw": {
-          "mst": "276851",
-          "efYd": "20251001",
-          "ancYd": "20251001",
-          "noticeNo": "21065",
+          "mst": "269393",
+          "efYd": "20250223",
+          "ancYd": "20250221",
+          "noticeNo": "00436",
+          "status": "현행"
+        }
+      },
+      {
+        "lawId": "retirement",
+        "tier": "decree",
+        "lsId": "010035",
+        "file": "full-retire-decree.txt",
+        "bytes": 92078,
+        "articles": 79,
+        "eflaw": {
+          "mst": "284693",
+          "efYd": "20260324",
+          "ancYd": "20260324",
+          "noticeNo": "36220",
           "status": "현행"
         }
       },
@@ -202,15 +203,36 @@
           "noticeNo": "00277",
           "status": "현행"
         }
+      },
+      {
+        "lawId": "equal-employment",
+        "tier": "statute",
+        "lsId": "000130",
+        "file": "full-equal-statute.txt",
+        "bytes": 70883,
+        "articles": 72,
+        "eflaw": {
+          "mst": "276851",
+          "efYd": "20251001",
+          "ancYd": "20251001",
+          "noticeNo": "21065",
+          "status": "현행"
+        }
       }
     ],
-    "errors": []
+    "errors": [
+      {
+        "lawId": "labor-standards",
+        "tier": "decree",
+        "lsId": "003058",
+        "file": "full-labor-decree.txt",
+        "error": "The read operation timed out"
+      }
+    ]
   },
   "noticesRefresh": {
-    "ok": true,
-    "count": 24,
-    "latest": "2026-08-12",
-    "errors": []
+    "ok": false,
+    "error": "cannot import name 'fetch_notices' from 'refresh_notices' (/home/runner/work/TomorrowHR/TomorrowHR/_law_fetch/refresh_notices.py)"
   },
   "amendments": [
     {
@@ -935,64 +957,6 @@
       "articleLevel": true,
       "compareBefore": "2. 제14조, 제39조, 제41조, 제42조, 제48조, 제66조, 제74조제7항ㆍ제9항, 제76조의3제2항ㆍ제4항ㆍ제5항ㆍ제7항, 제91조, 제93조, 제98조제2항 및 제99조를 위반한 자\n해당 항·호 없음(신설)",
       "compareAfter": "2. 제14조, 제39조, 제41조, 제42조, 제44조의4제1항ㆍ제4항ㆍ제5항, 제48조, 제66조, 제74조제7항ㆍ제9항, 제76조의3제2항ㆍ제4항ㆍ제5항ㆍ제7항, 제91조, 제93조, 제98조제2항 및 제99조를 위반한 자\n2. 수급인이 제44조의4제6항을 위반하여 같은 조 제1항에 따라 지급받은 임금비용을 자신의 근로자에 대한 임금 지급 이외의 다른 용도로 사용한 경우",
-      "bodyApplied": false
-    },
-    {
-      "id": "live-010356-2026-04-07-21534-제18조",
-      "lawId": "fixed-term",
-      "lawName": "기간제법",
-      "fullName": "기간제 및 단시간근로자 보호 등에 관한 법률",
-      "tier": "법률",
-      "title": "기간제법 제18조(감독기관에 대한 통지) 개정",
-      "amendedDate": "2026-04-07",
-      "effectiveDate": "2026-12-08",
-      "summary": "「근로감독관」→「노동감독관」",
-      "briefSummary": "「근로감독관」→「노동감독관」",
-      "status": "시행예정",
-      "revisionType": "타법개정",
-      "noticeNo": "21534",
-      "instrument": "법률",
-      "source": "law.go.kr",
-      "sourceUrl": "https://www.law.go.kr/LSW/lsRvsRsnListP.do?chrClsCd=010102&lsId=010356",
-      "mentionedArticles": [
-        "제18조"
-      ],
-      "locators": [
-        "제18조"
-      ],
-      "articleIds": [
-        "fixed-term-statute-18"
-      ],
-      "highlights": [
-        {
-          "articleId": "fixed-term-statute-18",
-          "phrases": [
-            {
-              "text": "사업 또는 사업장에서 이 법 또는 이 법에 의한 명령을 위반한 사실이 있는 경우에는 근로자는 그 사실을 고용노동부장관 또는 노동감독관에게 통지할 수 있다. <개정 2010. 6. 4., 2020. 5. 26., 2026. 4. 7.>",
-              "beforeText": "사업 또는 사업장에서 이 법 또는 이 법에 의한 명령을 위반한 사실이 있는 경우에는 근로자는 그 사실을 고용노동부장관 또는 근로감독관에게 통지할 수 있다. <개정 2010. 6. 4., 2020. 5. 26.>",
-              "isNew": false,
-              "historyKind": "개정",
-              "historyDates": [
-                "2026-04-07"
-              ],
-              "locator": "제18조",
-              "amendedDate": "2026-04-07",
-              "effectiveDate": "2026-12-08",
-              "beforeNote": "",
-              "pending": true,
-              "compareBefore": "사업 또는 사업장에서 이 법 또는 이 법에 의한 명령을 위반한 사실이 있는 경우에는 근로자는 그 사실을 고용노동부장관 또는 근로감독관에게 통지할 수 있다.",
-              "compareAfter": "사업 또는 사업장에서 이 법 또는 이 법에 의한 명령을 위반한 사실이 있는 경우에는 근로자는 그 사실을 고용노동부장관 또는 노동감독관에게 통지할 수 있다."
-            }
-          ]
-        }
-      ],
-      "verified": true,
-      "parentId": "live-010356-2026-04-07-21534",
-      "articleNo": "제18조",
-      "articleTitle": "감독기관에 대한 통지",
-      "articleLevel": true,
-      "compareBefore": "사업 또는 사업장에서 이 법 또는 이 법에 의한 명령을 위반한 사실이 있는 경우에는 근로자는 그 사실을 고용노동부장관 또는 근로감독관에게 통지할 수 있다.",
-      "compareAfter": "사업 또는 사업장에서 이 법 또는 이 법에 의한 명령을 위반한 사실이 있는 경우에는 근로자는 그 사실을 고용노동부장관 또는 노동감독관에게 통지할 수 있다.",
       "bodyApplied": false
     },
     {
@@ -2585,7 +2549,7 @@
     "freshFetch": true,
     "simulation": {
       "attempt": 1,
-      "maxAttempts": 3,
+      "maxAttempts": 2,
       "passed": true,
       "parityOk": true,
       "offlineProblemCount": 0,
@@ -2599,10 +2563,10 @@
     "simulationLog": [
       {
         "attempt": 1,
-        "maxAttempts": 3,
+        "maxAttempts": 2,
         "offlineProblems": 0,
-        "buildCount": 37,
-        "buildErrors": 0,
+        "buildCount": 36,
+        "buildErrors": 6,
         "parityProblems": [],
         "result": "passed"
       }
@@ -2611,10 +2575,10 @@
   "simulationLog": [
     {
       "attempt": 1,
-      "maxAttempts": 3,
+      "maxAttempts": 2,
       "offlineProblems": 0,
-      "buildCount": 37,
-      "buildErrors": 0,
+      "buildCount": 36,
+      "buildErrors": 6,
       "parityProblems": [],
       "result": "passed"
     }
