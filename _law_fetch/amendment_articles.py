@@ -87,6 +87,18 @@ def resolve_unit_locator(prefix: str) -> str:
         events.append((m.start(), "hang", (int(m.group(1)),)))
     for m in re.finditer(r"같은\s*항에", cleaned):
         events.append((m.start(), "same_hang", ()))
+    # 제N항 각 호 외의 부분 → 항 본문(호 제외)
+    for m in re.finditer(
+        r"(?:제\s*\d+\s*조(?:의\s*\d+)?)?제\s*(\d+)\s*항\s*각\s*호\s*외의\s*부분"
+        r"|같은\s*조\s*제\s*(\d+)\s*항\s*각\s*호\s*외의\s*부분"
+        r"|같은\s*항\s*각\s*호\s*외의\s*부분",
+        cleaned,
+    ):
+        n = m.group(1) or m.group(2)
+        if n:
+            events.append((m.start(), "hang_lead", (int(n),)))
+        else:
+            events.append((m.start(), "same_hang_lead", ()))
     for _pos, kind, vals in sorted(events, key=lambda x: x[0]):
         if kind == "hang_ho":
             hang, ho = vals[0], vals[1]
@@ -96,6 +108,11 @@ def resolve_unit_locator(prefix: str) -> str:
             hang = vals[0]
             ho = None
         elif kind == "same_hang":
+            ho = None
+        elif kind == "hang_lead":
+            hang = vals[0]
+            ho = None
+        elif kind == "same_hang_lead":
             ho = None
     if hang is not None and ho is not None:
         return f"제{hang}항제{ho}호"
@@ -595,12 +612,22 @@ def extract_article_changes(
             )
             entry["summaryParts"].append(f"「{old[:40]}」→「{new[:40]}」")
 
+        # 「제목 외의 부분을 제1항으로 하고」— 현행 단락 본문을 ①로 승격
+        if re.search(r"제목\s*외의\s*부분을\s*제\s*1\s*항으로", chunk):
+            entry["ops"].append(
+                {
+                    "kind": "promote_to_hang1",
+                    "locator": jo,
+                }
+            )
+            entry["summaryParts"].append("제목 외의 부분→제1항")
+
         for para in _extract_new_paragraphs(chunk):
             entry["ops"].append(
                 {
                     "kind": "insert",
                     "text": para,
-                    "locator": f"{jo} {para[0]}항" if para and para[0] in CIRCLE_TO_N else jo,
+                    "locator": hang_locator_from_text(para, jo),
                     "isNew": True,
                 }
             )
@@ -884,6 +911,11 @@ def find_containing_unit(body: str, needle: str) -> tuple[str, int, int] | None:
         unit = body[start:end].rstrip()
         return unit, start, end
 
+    # 1) 원자 단위(항 본문 / 각 호) 우선 — 항 전체+호를 한 덩어리로 잡지 않음
+    for loc, unit, start, end in iter_atomic_units(body):
+        if needle in unit:
+            return unit, start, end
+
     for m in re.finditer(r"(?ms)^(\d+)\.\s+.*?(?=^\d+\.\s|^[①-⑮]|\Z)", body):
         if needle in m.group(0):
             return _clip(m)
@@ -899,6 +931,88 @@ def find_containing_unit(body: str, needle: str) -> tuple[str, int, int] | None:
         line_end = len(body)
     unit = body[line_start:line_end].rstrip()
     return unit, line_start, line_end
+
+
+def iter_atomic_units(body: str) -> list[tuple[str, str, int, int]]:
+    """조문을 항 본문(각 호 외)과 각 호로 쪼갠다.
+
+    제61조처럼 ①·①의 1·2호·②만 개정되고 ②의 1·2호는 그대로인 경우,
+    음영을 바뀐 단위에만 걸기 위함.
+    반환: (locator, text, start, end)
+    """
+    text = (body or "").replace("\r\n", "\n")
+    if not text.strip():
+        return []
+    out: list[tuple[str, str, int, int]] = []
+    for hm in re.finditer(r"(?ms)^([①-⑮])(.*?)(?=^[①-⑮]|\Z)", text):
+        mark = hm.group(1)
+        hang_n = CIRCLE_TO_N.get(mark)
+        if hang_n is None:
+            continue
+        block = hm.group(0)
+        block_start = hm.start()
+        # 항 본문: 첫 줄(및 호 시작 전 연속 줄) / 호: ^N.
+        parts: list[tuple[str, int, int]] = []  # kind lead|ho, rel_start, rel_end
+        rel = 0
+        lines = block.split("\n")
+        idxs: list[tuple[int, str]] = []
+        cursor = 0
+        for ln in lines:
+            idxs.append((cursor, ln))
+            cursor += len(ln) + 1
+        lead_upto = len(idxs)
+        for i, (_off, ln) in enumerate(idxs):
+            if i > 0 and re.match(r"^\d+(?:의\d+)?\.\s*", ln):
+                lead_upto = i
+                break
+        if lead_upto > 0:
+            lead_start = idxs[0][0]
+            last_off, last_ln = idxs[lead_upto - 1]
+            lead_end = last_off + len(last_ln)
+            lead = block[lead_start:lead_end].rstrip()
+            if lead:
+                out.append(
+                    (
+                        f"제{hang_n}항",
+                        lead,
+                        block_start + lead_start,
+                        block_start + lead_start + len(lead),
+                    )
+                )
+        i = lead_upto
+        while i < len(idxs):
+            off, ln = idxs[i]
+            if not re.match(r"^\d+(?:의\d+)?\.\s*", ln):
+                i += 1
+                continue
+            ho = ln.split(".", 1)[0]
+            j = i + 1
+            end_off = off + len(ln)
+            while j < len(idxs) and not re.match(r"^\d+(?:의\d+)?\.\s*", idxs[j][1]):
+                end_off = idxs[j][0] + len(idxs[j][1])
+                j += 1
+            unit = block[off:end_off].rstrip()
+            out.append(
+                (
+                    f"제{hang_n}항제{ho}호",
+                    unit,
+                    block_start + off,
+                    block_start + off + len(unit),
+                )
+            )
+            i = j
+    if not out and text.strip():
+        stripped = text.strip()
+        start = text.find(stripped)
+        out.append(("", stripped, start, start + len(stripped)))
+    return out
+
+
+def atomic_units_containing(body: str, needle: str) -> list[tuple[str, str]]:
+    """needle이 들어 있는 원자 단위만 (locator, text)."""
+    if not needle:
+        return []
+    return [(loc, unit) for loc, unit, _s, _e in iter_atomic_units(body) if needle in unit]
 
 
 # 휴게 단서 문구 변형(법제처 개정문·조문특례 표기가 조금씩 다름)
@@ -1089,7 +1203,25 @@ def _pending_phrases_only(
 
     def _hang_n_from_loc(loc: str) -> int | None:
         m = re.search(r"제\s*(\d+)\s*항", loc or "")
-        return int(m.group(1)) if m else None
+        if m:
+            return int(m.group(1))
+        for ch, n in CIRCLE_TO_N.items():
+            if ch in (loc or ""):
+                return n
+        return None
+
+    has_promote = any(op.get("kind") == "promote_to_hang1" for op in ops)
+
+    def _maybe_promote_hang1(before_unit: str, after_unit: str, loc: str) -> tuple[str, str]:
+        """제목 외 → 제1항: 개정 후 표기에만 ①을 붙이고 locator를 제1항으로."""
+        if not has_promote:
+            return after_unit, loc
+        if before_unit.lstrip()[:1] in CIRCLE_TO_N:
+            return after_unit, loc
+        au = after_unit.lstrip()
+        if not au.startswith("①"):
+            au = "① " + au
+        return au, "제1항"
 
     def _fold_inserts_into(after_unit: str, hang_n: int | None) -> str:
         if hang_n is None:
@@ -1113,7 +1245,7 @@ def _pending_phrases_only(
 
     for op_i, op in enumerate(ops):
         kind = op.get("kind")
-        if kind in ("renumber", "renumber_ho", "delete_ho", "delete_proviso"):
+        if kind in ("renumber", "renumber_ho", "delete_ho", "delete_proviso", "promote_to_hang1"):
             continue
         if kind == "proviso":
             phrases.append(
@@ -1177,33 +1309,51 @@ def _pending_phrases_only(
                 )
                 continue
             old, new = op.get("old") or "", op.get("new") or ""
-            # 인용 일괄 치환: 조 본문 전체 전·후 비교
-            if _is_cite_token(old) and body.count(old) > 1:
-                before_full = body
-                after_full = append_hist_date(body.replace(old, new), amended)
-                before_clean = strip_hist_tags(before_full)
-                after_clean = strip_hist_tags(after_full)
-                loc = op.get("unitLocator") or op.get("locator") or art.get("no") or ""
-                replace_hits.append((before_full, after_full, loc))
-                if not structural:
-                    phrases.append(
-                        {
-                            # 화면 표기=개정 후(+연혁), beforeText는 본문 매칭용(연혁 포함)
-                            "text": after_full,
-                            "beforeText": before_full,
-                            "isNew": False,
-                            "historyKind": "개정",
-                            "historyDates": [amd],
-                            "locator": loc,
-                            "amendedDate": amd,
-                            "effectiveDate": eff,
-                            "beforeNote": "",
-                            "pending": True,
-                            "compareBefore": before_clean,
-                            "compareAfter": after_clean,
-                        }
-                    )
+            if not old or not new or old == new:
                 continue
+
+            # 조문 전문 음영 금지. old가 들어 있는 항 본문·호만 노란색.
+            # (제61조: ①·①1·2호·②만, 미변경 ②1·2호는 제외)
+            atomic_hits = atomic_units_containing(body, old)
+            if atomic_hits:
+                for loc, before_unit in atomic_hits:
+                    before_clean = strip_hist_tags(before_unit)
+                    after_raw = fix_josa_after_jo_replace(
+                        before_unit.replace(old, new), new
+                    )
+                    after_unit = append_hist_date(after_raw, amended)
+                    after_unit, loc = _maybe_promote_hang1(before_unit, after_unit, loc)
+                    after_clean = strip_hist_tags(after_unit)
+                    if before_clean == after_clean:
+                        continue
+                    hang_n = _hang_n_from_loc(loc)
+                    if (
+                        hang_n is not None
+                        and "호" not in (loc or "")
+                        and after_unit.lstrip()[:1] in CIRCLE_TO_N
+                    ):
+                        after_unit = _fold_inserts_into(after_unit, hang_n)
+                        after_clean = strip_hist_tags(after_unit)
+                    replace_hits.append((before_unit, after_unit, loc))
+                    if not structural:
+                        phrases.append(
+                            {
+                                "text": after_unit,
+                                "beforeText": before_unit,
+                                "isNew": False,
+                                "historyKind": "개정",
+                                "historyDates": [amd],
+                                "locator": loc or art.get("no") or "",
+                                "amendedDate": amd,
+                                "effectiveDate": eff,
+                                "beforeNote": "",
+                                "pending": True,
+                                "compareBefore": before_clean,
+                                "compareAfter": after_clean,
+                            }
+                        )
+                continue
+
             unit_info = find_containing_unit(body, old)
             if unit_info:
                 before_unit, _, _ = unit_info
@@ -1215,12 +1365,13 @@ def _pending_phrases_only(
                 loc = op.get("unitLocator") or hang_locator_from_text(
                     before_unit, op.get("locator") or art.get("no") or ""
                 )
+                after_unit, loc = _maybe_promote_hang1(before_unit, after_unit, loc)
                 # 항 본문(①…) 치환이면 같은 항 각 호 신설을 음영 블록에 합침
                 hang_n = _hang_n_from_loc(loc)
                 if (
                     hang_n is not None
                     and "호" not in (loc or "")
-                    and before_unit.lstrip()[:1] in CIRCLE_TO_N
+                    and after_unit.lstrip()[:1] in CIRCLE_TO_N
                 ):
                     after_unit = _fold_inserts_into(after_unit, hang_n)
                 after_clean = strip_hist_tags(after_unit)
@@ -1267,7 +1418,8 @@ def _pending_phrases_only(
             if hist_new not in para and hist_rev not in para:
                 para = para.rstrip() + " " + hist_new
             loc = hang_locator_from_text(para, op.get("locator") or art.get("no") or "")
-            # 항 단위로 접히지 않은 호 신설은 비교 카드용(본문에 자리 없어 음영 제외)
+            # ①②… 항 신설: 화면 음영·본문 말미 삽입. 호(1.) 신설만 비교 카드용으로 제외
+            circle_hang = bool(para and para.lstrip()[:1] in CIRCLE_TO_N)
             phrases.append(
                 {
                     "text": para,
@@ -1275,12 +1427,12 @@ def _pending_phrases_only(
                     "isNew": True,
                     "historyKind": "신설",
                     "historyDates": [amd],
-                    "locator": op.get("locator") or loc,
+                    "locator": loc or op.get("locator") or art.get("no") or "",
                     "amendedDate": amd,
                     "effectiveDate": eff,
                     "beforeNote": "",
                     "pending": True,
-                    "skipHighlight": True,
+                    "skipHighlight": not circle_hang,
                     "compareBefore": "해당 항·호 없음(신설)",
                     "compareAfter": re.sub(r"\s*<[^>]+>\s*", "", para).strip(),
                 }
@@ -1624,6 +1776,11 @@ def apply_ops_to_article(
     hist_rev = hist_tag(amended, "개정")
     hist_new = hist_tag(amended, "신설")
 
+    # 제목 외 → 제1항: 시행 반영 시 본문 선두에 ① 부여
+    if any(op.get("kind") == "promote_to_hang1" for op in ops):
+        if body.strip() and body.lstrip()[:1] not in CIRCLE_TO_N:
+            body = "① " + body.lstrip()
+
     for op in ops:
         if op.get("kind") != "renumber":
             continue
@@ -1716,29 +1873,32 @@ def apply_ops_to_article(
                         }
                     )
                 continue
-            # 인용 번호 일괄 변경(제60조제7항→제8항 등): 조 전체에 여러 번 등장
+            # 인용 번호 일괄 변경: 본문은 전체 치환하되, 음영은 바뀐 항·호만
             if _is_cite_token(old) and body.count(old) > 1:
-                before_full = body
-                after_full = body.replace(old, new)
-                after_clean = re.sub(r"\s*<개정[^>]*>\s*", " ", after_full).rstrip()
-                after_marked = after_clean + " " + hist_rev
-                body = after_marked
-                phrases.append(
-                    {
-                        "text": after_marked,
-                        "beforeText": re.sub(r"\s*<개정[^>]*>\s*", " ", before_full).strip(),
-                        "isNew": False,
-                        "historyKind": "개정",
-                        "historyDates": [amd],
-                        "locator": op.get("unitLocator")
-                        or op.get("locator")
-                        or art.get("no")
-                        or "",
-                        "amendedDate": amd,
-                        "effectiveDate": eff,
-                        "beforeNote": "",
-                    }
-                )
+                atomic_hits = atomic_units_containing(body, old)
+                for loc, before_unit in atomic_hits:
+                    after_unit = append_hist_date(
+                        fix_josa_after_jo_replace(
+                            before_unit.replace(old, new), new
+                        ),
+                        amended,
+                    )
+                    phrases.append(
+                        {
+                            "text": after_unit,
+                            "beforeText": before_unit,
+                            "isNew": False,
+                            "historyKind": "개정",
+                            "historyDates": [amd],
+                            "locator": loc or art.get("no") or "",
+                            "amendedDate": amd,
+                            "effectiveDate": eff,
+                            "beforeNote": "",
+                            "compareBefore": strip_hist_tags(before_unit),
+                            "compareAfter": strip_hist_tags(after_unit),
+                        }
+                    )
+                body = append_hist_date(body.replace(old, new), amended)
                 continue
             unit_info = find_containing_unit(body, old)
             if unit_info:
@@ -2113,6 +2273,7 @@ def enrich_revision_with_articles(
                 "delete_ho",
                 "renumber",
                 "renumber_ho",
+                "promote_to_hang1",
             ):
                 ops_hit = True
                 break
