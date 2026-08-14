@@ -3,13 +3,14 @@ name: Refresh law data
 # 자동(매일) / 수동(버튼·workflow_dispatch) 갱신마다:
 #   1) 법제처에서 전문·개정문·예고를 새로 수집 (옛 캐시 재사용 없음)
 #   2) 자율정정(유령 제거 등)
-#   3) 법제처 대조 시뮬레이션 — 상이하면 재수집·재검증 (최대 3회)
+#   3) 법제처 대조 시뮬레이션 — 상이하면 재수집·재검증 (최대 2회, 7분 예산)
 #   4) 통과한 신규 데이터만 커밋 (실패·옛 캐시 성공 위장 커밋 금지)
 #
 # 실패 원인(과거):
 #  1) Actions IP → law.go.kr timed out
 #  2) 버튼 연타로 동시 실행 → git push 충돌로 Commit 단계 실패
-# 해결: Cloudflare 프록시 수집 + concurrency cancel + pull --rebase 후 푸시
+#  3) Fresh fetch + simulation 이 20분 초과(중복 XML·개정문 fetch × 3회)
+# 해결: Cloudflare 프록시 + 병렬 전문 + 캐시 + 로컬전문 재사용 + timeout 7분
 
 on:
   schedule:
@@ -35,7 +36,7 @@ concurrency:
 jobs:
   refresh:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 10
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -49,23 +50,26 @@ jobs:
           python-version: "3.12"
 
       - name: Fresh fetch + law.go.kr simulation
-        timeout-minutes: 20
+        timeout-minutes: 7
         env:
           PYTHONIOENCODING: utf-8
           CI: "true"
+          LAW_FETCH_FAST: "1"
+          LAW_PARITY_USE_LOCAL_FULL: "1"
           LAW_FETCH_PROXY: https://wandering-dew-09bd.shkim5.workers.dev
           LAW_FETCH_PROXY_SECRET: ${{ secrets.LAW_FETCH_PROXY_SECRET }}
-          LAW_HTTP_TIMEOUT: "45"
+          LAW_HTTP_TIMEOUT: "25"
         run: |
           set -euo pipefail
           BASE="${{ github.event.inputs.base }}"
           if [ -z "$BASE" ]; then
             BASE="${{ github.event.client_payload.base }}"
           fi
+          # 7분 예산: 재시도 2회 + 병렬·캐시·로컬전문 재사용
           if [ -n "$BASE" ]; then
-            python3 _law_fetch/refresh_amendments.py --base "$BASE" --repair-attempts 3
+            python3 _law_fetch/refresh_amendments.py --base "$BASE" --repair-attempts 2
           else
-            python3 _law_fetch/refresh_amendments.py --repair-attempts 3
+            python3 _law_fetch/refresh_amendments.py --repair-attempts 2
           fi
 
       - name: Guard - allow commit only after simulation pass
