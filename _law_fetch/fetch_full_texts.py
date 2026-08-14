@@ -276,50 +276,86 @@ def validate_text(text: str, must_contain: list[str], tier: str) -> list[str]:
 
 
 def refresh_all_full_texts(
-    sleep_s: float = 0.25, as_of: date | None = None
+    sleep_s: float | None = None, as_of: date | None = None, workers: int | None = None
 ) -> dict:
+    """4법×3단 전문을 병렬 수집. CI(LAW_FETCH_FAST)에서는 sleep 없이 동시 요청."""
+    import os
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
     as_of = as_of or date.today()
-    report = {"ok": True, "asOf": as_of.isoformat(), "files": [], "errors": []}
-    for law_id, tier, ls_id, filename, must in FULL_TARGETS:
+    fast = os.environ.get("LAW_FETCH_FAST", "").strip() in ("1", "true", "TRUE") or (
+        os.environ.get("CI", "").strip() == "true"
+    )
+    if sleep_s is None:
+        sleep_s = 0.0 if fast else 0.25
+    if workers is None:
+        workers = 4 if fast else 1
+
+    report: dict = {"ok": True, "asOf": as_of.isoformat(), "files": [], "errors": []}
+
+    def _one(target: tuple) -> dict:
+        law_id, tier, ls_id, filename, must = target
         path = FETCH / filename
-        try:
-            ref = resolve_eflaw_ref(ls_id, as_of=as_of)
-            xml = (
-                fetch_eflaw_xml(ref["mst"], ref["efYd"])
-                if ref
-                else fetch_law_xml(ls_id)
-            )
-            text = xml_to_full_text(xml)
-            problems = validate_text(text, must, tier)
-            if problems:
-                raise RuntimeError(f"validation failed: {problems}")
-            jo_n = len(re.findall(r"(?m)^제\d+조", text))
-            if jo_n < 1:
-                raise RuntimeError("no articles parsed")
-            path.write_text(text, encoding="utf-8")
-            report["files"].append(
-                {
-                    "lawId": law_id,
-                    "tier": tier,
-                    "lsId": ls_id,
-                    "file": filename,
-                    "bytes": len(text.encode("utf-8")),
-                    "articles": jo_n,
-                    "eflaw": ref,
-                }
-            )
+        ref = resolve_eflaw_ref(ls_id, as_of=as_of)
+        xml = (
+            fetch_eflaw_xml(ref["mst"], ref["efYd"]) if ref else fetch_law_xml(ls_id)
+        )
+        text = xml_to_full_text(xml)
+        problems = validate_text(text, must, tier)
+        if problems:
+            raise RuntimeError(f"validation failed: {problems}")
+        jo_n = len(re.findall(r"(?m)^제\d+조", text))
+        if jo_n < 1:
+            raise RuntimeError("no articles parsed")
+        path.write_text(text, encoding="utf-8")
+        if sleep_s > 0:
             time.sleep(sleep_s)
-        except Exception as exc:  # noqa: BLE001
-            report["ok"] = False
-            report["errors"].append(
-                {
-                    "lawId": law_id,
-                    "tier": tier,
-                    "lsId": ls_id,
-                    "file": filename,
-                    "error": str(exc),
-                }
-            )
+        return {
+            "lawId": law_id,
+            "tier": tier,
+            "lsId": ls_id,
+            "file": filename,
+            "bytes": len(text.encode("utf-8")),
+            "articles": jo_n,
+            "eflaw": ref,
+        }
+
+    if workers <= 1:
+        for target in FULL_TARGETS:
+            try:
+                report["files"].append(_one(target))
+            except Exception as exc:  # noqa: BLE001
+                report["ok"] = False
+                law_id, tier, ls_id, filename, _must = target
+                report["errors"].append(
+                    {
+                        "lawId": law_id,
+                        "tier": tier,
+                        "lsId": ls_id,
+                        "file": filename,
+                        "error": str(exc),
+                    }
+                )
+        return report
+
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        futs = {pool.submit(_one, t): t for t in FULL_TARGETS}
+        for fut in as_completed(futs):
+            target = futs[fut]
+            try:
+                report["files"].append(fut.result())
+            except Exception as exc:  # noqa: BLE001
+                report["ok"] = False
+                law_id, tier, ls_id, filename, _must = target
+                report["errors"].append(
+                    {
+                        "lawId": law_id,
+                        "tier": tier,
+                        "lsId": ls_id,
+                        "file": filename,
+                        "error": str(exc),
+                    }
+                )
     return report
 
 
