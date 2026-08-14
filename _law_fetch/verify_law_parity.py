@@ -91,14 +91,22 @@ COMPOSE_PROBES = [
             "수급인이 제44조의4제6항",
             "노동감독관",
             "제44조의4제1항ㆍ제4항ㆍ제5항, 제48조",
-            "4. 삭제",
+            # 미시행 삭제는 본문에 현행(제102조…) 유지 — '4. 삭제'로 바꾸지 않음
+            "제102조에 따른 근로감독관",
         ],
         "requireOrder": [
             "다음 각 호의 어느 하나에 해당하는 경우에는 1천만원",
             "수급인이 제44조의4제6항",
             "② 다음 각 호의",
             "노동감독관",
-            "④ 삭제",
+            "제102조에 따른 근로감독관",
+        ],
+        "requirePendingDelete": [
+            {
+                "locator": "제2항제4호",
+                "beforeHas": "제102조에 따른 근로감독관",
+                "afterHas": "4. 삭제",
+            }
         ],
         "forbidDualDateChips": True,
     },
@@ -270,8 +278,10 @@ LIVE_PROBES = [
                 "requireBodyApplied": False,
                 "requireHighlightPhraseAfter": "노동감독관",
                 "requireDeleteHang": "제2항제4호",
+                "requirePendingDelete": True,
                 "requireLocators": ["제2항제1호", "제2항제4호"],
                 "forbidPhraseAfter": "제102조에 따른 노동감독관",
+                "requirePhraseBeforeHas": "제102조에 따른 근로감독관",
             },
             {
                 "amendedDate": "2026-04-07",
@@ -702,7 +712,10 @@ def _insert_new_pending_phrase(html: str, phrase: dict) -> str:
 def simulate_article_highlight_after(
     body: str, phrases: list[dict]
 ) -> str:
-    """음영 적용 후 본문에 보이는 개정 후 텍스트(합성 포함)."""
+    """음영 적용 후 본문에 보이는 개정 후 텍스트(합성 포함).
+
+    미시행 호 삭제(pendingDelete)는 법제처처럼 현행 문구를 유지한다.
+    """
     composed = compose_pending_phrases(body, phrases)
     html = body or ""
     # 긴 문구부터 (main.js 와 동일)
@@ -715,6 +728,13 @@ def simulate_article_highlight_after(
         after = phrase.get("text") or ""
         before = phrase.get("beforeText") or ""
         if not after:
+            continue
+        pending_del = bool(phrase.get("pendingDelete")) or (
+            bool(phrase.get("pending"))
+            and bool(re.match(r"\d+(?:의\d+)?\.\s*삭제\b", after))
+        )
+        if phrase.get("pending") and pending_del and before and before in html:
+            # 현행 유지 (삭제 문구로 치환하지 않음)
             continue
         if after in html:
             continue
@@ -831,6 +851,10 @@ def check_compose_probes(
                     ph = dict(p)
                     if item.get("bodyApplied") is False:
                         ph["pending"] = True
+                    text = (ph.get("text") or "").strip()
+                    if not ph.get("pendingDelete") and ph.get("pending"):
+                        if re.match(r"\d+(?:의\d+)?\.\s*삭제\b", text):
+                            ph["pendingDelete"] = True
                     ph["amendmentSummary"] = item.get("summary") or item.get(
                         "briefSummary"
                     ) or ""
@@ -911,6 +935,50 @@ def check_compose_probes(
                         f"locator={p.get('locator')} composedFrom={len(cf)}"
                     )
                     ok = False
+        # 미시행 호 삭제: phrase·본문 현행 유지 검증 (법제처와 동일)
+        for spec in probe.get("requirePendingDelete") or []:
+            loc = spec.get("locator") or ""
+            before_has = spec.get("beforeHas") or ""
+            after_has = spec.get("afterHas") or ""
+            matched = [
+                p
+                for p in phrases
+                if loc and loc == (p.get("locator") or "")
+            ]
+            if not matched:
+                problems.append(f"compose_pending_delete_missing {art_no}: {loc}")
+                ok = False
+                continue
+            hit = matched[0]
+            text = hit.get("text") or ""
+            before = hit.get("beforeText") or ""
+            if not hit.get("pendingDelete"):
+                problems.append(
+                    f"compose_pending_delete_flag {art_no}: {loc}"
+                )
+                ok = False
+            if before_has and before_has not in before:
+                problems.append(
+                    f"compose_pending_delete_before {art_no}: {loc}"
+                )
+                ok = False
+            if after_has and after_has not in text:
+                problems.append(
+                    f"compose_pending_delete_after {art_no}: {loc}"
+                )
+                ok = False
+            if before_has and before_has not in after:
+                problems.append(
+                    f"compose_pending_delete_body {art_no}: "
+                    f"현행 '{before_has}' 가 합성 본문에 없음"
+                )
+                ok = False
+            # 시행 전 본문에 'N. 삭제'로 치환되면 안 됨
+            if after_has and after_has in after and before_has not in after:
+                problems.append(
+                    f"compose_pending_delete_replaced {art_no}: {loc}"
+                )
+                ok = False
         if verbose:
             status = "OK" if ok else "FAIL"
             print(f"[{status}] compose {art_no} phrases={len(phrases)}")
@@ -1162,6 +1230,33 @@ def run_simulation(verbose: bool = True) -> dict:
                             f"delete_before_not_in_body {item.get('id')}"
                         )
                         row["ok"] = False
+                    if amd.get("requirePendingDelete"):
+                        ok_pd = False
+                        for p in del_phrases:
+                            t = (p.get("text") or "").strip()
+                            flagged = bool(p.get("pendingDelete")) or bool(
+                                re.match(r"\d+(?:의\d+)?\.\s*삭제\b", t)
+                            )
+                            if flagged:
+                                ok_pd = True
+                                break
+                        if not ok_pd:
+                            problems.append(
+                                f"pending_delete_flag_missing {item.get('id')}"
+                            )
+                            row["ok"] = False
+                            row["details"].append("pending_delete_flag_missing")
+                    before_need = amd.get("requirePhraseBeforeHas") or ""
+                    if before_need:
+                        befores = " ".join(
+                            (p.get("beforeText") or "") for p in del_phrases
+                        )
+                        if before_need not in befores:
+                            problems.append(
+                                f"delete_before_text_missing {item.get('id')}: "
+                                f"{before_need[:40]}"
+                            )
+                            row["ok"] = False
             if amd.get("requirePhraseAfter"):
                 needle = amd["requirePhraseAfter"]
                 texts = " ".join(
