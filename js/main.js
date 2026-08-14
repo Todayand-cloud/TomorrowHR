@@ -450,13 +450,79 @@
   /** ①②…⑮ — 항 번호 삽입 시 다음 항 원문자 찾기 */
   const CIRCLE_HANGS = "①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮";
 
+  /** locator·문구에서 호 번호 추출 (1호 / 제1호 / 제2항제1호 / "1. …") */
+  function extractHoNum(locator, text) {
+    const loc = String(locator || "").replace(/\s/g, "");
+    let m = loc.match(/^(?:제\d+항)?제?(\d+)(?:의\d+)?호$/);
+    if (m) return parseInt(m[1], 10);
+    m = String(text || "")
+      .replace(/^\s+/, "")
+      .match(/^(\d+)(?:의\d+)?\./);
+    if (m) return parseInt(m[1], 10);
+    return null;
+  }
+
+  /** 신설 항·호 삽입 순서: 항 → 호 오름차순 (길이순 정렬로 2·1·3 섞임 방지) */
+  function phraseStructureSortKey(phrase) {
+    const loc = String((phrase && phrase.locator) || "").replace(/\s/g, "");
+    const text = String((phrase && phrase.text) || "").replace(/^\s+/, "");
+    let hang = 0;
+    const hangM = loc.match(/제(\d+)항/);
+    if (hangM) hang = parseInt(hangM[1], 10);
+    else if (text && CIRCLE_HANGS.indexOf(text.charAt(0)) !== -1) {
+      hang = CIRCLE_HANGS.indexOf(text.charAt(0)) + 1;
+    }
+    const ho = extractHoNum(loc, text);
+    return hang * 100000 + (ho == null ? 0 : ho);
+  }
+
   /**
    * 미시행 신설 항·호: 조 끝이 아니라 구조 위치에 삽입.
-   * 예) 제1항제2호 → ② 앞 (①·제1호 바로 뒤). 법제처 조문 순서와 동일해야 함.
+   * - 제N항제M호: 해당 항(①…다음항) 블록 안에서만 호 번호순 배치
+   * - 1호/제1호(항 없음): 조 전체에서 호 번호순
    */
   function insertIndexForNewPhrase(html, phrase) {
     const loc = String(phrase.locator || "").replace(/\s/g, "");
+    const hoNum = extractHoNum(loc, phrase.text);
     const hangM = loc.match(/제(\d+)항/);
+
+    let rangeStart = 0;
+    let rangeEnd = html.length;
+    if (hangM) {
+      const hangN = parseInt(hangM[1], 10);
+      if (hangN >= 1 && hangN <= CIRCLE_HANGS.length) {
+        const circle = CIRCLE_HANGS.charAt(hangN - 1);
+        const at = html.indexOf(circle);
+        if (at !== -1) rangeStart = at;
+        if (hangN < CIRCLE_HANGS.length) {
+          const nextCircle = CIRCLE_HANGS.charAt(hangN);
+          const endAt = html.indexOf(nextCircle, rangeStart + 1);
+          if (endAt !== -1) rangeEnd = endAt;
+        }
+      }
+    }
+
+    if (hoNum != null) {
+      const slice = html.slice(rangeStart, rangeEnd);
+      for (let n = hoNum + 1; n <= hoNum + 40; n++) {
+        const re = new RegExp("(^|\\n)" + n + "\\.");
+        const m = re.exec(slice);
+        if (m) {
+          return rangeStart + m.index + (m[1] ? m[1].length : 0);
+        }
+      }
+      if (hoNum > 1) {
+        const re = new RegExp("(^|\\n)" + (hoNum - 1) + "\\.[^\\n]*", "g");
+        let last = null;
+        let m;
+        while ((m = re.exec(slice))) last = m;
+        if (last) return rangeStart + last.index + last[0].length;
+      }
+      // 항 블록 끝(다음 항 앞) — 제1항제2호 → ② 앞
+      if (hangM && rangeEnd < html.length) return rangeEnd;
+      return -1;
+    }
+
     if (hangM) {
       const hangN = parseInt(hangM[1], 10);
       if (hangN >= 1 && hangN < CIRCLE_HANGS.length) {
@@ -464,13 +530,6 @@
         const at = html.indexOf(nextCircle);
         if (at !== -1) return at;
       }
-    }
-    const hoOnly = loc.match(/^제(\d+)호$/);
-    if (hoOnly) {
-      const nextNum = String(parseInt(hoOnly[1], 10) + 1);
-      const re = new RegExp("(^|\\n)" + nextNum + "\\.");
-      const m = re.exec(html);
-      if (m) return m.index + (m[1] ? m[1].length : 0);
     }
     return -1;
   }
@@ -563,11 +622,18 @@
       html = html.split(searchEsc).join(buildAmendMark(phrase, afterEsc));
     });
 
-    // 미시행 항·호 신설: 치환 자리 없으면 다음 항(②…) 앞 등 구조 위치에 삽입
-    list.forEach(function (phrase) {
-      if (!(phrase.pending && phrase.isNew && phrase.text)) return;
-      html = insertNewPendingPhrase(html, phrase);
-    });
+    // 미시행 항·호 신설: 항·호 번호 오름차순으로 삽입 (길이순이면 2→1→3 섞임)
+    list
+      .filter(function (phrase) {
+        return phrase.pending && phrase.isNew && phrase.text;
+      })
+      .slice()
+      .sort(function (a, b) {
+        return phraseStructureSortKey(a) - phraseStructureSortKey(b);
+      })
+      .forEach(function (phrase) {
+        html = insertNewPendingPhrase(html, phrase);
+      });
 
     return html;
   }
