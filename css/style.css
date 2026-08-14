@@ -2225,6 +2225,12 @@ body.is-panel-view .desk {
   border-color: #e0c56a;
 }
 
+.amend-mark__chip--del {
+  color: #7a1f1f;
+  background: #ffe8e8;
+  border-color: #e0a0a0;
+}
+
 .amend-mark__memo {
   display: none;
 }
