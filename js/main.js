@@ -335,6 +335,50 @@
     return out;
   }
 
+  /** ①②…⑮ — 항 번호 삽입 시 다음 항 원문자 찾기 */
+  const CIRCLE_HANGS = "①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮";
+
+  /**
+   * 미시행 신설 항·호: 조 끝이 아니라 구조 위치에 삽입.
+   * 예) 제1항제2호 → ② 앞 (①·제1호 바로 뒤). 법제처 조문 순서와 동일해야 함.
+   */
+  function insertIndexForNewPhrase(html, phrase) {
+    const loc = String(phrase.locator || "").replace(/\s/g, "");
+    const hangM = loc.match(/제(\d+)항/);
+    if (hangM) {
+      const hangN = parseInt(hangM[1], 10);
+      if (hangN >= 1 && hangN < CIRCLE_HANGS.length) {
+        const nextCircle = CIRCLE_HANGS.charAt(hangN);
+        const at = html.indexOf(nextCircle);
+        if (at !== -1) return at;
+      }
+    }
+    const hoOnly = loc.match(/^제(\d+)호$/);
+    if (hoOnly) {
+      const nextNum = String(parseInt(hoOnly[1], 10) + 1);
+      const re = new RegExp("(^|\\n)" + nextNum + "\\.");
+      const m = re.exec(html);
+      if (m) return m.index + (m[1] ? m[1].length : 0);
+    }
+    return -1;
+  }
+
+  function insertNewPendingPhrase(html, phrase) {
+    const afterEsc = escapeHtml(phrase.text);
+    if (!afterEsc) return html;
+    if (html.indexOf(afterEsc) !== -1) return html;
+    const markHtml = buildAmendMark(phrase, afterEsc);
+    const at = insertIndexForNewPhrase(html, phrase);
+    if (at < 0) {
+      return (html.trim() ? html + "\n" : "") + markHtml;
+    }
+    let prefix = html.slice(0, at);
+    let suffix = html.slice(at);
+    if (prefix && !/\n$/.test(prefix)) prefix += "\n";
+    if (suffix && suffix.charAt(0) !== "\n") suffix = "\n" + suffix;
+    return prefix + markHtml + suffix;
+  }
+
   function highlightBody(body, phrases) {
     let html = escapeHtml(body || "");
     if (!phrases || !phrases.length) return html;
@@ -386,13 +430,10 @@
       html = html.split(searchEsc).join(buildAmendMark(phrase, afterEsc));
     });
 
-    // 미시행 항·호 신설: 본문에 치환 자리가 없으면 본문 끝에 노란 음영으로 추가
+    // 미시행 항·호 신설: 치환 자리 없으면 다음 항(②…) 앞 등 구조 위치에 삽입
     list.forEach(function (phrase) {
       if (!(phrase.pending && phrase.isNew && phrase.text)) return;
-      const afterEsc = escapeHtml(phrase.text);
-      if (!afterEsc) return;
-      if (html.indexOf(afterEsc) !== -1) return;
-      html += (html.trim() ? "\n" : "") + buildAmendMark(phrase, afterEsc);
+      html = insertNewPendingPhrase(html, phrase);
     });
 
     return html;
