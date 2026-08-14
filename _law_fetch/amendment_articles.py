@@ -155,14 +155,17 @@ def resolve_unit_locators(prefix: str) -> list[str]:
 
 
 def _extract_trailing_hos(chunk: str, after_pos: int) -> list[str]:
-    """신설 각 호 본문: 개정 지시문 끝(…한다.) 뒤의 1. 2. … 목록."""
+    """신설 각 호 본문: 개정 지시문 끝(…한다.) 뒤의 1. 2. … 목록.
+
+    단서(다만, …)가 호 목록 앞에 와도 1. 2. 3. 만 수집한다.
+    """
     tail = chunk[after_pos:]
-    last_handa = None
-    for m in re.finditer(r"한다\.", chunk):
-        if m.end() > after_pos:
-            last_handa = m
-    if last_handa:
-        tail = chunk[last_handa.end() :]
+    # 지시문과 같은 '신설한다.' 직후부터. 이후 '한다.'로 재절단하지 않음
+    # (단서·호 본문에 '…한다.' 가 있으면 호가 잘릴 수 있음)
+    first = re.search(r"\d+(?:의\d+)?\.\s*", tail)
+    if not first:
+        return []
+    tail = tail[first.start() :]
     hos: list[str] = []
     for hos_m in re.finditer(
         r"(\d+(?:의\d+)?\.\s*.+?)(?=\s*\d+(?:의\d+)?\.|\s*$)",
@@ -170,8 +173,12 @@ def _extract_trailing_hos(chunk: str, after_pos: int) -> list[str]:
         flags=re.S,
     ):
         text = re.sub(r"\s+", " ", hos_m.group(1)).strip()
-        if len(text) >= 4:
-            hos.append(text)
+        # 단서·지시 잔여가 호처럼 잡히지 않게: 본문이 너무 짧거나 호 형식만
+        if len(text) < 6:
+            continue
+        if not re.match(r"\d+(?:의\d+)?\.\s+\S", text):
+            continue
+        hos.append(text)
     return hos
 
 
@@ -572,10 +579,24 @@ def _is_cite_token(text: str) -> bool:
     )
 
 
+def _is_ho_list_embedded_jo(text: str, pos: int) -> bool:
+    """호 목록 본문 속 '1. 제9조제1항을 위반…' 은 조문 지시가 아님.
+
+    `_STMT_START_RE` 가 `1. ` 뒤 `(?<=\\.\\s)` 로 제N조를 잡아
+    제43조 각 호 신설 청크가 잘리는 회귀를 막는다.
+    """
+    prev = text[max(0, pos - 12) : pos]
+    return bool(re.search(r"\d+(?:의\d+)?\.\s*$", prev))
+
+
 def _split_jo_chunks(doc_text: str) -> list[tuple[str, str]]:
     """개정 본문을 조문 지시 단위로 자른다(인용·본문 속 조문번호 제외)."""
     main = re.split(r"\s부칙\s", doc_text, maxsplit=1)[0]
-    starts = list(_STMT_START_RE.finditer(main))
+    starts = [
+        m
+        for m in _STMT_START_RE.finditer(main)
+        if not _is_ho_list_embedded_jo(main, m.start())
+    ]
     chunks: list[tuple[str, str]] = []
     for i, m in enumerate(starts):
         jo = jo_label(m.group(1), m.group(2))
@@ -592,7 +613,12 @@ def _extract_new_paragraphs(chunk: str) -> list[str]:
     paras = []
     for m in re.finditer(r"신설한다\.\s*", chunk):
         rest = chunk[m.end() :]
-        stop = _STMT_START_RE.search(rest)
+        stop = None
+        for sm in _STMT_START_RE.finditer(rest):
+            if _is_ho_list_embedded_jo(rest, sm.start()):
+                continue
+            stop = sm
+            break
         # 제N장에 제M조를 신설 — 항 본문에 다음 조 지시가 붙지 않게
         stop2 = re.search(r"제\s*\d+\s*장에\s*제\s*\d+\s*조", rest)
         end = len(rest)
@@ -861,7 +887,7 @@ def extract_article_changes(
                 loc = (
                     f"제{hang_n}항제{ho_n}호"
                     if hang_n is not None
-                    else f"{jo} 제{ho_n}호"
+                    else f"{ho_n}호"
                 )
                 entry["ops"].append(
                     {
