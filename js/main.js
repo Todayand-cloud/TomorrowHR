@@ -525,10 +525,14 @@
 
     if (hangM) {
       const hangN = parseInt(hangM[1], 10);
-      if (hangN >= 1 && hangN < CIRCLE_HANGS.length) {
-        const nextCircle = CIRCLE_HANGS.charAt(hangN);
-        const at = html.indexOf(nextCircle);
-        if (at !== -1) return at;
+      if (hangN >= 1 && hangN <= CIRCLE_HANGS.length) {
+        // 다음 항·그 이후 항(⑦⑧⑨…) 중 본문에 있는 첫 자리 앞
+        // 제6항 신설 시 기존 ⑥→⑨ 이동 후 ⑨ 앞에 삽입하기 위함
+        for (let n = hangN; n < CIRCLE_HANGS.length; n++) {
+          const nextCircle = CIRCLE_HANGS.charAt(n);
+          const at = html.indexOf(nextCircle);
+          if (at !== -1) return at;
+        }
       }
     }
     return -1;
