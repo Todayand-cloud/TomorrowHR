@@ -38,6 +38,18 @@ MAJOR_LAWS = [
 ]
 
 # 법제처 현행 본문에 반드시 있어야 하는 앵커 (크롤 누락 회귀 방지)
+# 같은 조에 미시행 개정이 여러 건일 때 UI 합성 결과 검증
+COMPOSE_PROBES = [
+    {
+        "lawId": "labor-standards",
+        "articleNo": "제110조",
+        "articleId": "labor-standards-statute-110",
+        # 21533(제104조제2항→제104조) + 21784(제4항및제5항→부터제6항) 합성
+        "requireInComposed": ["제104조를", "제4항부터 제6항까지"],
+        "forbidInComposed": ["제104조제2항"],
+    },
+]
+
 LIVE_PROBES = [
     {
         "lsId": "001872",
@@ -57,7 +69,10 @@ LIVE_PROBES = [
                 "requireHighlight": True,
                 "requireBodyApplied": False,
                 "requirePhraseAfter": "제104조",
+                "requireHighlightPhraseAfter": "제104조를",
                 "forbidPhraseAfter": "제104조제2항",
+                "requirePhraseBefore": "제104조제2항",
+                "requireLocators": ["제1호"],
             },
             {
                 "amendedDate": "2026-06-09",
@@ -68,6 +83,8 @@ LIVE_PROBES = [
                 "requireHighlight": True,
                 "requireBodyApplied": False,
                 "requirePhraseAfter": "제4항부터 제6항까지",
+                "requireHighlightPhraseAfter": "제4항부터 제6항까지",
+                "requireLocators": ["제1호"],
             },
         ],
     },
@@ -299,6 +316,226 @@ def extract_live_article(xml: str, article_no: str) -> str:
         text = xml_to_full_text(mini)
         return article_chunk(text, article_no) or text
     return ""
+
+
+def _strip_hist_tags(text: str) -> str:
+    t = re.sub(r"\s*<(?:개정|신설)\s[^>]*>", " ", text or "")
+    return re.sub(r"\s+", " ", t).strip()
+
+
+def _minimal_substitution(before: str, after: str) -> tuple[str, str] | None:
+    """main.js minimalSubstitution 과 동일 목적의 최소 치환 추출."""
+    b = _strip_hist_tags(before)
+    a = _strip_hist_tags(after)
+    if not b or not a or b == a:
+        return None
+    pre = 0
+    while pre < len(b) and pre < len(a) and b[pre] == a[pre]:
+        pre += 1
+    suf = 0
+    while (
+        suf < len(b) - pre
+        and suf < len(a) - pre
+        and b[len(b) - 1 - suf] == a[len(a) - 1 - suf]
+    ):
+        suf += 1
+    while pre > 0:
+        old = b[pre : len(b) - suf]
+        occurrences = b.count(old) if old else 0
+        if len(old) >= 8 and occurrences == 1:
+            break
+        if len(old) >= 24 and occurrences >= 1:
+            break
+        pre -= 1
+    return b[pre : len(b) - suf], a[pre : len(a) - suf]
+
+
+def _fix_josa_jo_eul(text: str) -> str:
+    return re.sub(r"조을(?=\s|위반|위반한|,|\.|$)", "조를", text or "")
+
+
+def compose_pending_phrases(body: str, phrases: list[dict]) -> list[dict]:
+    """main.js composePendingPhrases 시뮬레이션 — 같은 locator 연쇄 합성."""
+    pending = [
+        p
+        for p in phrases
+        if p
+        and p.get("pending")
+        and not p.get("isNew")
+        and (p.get("beforeText") or "").strip()
+        and (p.get("text") or "").strip()
+    ]
+    rest = [p for p in phrases if p not in pending]
+    if len(pending) <= 1:
+        return list(phrases)
+
+    groups: dict[str, list[dict]] = {}
+    order: list[str] = []
+    for p in pending:
+        key = (p.get("locator") or "").strip() or "_"
+        if key not in groups:
+            groups[key] = []
+            order.append(key)
+        groups[key].append(p)
+
+    out = list(rest)
+    raw = body or ""
+    for key in order:
+        group = groups[key]
+        if len(group) <= 1:
+            out.extend(group)
+            continue
+        sorted_g = sorted(
+            group,
+            key=lambda p: (
+                p.get("effectiveDate") or "",
+                p.get("amendedDate") or "",
+            ),
+        )
+        anchor = None
+        for p in sorted_g:
+            b = p.get("beforeText") or ""
+            if b and b in raw:
+                anchor = b
+                break
+            bs = _strip_hist_tags(b)
+            if bs and bs in raw:
+                anchor = bs
+                break
+        if not anchor:
+            out.extend(group)
+            continue
+        working = _strip_hist_tags(anchor)
+        applied: list[dict] = []
+        for p in sorted_g:
+            sub = _minimal_substitution(p.get("beforeText") or "", p.get("text") or "")
+            if sub and sub[0] and sub[0] in working:
+                working = working.replace(sub[0], sub[1], 1)
+                working = _fix_josa_jo_eul(working)
+                applied.append(p)
+                continue
+            pb = _strip_hist_tags(p.get("beforeText") or "")
+            pa = _strip_hist_tags(p.get("text") or "")
+            if pb and pb in working:
+                working = working.replace(pb, pa, 1)
+                working = _fix_josa_jo_eul(working)
+                applied.append(p)
+        if len(applied) <= 1:
+            out.extend(group)
+            continue
+        latest = applied[-1]
+        composed = {
+            "text": working,
+            "beforeText": anchor,
+            "pending": True,
+            "isNew": False,
+            "amendedDate": latest.get("amendedDate"),
+            "effectiveDate": latest.get("effectiveDate"),
+            "locator": latest.get("locator") or applied[0].get("locator") or "",
+        }
+        used = {
+            (
+                (p.get("text") or "")
+                + "|"
+                + (p.get("locator") or "")
+                + "|"
+                + (p.get("amendedDate") or "")
+            )
+            for p in applied
+        }
+        leftover = [
+            p
+            for p in group
+            if (
+                (p.get("text") or "")
+                + "|"
+                + (p.get("locator") or "")
+                + "|"
+                + (p.get("amendedDate") or "")
+            )
+            not in used
+        ]
+        out.append(composed)
+        out.extend(leftover)
+    return out
+
+
+def simulate_article_highlight_after(
+    body: str, phrases: list[dict]
+) -> str:
+    """음영 적용 후 본문에 보이는 개정 후 텍스트(합성 포함)."""
+    composed = compose_pending_phrases(body, phrases)
+    html = body or ""
+    # 긴 문구부터 (main.js 와 동일)
+    ordered = sorted(
+        [p for p in composed if (p.get("text") or "").strip()],
+        key=lambda p: len(p.get("text") or ""),
+        reverse=True,
+    )
+    for phrase in ordered:
+        after = phrase.get("text") or ""
+        before = phrase.get("beforeText") or ""
+        if not after:
+            continue
+        if after in html:
+            html = html.replace(after, after)
+            continue
+        if phrase.get("pending") and before and before in html:
+            html = html.replace(before, after, 1)
+        elif phrase.get("pending") and phrase.get("isNew") and after not in html:
+            html = (html.rstrip() + "\n" + after) if html.strip() else after
+    return html
+
+
+def check_compose_probes(
+    amendments: list[dict], articles: dict, problems: list[str], verbose: bool
+) -> None:
+    """같은 조 미시행 개정 합성 결과가 법제처 개정 방향과 맞는지 검증."""
+    for probe in COMPOSE_PROBES:
+        art_no = probe["articleNo"]
+        aid = probe.get("articleId") or ""
+        body = find_article_body(
+            articles, probe["lawId"], "statute", art_no
+        ) or find_article_body(articles, probe["lawId"], "decree", art_no)
+        phrases: list[dict] = []
+        for item in amendments:
+            if item.get("articleNo") != art_no:
+                continue
+            if item.get("lawId") != probe["lawId"]:
+                continue
+            if item.get("bodyApplied") is True:
+                continue
+            for h in item.get("highlights") or []:
+                if aid and h.get("articleId") and h.get("articleId") != aid:
+                    continue
+                for p in h.get("phrases") or []:
+                    if p.get("skipHighlight"):
+                        continue
+                    if not (p.get("text") or "").strip():
+                        continue
+                    # normalizePhrase 상당: pending 유지
+                    ph = dict(p)
+                    if item.get("bodyApplied") is False:
+                        ph["pending"] = True
+                    phrases.append(ph)
+        if not phrases:
+            problems.append(f"compose_no_phrases {art_no}")
+            if verbose:
+                print(f"[FAIL] compose {art_no}: no phrases")
+            continue
+        after = simulate_article_highlight_after(body, phrases)
+        ok = True
+        for token in probe.get("requireInComposed") or []:
+            if token not in after:
+                problems.append(f"compose_missing {art_no}: {token}")
+                ok = False
+        for token in probe.get("forbidInComposed") or []:
+            if token in after:
+                problems.append(f"compose_forbidden {art_no}: {token}")
+                ok = False
+        if verbose:
+            status = "OK" if ok else "FAIL"
+            print(f"[{status}] compose {art_no} phrases={len(phrases)}")
 
 
 def run_simulation(verbose: bool = True) -> dict:
@@ -709,6 +946,9 @@ def run_simulation(verbose: bool = True) -> dict:
                 display_gaps += 1
     if verbose:
         print(f"[INFO] 4법 display_gap count={display_gaps}")
+
+    # 같은 조 미시행 개정 합성(제110조: 제104조 + 제4항부터) — UI와 동일 규칙
+    check_compose_probes(amendments, articles, problems, verbose)
 
     # 빈 본문 조문: 개정 캐시에 없고 표시 경로도 없는 경우만 문제로 집계
     empty_n = 0
