@@ -10,17 +10,33 @@
   "effLookbackDays": 182,
   "effWindowLabel": "±6개월",
   "amdWindowLabel": "±6개월",
-  "fetchedAt": "2026-08-14T13:13:31",
+  "fetchedAt": "2026-08-14T17:06:00",
   "freshFetch": true,
-  "count": 37,
-  "errors": [],
+  "count": 36,
+  "errors": [
+    {
+      "lsId": "003058",
+      "lawName": "근로기준법 시행령",
+      "error": "doc:The read operation timed out"
+    },
+    {
+      "lsId": "006859",
+      "lawName": "근로기준법 시행규칙",
+      "error": "doc:The read operation timed out"
+    },
+    {
+      "lsId": "010035",
+      "lawName": "근로자퇴직급여 보장법 시행령",
+      "error": "HTTP Error 502: Bad Gateway"
+    }
+  ],
   "audit": {
     "matchedHighlights": 33,
-    "unmatchedRevisions": 4,
+    "unmatchedRevisions": 3,
     "rejectedDemoRule": "highlight only when article history date == promulgation date"
   },
   "fullTexts": {
-    "ok": true,
+    "ok": false,
     "asOf": "2026-08-14",
     "files": [
       {
@@ -50,96 +66,6 @@
           "efYd": "20251023",
           "ancYd": "20250408",
           "noticeNo": "35436",
-          "status": "현행"
-        }
-      },
-      {
-        "lawId": "labor-standards",
-        "tier": "rule",
-        "lsId": "006859",
-        "file": "full-labor-rule.txt",
-        "bytes": 14294,
-        "articles": 23,
-        "eflaw": {
-          "mst": "269393",
-          "efYd": "20250223",
-          "ancYd": "20250221",
-          "noticeNo": "00436",
-          "status": "현행"
-        }
-      },
-      {
-        "lawId": "retirement",
-        "tier": "statute",
-        "lsId": "009883",
-        "file": "full-retire-statute.txt",
-        "bytes": 75569,
-        "articles": 71,
-        "eflaw": {
-          "mst": "284455",
-          "efYd": "20260701",
-          "ancYd": "20260317",
-          "noticeNo": "21475",
-          "status": "현행"
-        }
-      },
-      {
-        "lawId": "retirement",
-        "tier": "decree",
-        "lsId": "010035",
-        "file": "full-retire-decree.txt",
-        "bytes": 92078,
-        "articles": 79,
-        "eflaw": {
-          "mst": "284693",
-          "efYd": "20260324",
-          "ancYd": "20260324",
-          "noticeNo": "36220",
-          "status": "현행"
-        }
-      },
-      {
-        "lawId": "retirement",
-        "tier": "rule",
-        "lsId": "010043",
-        "file": "full-retire-rule.txt",
-        "bytes": 17728,
-        "articles": 19,
-        "eflaw": {
-          "mst": "243903",
-          "efYd": "20220712",
-          "ancYd": "20220712",
-          "noticeNo": "00359",
-          "status": "현행"
-        }
-      },
-      {
-        "lawId": "equal-employment",
-        "tier": "statute",
-        "lsId": "000130",
-        "file": "full-equal-statute.txt",
-        "bytes": 70883,
-        "articles": 72,
-        "eflaw": {
-          "mst": "276851",
-          "efYd": "20251001",
-          "ancYd": "20251001",
-          "noticeNo": "21065",
-          "status": "현행"
-        }
-      },
-      {
-        "lawId": "equal-employment",
-        "tier": "decree",
-        "lsId": "003140",
-        "file": "full-equal-decree.txt",
-        "bytes": 41640,
-        "articles": 39,
-        "eflaw": {
-          "mst": "277437",
-          "efYd": "20251001",
-          "ancYd": "20251001",
-          "noticeNo": "35806",
           "status": "현행"
         }
       },
@@ -202,15 +128,72 @@
           "noticeNo": "00277",
           "status": "현행"
         }
+      },
+      {
+        "lawId": "equal-employment",
+        "tier": "statute",
+        "lsId": "000130",
+        "file": "full-equal-statute.txt",
+        "bytes": 70883,
+        "articles": 72,
+        "eflaw": {
+          "mst": "276851",
+          "efYd": "20251001",
+          "ancYd": "20251001",
+          "noticeNo": "21065",
+          "status": "현행"
+        }
+      },
+      {
+        "lawId": "equal-employment",
+        "tier": "decree",
+        "lsId": "003140",
+        "file": "full-equal-decree.txt",
+        "bytes": 41640,
+        "articles": 39,
+        "eflaw": {
+          "mst": "277437",
+          "efYd": "20251001",
+          "ancYd": "20251001",
+          "noticeNo": "35806",
+          "status": "현행"
+        }
       }
     ],
-    "errors": []
+    "errors": [
+      {
+        "lawId": "labor-standards",
+        "tier": "rule",
+        "lsId": "006859",
+        "file": "full-labor-rule.txt",
+        "error": "The read operation timed out"
+      },
+      {
+        "lawId": "retirement",
+        "tier": "decree",
+        "lsId": "010035",
+        "file": "full-retire-decree.txt",
+        "error": "The read operation timed out"
+      },
+      {
+        "lawId": "retirement",
+        "tier": "rule",
+        "lsId": "010043",
+        "file": "full-retire-rule.txt",
+        "error": "The read operation timed out"
+      },
+      {
+        "lawId": "retirement",
+        "tier": "statute",
+        "lsId": "009883",
+        "file": "full-retire-statute.txt",
+        "error": "The read operation timed out"
+      }
+    ]
   },
   "noticesRefresh": {
-    "ok": true,
-    "count": 24,
-    "latest": "2026-08-12",
-    "errors": []
+    "ok": false,
+    "error": "cannot import name 'fetch_notices' from 'refresh_notices' (/home/runner/work/TomorrowHR/TomorrowHR/_law_fetch/refresh_notices.py)"
   },
   "amendments": [
     {
@@ -1513,31 +1496,6 @@
       "bodyApplied": false
     },
     {
-      "id": "live-010035-2026-03-24-36220",
-      "lawId": "retirement",
-      "lawName": "근로자퇴직급여 보장법 시행령",
-      "fullName": "근로자퇴직급여 보장법 시행령",
-      "tier": "시행령",
-      "title": "근로자퇴직급여 보장법 시행령 타법개정 (대통령령 제36220호)",
-      "amendedDate": "2026-03-24",
-      "effectiveDate": "2026-03-24",
-      "summary": "규제의 재검토기한 등을 합리화함으로써 규제의 재검토를 효율적으로 실시하기 위해 이해관계자의 이견이 적거나 변경 가능성이 낮은 규제 등 재검토 실익이 적은 「5ㆍ18민주유공자예우 및 단체설립에 관한 법률 시행령」에 따른 취업지원의 제한, 「가맹사업거래의 공정화에 관한 법률 시행령」에 따른 정보공개서의 등록 시 제출서류 등 231건의 규제에 대해서는 재검토기한 설정을 해제하고, 「건축물관리…",
-      "briefSummary": "규제의 재검토기한 등을 합리화함으로써 규제의 재검토를 효율적으로 실시하기 위해 이해관계자의 이견이 적거나 변경 가능성이 낮은 규제 등 재검토 실익이 적은 「5ㆍ…",
-      "status": "시행중",
-      "revisionType": "타법개정",
-      "noticeNo": "36220",
-      "instrument": "대통령령",
-      "source": "law.go.kr",
-      "sourceUrl": "https://www.law.go.kr/LSW/lsRvsRsnListP.do?chrClsCd=010102&lsId=010035",
-      "mentionedArticles": [],
-      "locators": [],
-      "articleIds": [],
-      "highlights": [],
-      "verified": true,
-      "compareBefore": "",
-      "compareAfter": ""
-    },
-    {
       "id": "live-001872-2026-03-17-21472",
       "lawId": "labor-standards",
       "lawName": "근로기준법",
@@ -2586,7 +2544,7 @@
     "freshFetch": true,
     "simulation": {
       "attempt": 1,
-      "maxAttempts": 3,
+      "maxAttempts": 2,
       "passed": true,
       "parityOk": true,
       "offlineProblemCount": 0,
@@ -2600,10 +2558,10 @@
     "simulationLog": [
       {
         "attempt": 1,
-        "maxAttempts": 3,
+        "maxAttempts": 2,
         "offlineProblems": 0,
-        "buildCount": 37,
-        "buildErrors": 0,
+        "buildCount": 36,
+        "buildErrors": 3,
         "parityProblems": [],
         "result": "passed"
       }
@@ -2612,10 +2570,10 @@
   "simulationLog": [
     {
       "attempt": 1,
-      "maxAttempts": 3,
+      "maxAttempts": 2,
       "offlineProblems": 0,
-      "buildCount": 37,
-      "buildErrors": 0,
+      "buildCount": 36,
+      "buildErrors": 3,
       "parityProblems": [],
       "result": "passed"
     }
