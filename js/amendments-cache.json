@@ -10,7 +10,7 @@
   "effLookbackDays": 182,
   "effWindowLabel": "±6개월",
   "amdWindowLabel": "±6개월",
-  "fetchedAt": "2026-08-14T17:48:43",
+  "fetchedAt": "2026-08-14T17:54:51",
   "freshFetch": true,
   "count": 40,
   "errors": [],
@@ -24,36 +24,6 @@
     "asOf": "2026-08-14",
     "files": [
       {
-        "lawId": "retirement",
-        "tier": "statute",
-        "lsId": "009883",
-        "file": "full-retire-statute.txt",
-        "bytes": 75569,
-        "articles": 71,
-        "eflaw": {
-          "mst": "284455",
-          "efYd": "20260701",
-          "ancYd": "20260317",
-          "noticeNo": "21475",
-          "status": "현행"
-        }
-      },
-      {
-        "lawId": "labor-standards",
-        "tier": "statute",
-        "lsId": "001872",
-        "file": "full-labor-statute.txt",
-        "bytes": 89433,
-        "articles": 136,
-        "eflaw": {
-          "mst": "265959",
-          "efYd": "20251023",
-          "ancYd": "20241022",
-          "noticeNo": "20520",
-          "status": "현행"
-        }
-      },
-      {
         "lawId": "labor-standards",
         "tier": "decree",
         "lsId": "003058",
@@ -65,6 +35,21 @@
           "efYd": "20251023",
           "ancYd": "20250408",
           "noticeNo": "35436",
+          "status": "현행"
+        }
+      },
+      {
+        "lawId": "retirement",
+        "tier": "statute",
+        "lsId": "009883",
+        "file": "full-retire-statute.txt",
+        "bytes": 75569,
+        "articles": 71,
+        "eflaw": {
+          "mst": "284455",
+          "efYd": "20260701",
+          "ancYd": "20260317",
+          "noticeNo": "21475",
           "status": "현행"
         }
       },
@@ -115,21 +100,6 @@
       },
       {
         "lawId": "equal-employment",
-        "tier": "decree",
-        "lsId": "003140",
-        "file": "full-equal-decree.txt",
-        "bytes": 41640,
-        "articles": 39,
-        "eflaw": {
-          "mst": "277437",
-          "efYd": "20251001",
-          "ancYd": "20251001",
-          "noticeNo": "35806",
-          "status": "현행"
-        }
-      },
-      {
-        "lawId": "equal-employment",
         "tier": "statute",
         "lsId": "000130",
         "file": "full-equal-statute.txt",
@@ -140,21 +110,6 @@
           "efYd": "20251001",
           "ancYd": "20251001",
           "noticeNo": "21065",
-          "status": "현행"
-        }
-      },
-      {
-        "lawId": "fixed-term",
-        "tier": "decree",
-        "lsId": "010461",
-        "file": "full-fixed-decree.txt",
-        "bytes": 7488,
-        "articles": 7,
-        "eflaw": {
-          "mst": "230833",
-          "efYd": "20210408",
-          "ancYd": "20210406",
-          "noticeNo": "31611",
           "status": "현행"
         }
       },
@@ -171,6 +126,21 @@
           "ancYd": "20251001",
           "noticeNo": "00001",
           "status": "연혁"
+        }
+      },
+      {
+        "lawId": "equal-employment",
+        "tier": "decree",
+        "lsId": "003140",
+        "file": "full-equal-decree.txt",
+        "bytes": 41640,
+        "articles": 39,
+        "eflaw": {
+          "mst": "277437",
+          "efYd": "20251001",
+          "ancYd": "20251001",
+          "noticeNo": "35806",
+          "status": "현행"
         }
       },
       {
@@ -202,15 +172,43 @@
           "noticeNo": "00277",
           "status": "현행"
         }
+      },
+      {
+        "lawId": "fixed-term",
+        "tier": "decree",
+        "lsId": "010461",
+        "file": "full-fixed-decree.txt",
+        "bytes": 7488,
+        "articles": 7,
+        "eflaw": {
+          "mst": "230833",
+          "efYd": "20210408",
+          "ancYd": "20210406",
+          "noticeNo": "31611",
+          "status": "현행"
+        }
+      },
+      {
+        "lawId": "labor-standards",
+        "tier": "statute",
+        "lsId": "001872",
+        "file": "full-labor-statute.txt",
+        "bytes": 89433,
+        "articles": 136,
+        "eflaw": {
+          "mst": "265959",
+          "efYd": "20251023",
+          "ancYd": "20241022",
+          "noticeNo": "20520",
+          "status": "현행"
+        }
       }
     ],
     "errors": []
   },
   "noticesRefresh": {
-    "ok": true,
-    "count": 24,
-    "latest": "2026-08-12",
-    "errors": []
+    "ok": false,
+    "error": "cannot import name 'fetch_notices' from 'refresh_notices' (/home/runner/work/TomorrowHR/TomorrowHR/_law_fetch/refresh_notices.py)"
   },
   "amendments": [
     {
@@ -2868,12 +2866,12 @@
       "bodyApplied": false
     }
   ],
-  "simulationCycle": 1,
+  "simulationCycle": 2,
   "selfCheck": {
     "ok": true,
     "problems": [],
     "warnings": [],
-    "repairAttempt": 1,
+    "repairAttempt": 2,
     "healedCompares": [
       {
         "id": "live-009883-2026-03-17-21475-제9조",
@@ -2891,7 +2889,7 @@
     "scrubbedGhosts": [],
     "freshFetch": true,
     "simulation": {
-      "attempt": 1,
+      "attempt": 2,
       "maxAttempts": 2,
       "passed": true,
       "parityOk": true,
@@ -2908,6 +2906,35 @@
         "attempt": 1,
         "maxAttempts": 2,
         "offlineProblems": 0,
+        "buildCount": 28,
+        "buildErrors": 1,
+        "parityProblems": [
+          "compose_no_phrases 제19조",
+          "compose_no_phrases 제18조",
+          "doc_article_missing_in_cache 000130/21373: 제19조",
+          "doc_article_missing_in_cache 000130/21476: 제19조",
+          "doc_article_missing equal-employment 21700 제2조",
+          "doc_article_missing equal-employment 21700 제12조",
+          "doc_article_missing equal-employment 21700 제13조",
+          "doc_article_missing equal-employment 21700 제18조의3",
+          "doc_article_missing equal-employment 21700 제39조",
+          "doc_article_missing equal-employment 21476 제18조의4",
+          "doc_article_missing equal-employment 21476 제18조",
+          "doc_article_missing equal-employment 21476 제19조",
+          "doc_article_missing equal-employment 21476 제19조의2",
+          "doc_article_missing equal-employment 21476 제19조의4",
+          "doc_article_missing equal-employment 21476 제39조",
+          "doc_article_missing equal-employment 21476 제18조의2",
+          "doc_article_missing equal-employment 21373 제19조의4",
+          "doc_article_missing equal-employment 21373 제37조",
+          "doc_article_missing equal-employment 21373 제19조"
+        ],
+        "result": "retry"
+      },
+      {
+        "attempt": 2,
+        "maxAttempts": 2,
+        "offlineProblems": 0,
         "buildCount": 40,
         "buildErrors": 0,
         "parityProblems": [],
@@ -2918,6 +2945,35 @@
   "simulationLog": [
     {
       "attempt": 1,
+      "maxAttempts": 2,
+      "offlineProblems": 0,
+      "buildCount": 28,
+      "buildErrors": 1,
+      "parityProblems": [
+        "compose_no_phrases 제19조",
+        "compose_no_phrases 제18조",
+        "doc_article_missing_in_cache 000130/21373: 제19조",
+        "doc_article_missing_in_cache 000130/21476: 제19조",
+        "doc_article_missing equal-employment 21700 제2조",
+        "doc_article_missing equal-employment 21700 제12조",
+        "doc_article_missing equal-employment 21700 제13조",
+        "doc_article_missing equal-employment 21700 제18조의3",
+        "doc_article_missing equal-employment 21700 제39조",
+        "doc_article_missing equal-employment 21476 제18조의4",
+        "doc_article_missing equal-employment 21476 제18조",
+        "doc_article_missing equal-employment 21476 제19조",
+        "doc_article_missing equal-employment 21476 제19조의2",
+        "doc_article_missing equal-employment 21476 제19조의4",
+        "doc_article_missing equal-employment 21476 제39조",
+        "doc_article_missing equal-employment 21476 제18조의2",
+        "doc_article_missing equal-employment 21373 제19조의4",
+        "doc_article_missing equal-employment 21373 제37조",
+        "doc_article_missing equal-employment 21373 제19조"
+      ],
+      "result": "retry"
+    },
+    {
+      "attempt": 2,
       "maxAttempts": 2,
       "offlineProblems": 0,
       "buildCount": 40,
