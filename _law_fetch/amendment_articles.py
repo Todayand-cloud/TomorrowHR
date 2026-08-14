@@ -292,8 +292,17 @@ def add_months(d: date, months: int) -> date:
     return date(y, m, day) + timedelta(days=1)
 
 
-def fetch_doc_map(ls_id: str) -> dict[str, str]:
-    """noticeNo -> 개정문 plain text"""
+_DOC_MAP_CACHE: dict[str, dict[str, str]] = {}
+
+
+def clear_doc_map_cache() -> None:
+    _DOC_MAP_CACHE.clear()
+
+
+def fetch_doc_map(ls_id: str, *, force: bool = False) -> dict[str, str]:
+    """noticeNo -> 개정문 plain text (프로세스 내 캐시)."""
+    if not force and ls_id in _DOC_MAP_CACHE:
+        return _DOC_MAP_CACHE[ls_id]
     url = (
         "https://www.law.go.kr/LSW/lsRvsDocListP.do?"
         f"chrClsCd=010202&lsId={ls_id}&lsRvsGubun=all"
@@ -306,6 +315,7 @@ def fetch_doc_map(ls_id: str) -> dict[str, str]:
         start = m.start()
         end = matches[i + 1].start() if i + 1 < len(matches) else min(len(text), start + 14000)
         out[notice] = text[start:end]
+    _DOC_MAP_CACHE[ls_id] = out
     return out
 
 
