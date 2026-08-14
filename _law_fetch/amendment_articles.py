@@ -64,6 +64,12 @@ def resolve_unit_locator(prefix: str) -> str:
     예: 「같은 조 제2항제1호」「같은 항 제2호」「같은 항에」
     인용부("…"·「…」) 안의 조문 번호는 위치 지시가 아니므로 무시한다.
     """
+    locs = resolve_unit_locators(prefix)
+    return locs[0] if locs else ""
+
+
+def resolve_unit_locators(prefix: str) -> list[str]:
+    """위치 지시가 복수 호(제1호 및 제2호)이면 모든 locator를 반환."""
     # 인용 안 조항호(예: "제44조의4제1항ㆍ제4항")가 같은 항 위치를 오염시키지 않게
     def _blank(m: re.Match[str]) -> str:
         return " " * (m.end() - m.start())
@@ -99,28 +105,48 @@ def resolve_unit_locator(prefix: str) -> str:
             events.append((m.start(), "hang_lead", (int(n),)))
         else:
             events.append((m.start(), "same_hang_lead", ()))
+    # 같은 항 제1호 및 제2호 / 제1호ㆍ제2호
+    for m in re.finditer(
+        r"(?:같은\s*항\s*)?제\s*(\d+)\s*호(?:\s*(?:및|ㆍ|,)\s*제\s*(\d+)\s*호)+",
+        cleaned,
+    ):
+        hos = [int(x) for x in re.findall(r"제\s*(\d+)\s*호", m.group(0))]
+        events.append((m.start(), "multi_ho", tuple(hos)))
+
+    multi_hos: list[int] | None = None
     for _pos, kind, vals in sorted(events, key=lambda x: x[0]):
         if kind == "hang_ho":
             hang, ho = vals[0], vals[1]
+            multi_hos = None
         elif kind == "same_ho":
             ho = vals[0]
+            multi_hos = None
         elif kind == "hang":
             hang = vals[0]
             ho = None
+            multi_hos = None
         elif kind == "same_hang":
             ho = None
+            multi_hos = None
         elif kind == "hang_lead":
             hang = vals[0]
             ho = None
+            multi_hos = None
         elif kind == "same_hang_lead":
             ho = None
+            multi_hos = None
+        elif kind == "multi_ho":
+            multi_hos = list(vals)
+            ho = None
+    if multi_hos and hang is not None:
+        return [f"제{hang}항제{h}호" for h in multi_hos]
     if hang is not None and ho is not None:
-        return f"제{hang}항제{ho}호"
+        return [f"제{hang}항제{ho}호"]
     if hang is not None:
-        return f"제{hang}항"
+        return [f"제{hang}항"]
     if ho is not None:
-        return f"제{ho}호"
-    return ""
+        return [f"제{ho}호"]
+    return []
 
 
 def _extract_trailing_hos(chunk: str, after_pos: int) -> list[str]:
@@ -609,7 +635,10 @@ def extract_article_changes(
             unit_loc = f"제{int(ho)}호"
         entry = ensure(jo)
         dup = any(
-            op.get("kind") == "replace" and op.get("old") == old and op.get("new") == new
+            op.get("kind") == "replace"
+            and op.get("old") == old
+            and op.get("new") == new
+            and (op.get("unitLocator") or "") == (unit_loc or "")
             for op in entry["ops"]
         )
         if dup:
@@ -672,33 +701,40 @@ def extract_article_changes(
             if re.search(r"제목\s*[\"「]", prefix[-20:]):
                 continue
             # 같은 조/같은 항 포함 (제116조: 같은 조 제2항제1호, 같은 항 제2호)
-            unit_loc = resolve_unit_locator(prefix)
-            if not unit_loc:
+            # 제61조: 같은 항 제1호 및 제2호 → 복수 locator
+            unit_locs = resolve_unit_locators(prefix)
+            if not unit_locs:
+                unit_loc = ""
                 for hm in UNIT_HANG_HO_RE.finditer(prefix):
                     unit_loc = f"제{hm.group(1)}항제{hm.group(2)}호"
-            if not unit_loc:
-                for hm in UNIT_HO_RE.finditer(prefix):
-                    unit_loc = f"제{hm.group(1)}호"
-            if not unit_loc:
-                for am in UNIT_HANG_RE.finditer(prefix):
-                    unit_loc = f"제{am.group(1)}항"
-            # 0.5에서 이미 넣은 동일 치환은 스킵
-            if any(
-                op.get("kind") == "replace" and op.get("old") == old and op.get("new") == new
-                for op in entry["ops"]
-            ):
-                continue
-            entry["ops"].append(
-                {
-                    "kind": "replace",
-                    "old": old,
-                    "new": new,
-                    "locator": unit_loc or jo,
-                    "unitLocator": unit_loc,
-                    "isNew": False,
-                }
-            )
-            entry["summaryParts"].append(f"「{old[:40]}」→「{new[:40]}」")
+                if not unit_loc:
+                    for hm in UNIT_HO_RE.finditer(prefix):
+                        unit_loc = f"제{hm.group(1)}호"
+                if not unit_loc:
+                    for am in UNIT_HANG_RE.finditer(prefix):
+                        unit_loc = f"제{am.group(1)}항"
+                unit_locs = [unit_loc] if unit_loc else [""]
+            for unit_loc in unit_locs:
+                # 동일 치환이라도 단위(항·호)가 다르면 각각 유지
+                if any(
+                    op.get("kind") == "replace"
+                    and op.get("old") == old
+                    and op.get("new") == new
+                    and (op.get("unitLocator") or "") == (unit_loc or "")
+                    for op in entry["ops"]
+                ):
+                    continue
+                entry["ops"].append(
+                    {
+                        "kind": "replace",
+                        "old": old,
+                        "new": new,
+                        "locator": unit_loc or jo,
+                        "unitLocator": unit_loc,
+                        "isNew": False,
+                    }
+                )
+                entry["summaryParts"].append(f"「{old[:40]}」→「{new[:40]}」")
 
         # 「제목 외의 부분을 제1항으로 하고」— 현행 단락 본문을 ①로 승격
         if re.search(r"제목\s*외의\s*부분을\s*제\s*1\s*항으로", chunk):
@@ -1464,6 +1500,7 @@ def _pending_phrases_only(
             # 조문 전문 음영 금지. old가 들어 있는 항 본문·호만 노란색.
             # (제61조: ①·①1·2호·②만, 미변경 ②1·2호는 제외)
             # unitLocator가 있으면 그 단위만 (제116조 근로감독관이 1호·4호에 동시 존재)
+            # 제N항(각 호 외)은 항 본문만 — 자식 호로 확산하지 않음
             atomic_hits = atomic_units_containing(body, old)
             want_loc = (op.get("unitLocator") or "").strip()
             if want_loc:
@@ -1471,13 +1508,10 @@ def _pending_phrases_only(
                     (loc, unit)
                     for loc, unit in atomic_hits
                     if loc == want_loc
-                    or loc.endswith(want_loc)
-                    or want_loc.endswith(loc)
                 ]
                 if filtered:
                     atomic_hits = filtered
                 else:
-                    # 지정 단위에 needle이 없으면 다른 호로 확산하지 않음
                     atomic_hits = []
             if atomic_hits:
                 for loc, before_unit in atomic_hits:
