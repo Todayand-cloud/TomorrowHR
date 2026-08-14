@@ -372,6 +372,15 @@
       html = html.split(searchEsc).join(buildAmendMark(phrase, afterEsc));
     });
 
+    // 미시행 항·호 신설: 본문에 치환 자리가 없으면 본문 끝에 노란 음영으로 추가
+    list.forEach(function (phrase) {
+      if (!(phrase.pending && phrase.isNew && phrase.text)) return;
+      const afterEsc = escapeHtml(phrase.text);
+      if (!afterEsc) return;
+      if (html.indexOf(afterEsc) !== -1) return;
+      html += (html.trim() ? "\n" : "") + buildAmendMark(phrase, afterEsc);
+    });
+
     return html;
   }
 
