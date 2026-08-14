@@ -345,6 +345,30 @@ def strip_hist_tags(text: str) -> str:
     return re.sub(r"\s*<(?:개정|신설)\s*[^>]*>\s*", " ", text or "").strip()
 
 
+def safe_text_replace(text: str, old: str, new: str, count: int = 1) -> str:
+    """본문 치환. new 가 old 의 확장형이면 이미 바뀐 자리(경우에는←경우에)를 재치환하지 않음.
+
+    예: old='경우에' new='경우에는' → '경우에는' 안의 '경우에' 는 건드리지 않음
+    (그렇지 않으면 '경우에는는' 오타가 생김).
+    """
+    if not text or not old or old == new:
+        return text
+    if new.startswith(old) and len(new) > len(old):
+        suffix = re.escape(new[len(old) :])
+        pat = re.compile(re.escape(old) + rf"(?!{suffix})")
+        return pat.sub(new, text, count=count if count > 0 else 0)
+    if count == 1:
+        return text.replace(old, new, 1)
+    if count <= 0:
+        return text.replace(old, new)
+    out = text
+    for _ in range(count):
+        if old not in out:
+            break
+        out = out.replace(old, new, 1)
+    return out
+
+
 def fix_josa_after_jo_replace(text: str, new: str) -> str:
     """제104조제2항→제104조 치환 후 '조을' → '조를' 보정."""
     if not text or not new or not new.endswith("조"):
@@ -474,18 +498,20 @@ _STMT_START_RE = re.compile(
     r"(?:^|(?<=\.\s)|(?<=다\.\s)|(?<=자\s)|(?<=다\s)|(?<=고\s)|(?<=며\s))"
     r"제\s*([0-9]+)\s*조(?:의\s*([0-9]+))?"
     r"(?="
-    # 제61조제1항 각 호 외의 부분 중 … (임의 문자 확장은 다음 조와 오결합)
+    # 제19조제6항을 제9항으로 — 항·호 접미사 뒤 조사/중/신설 지시
     r"(?:제\s*\d+\s*항)?(?:제\s*\d+\s*호)?"
-    r"(?:\s*(?:각\s*호(?:\s*외의\s*부분)?|제목(?:\s*외의\s*부분)?|단서|본문))?"
-    r"\s*중\s"
+    r"(?:"
+    r"(?:\s*(?:각\s*호(?:\s*외의\s*부분)?|제목(?:\s*외의\s*부분)?|단서|본문|전단|후단))?\s*중\s"
     r"|\s*제목"
     r"|\s*중\s"
+    r"|[을를]\s"
     r"|\s*[을를]\s"
     r"|\s*에\s"
     r"|\s*부터\s"
     r"|\s*각\s*호"
     r"|를\s*다음과"
     r"|\("
+    r")"
     r")"
 )
 
@@ -514,6 +540,12 @@ def expected_amended_articles_from_doc(doc_text: str) -> list[str]:
             r"제\s*(\d+)\s*조(?:의\s*(\d+))?제\s*\d+\s*항(?:제\s*\d+\s*호)?"
             r"를\s*다음과"
         ),
+        # 제N조제M항을 제K항으로 (항 이동 후 신설)
+        re.compile(
+            r"제\s*(\d+)\s*조(?:의\s*(\d+))?제\s*\d+\s*항을\s*제\s*\d+\s*항으로"
+        ),
+        # 같은 조에 제N항부터 … 신설 — 직전 조 지시와 함께 쓰이므로
+        # 제N조제M항을 … 패턴으로 이미 잡히면 충분
     ]
     for pat in patterns:
         for m in pat.finditer(main):
@@ -961,6 +993,34 @@ def extract_article_changes(
                     "toEnd": int(renum.group(4)),
                 }
             )
+            entry["summaryParts"].append(
+                f"제{renum.group(1)}~{renum.group(2)}항→"
+                f"제{renum.group(3)}~{renum.group(4)}항"
+            )
+
+        # 단일 항 이동: 제6항을 제9항으로 하고 (제19조 방학 육아휴직 신설 전형)
+        renum_one = re.search(
+            r"제\s*(\d+)\s*항을\s*제\s*(\d+)\s*항으로",
+            chunk,
+        )
+        if renum_one:
+            fs, ts = int(renum_one.group(1)), int(renum_one.group(2))
+            if fs != ts and not any(
+                op.get("kind") == "renumber"
+                and op.get("fromStart") == fs
+                and op.get("toStart") == ts
+                for op in entry["ops"]
+            ):
+                entry["ops"].append(
+                    {
+                        "kind": "renumber",
+                        "fromStart": fs,
+                        "fromEnd": fs,
+                        "toStart": ts,
+                        "toEnd": ts,
+                    }
+                )
+                entry["summaryParts"].append(f"제{fs}항→제{ts}항")
 
     # 요약이 전혀 없는 빈 엔트리 제거, ops만 있어도 유지
     results = []
@@ -1440,7 +1500,43 @@ def _pending_phrases_only(
 
     for op_i, op in enumerate(ops):
         kind = op.get("kind")
-        if kind in ("renumber", "renumber_ho", "delete_ho", "delete_proviso", "promote_to_hang1"):
+        if kind in ("renumber_ho", "delete_ho", "delete_proviso", "promote_to_hang1"):
+            continue
+        if kind == "renumber":
+            fs = int(op.get("fromStart") or 0)
+            fe = int(op.get("fromEnd") or fs)
+            ts = int(op.get("toStart") or 0)
+            if not fs or not ts:
+                continue
+            for src in range(fe, fs - 1, -1):
+                dst = ts + (src - fs)
+                sc, dc = N_TO_CIRCLE.get(src), N_TO_CIRCLE.get(dst)
+                if not sc or not dc or sc not in body:
+                    continue
+                unit_info = find_containing_unit(body, sc)
+                before_unit = unit_info[0] if unit_info else sc
+                after_unit = re.sub(
+                    rf"^{re.escape(sc)}", dc, before_unit, count=1
+                )
+                if after_unit == before_unit:
+                    continue
+                after_unit = append_hist_date(after_unit, amended)
+                phrases.append(
+                    {
+                        "text": after_unit,
+                        "beforeText": before_unit,
+                        "isNew": False,
+                        "historyKind": "개정",
+                        "historyDates": [amd],
+                        "locator": f"제{src}항→제{dst}항",
+                        "amendedDate": amd,
+                        "effectiveDate": _eff_for(op),
+                        "beforeNote": f"시행 후 제{dst}항으로 이동",
+                        "pending": True,
+                        "compareBefore": strip_hist_tags(before_unit),
+                        "compareAfter": strip_hist_tags(after_unit),
+                    }
+                )
             continue
         if kind == "proviso":
             phrases.append(
@@ -1527,7 +1623,7 @@ def _pending_phrases_only(
                 for loc, before_unit in atomic_hits:
                     before_clean = strip_hist_tags(before_unit)
                     after_raw = fix_josa_after_jo_replace(
-                        before_unit.replace(old, new), new
+                        safe_text_replace(before_unit, old, new), new
                     )
                     after_unit = append_hist_date(after_raw, amended)
                     after_unit, loc = _maybe_promote_hang1(before_unit, after_unit, loc)
@@ -1573,7 +1669,7 @@ def _pending_phrases_only(
                 before_unit, _, _ = unit_info
                 before_clean = strip_hist_tags(before_unit)
                 after_raw = fix_josa_after_jo_replace(
-                    before_unit.replace(old, new, 1), new
+                    safe_text_replace(before_unit, old, new, count=1), new
                 )
                 after_unit = append_hist_date(after_raw, amended)
                 loc = op.get("unitLocator") or hang_locator_from_text(
@@ -1700,9 +1796,9 @@ def _pending_phrases_only(
                 if old and old in after_full:
                     # 인용 토큰은 조 안 복수 출현을 모두 치환
                     after_full = (
-                        after_full.replace(old, new)
+                        safe_text_replace(after_full, old, new, count=0)
                         if _is_cite_token(old)
-                        else after_full.replace(old, new, 1)
+                        else safe_text_replace(after_full, old, new, count=1)
                     )
         proviso_op = next((op for op in ops if op.get("kind") == "proviso"), None)
         proviso = (proviso_op or {}).get("text") or ""
@@ -2014,7 +2110,84 @@ def _pending_phrases_only(
                 to_iso(best) if isinstance(best, date) else str(best)[:10]
             )
 
+    # 같은 항·같은 개정 전 본문에 replace 가 여러 개면 하나로 병합
+    # (제19조 「보호하거나」+「경우에」 → 이중 칩·경우에는는 방지)
+    phrases = _merge_same_unit_replace_phrases(phrases, amended)
     return phrases
+
+
+def _merge_same_unit_replace_phrases(
+    phrases: list[dict], amended: date
+) -> list[dict]:
+    """동일 locator+beforeText 의 미시행 replace 문구를 순차 치환 1개로 합친다."""
+    buckets: dict[tuple[str, str], list[dict]] = {}
+    rest: list[dict] = []
+    for p in phrases:
+        if (
+            p.get("isNew")
+            or p.get("pendingDelete")
+            or p.get("skipHighlight")
+            or not p.get("beforeText")
+            or (p.get("beforeText") or "").startswith("해당")
+        ):
+            rest.append(p)
+            continue
+        key = (
+            (p.get("locator") or "").strip(),
+            strip_hist_tags(p.get("beforeText") or ""),
+        )
+        buckets.setdefault(key, []).append(p)
+
+    out = list(rest)
+    for (_loc, _before_key), group in buckets.items():
+        if len(group) == 1:
+            out.append(group[0])
+            continue
+        base = group[0].get("beforeText") or ""
+        after = base
+        for p in group:
+            b = strip_hist_tags(p.get("beforeText") or "")
+            a = strip_hist_tags(p.get("text") or "")
+            if not b or not a or b == a:
+                continue
+            # 최소 치환 구간
+            pre = 0
+            while pre < len(b) and pre < len(a) and b[pre] == a[pre]:
+                pre += 1
+            suf = 0
+            while (
+                suf < len(b) - pre
+                and suf < len(a) - pre
+                and b[len(b) - 1 - suf] == a[len(a) - 1 - suf]
+            ):
+                suf += 1
+            old = b[pre : len(b) - suf if suf else len(b)]
+            neu = a[pre : len(a) - suf if suf else len(a)]
+            if old and neu and old != neu:
+                after = safe_text_replace(after, old, neu, count=1)
+                after = fix_josa_after_jo_replace(after, neu)
+        after = append_hist_date(after, amended)
+        # 오염(경우는는 등) 문구는 버리고 병합 결과만 유지
+        if "는는" in after:
+            # 병합 실패 시 가장 긴 정상 후보
+            clean = [
+                p
+                for p in group
+                if "는는" not in (p.get("text") or "")
+            ]
+            out.append(
+                max(
+                    clean or group,
+                    key=lambda p: len(p.get("text") or ""),
+                )
+            )
+            continue
+        rep = dict(group[0])
+        rep["text"] = after
+        rep["compareAfter"] = strip_hist_tags(after)
+        rep["compareBefore"] = strip_hist_tags(base)
+        out.append(rep)
+    return out
 
 
 def apply_ops_to_article(
@@ -2141,7 +2314,7 @@ def apply_ops_to_article(
                 for loc, before_unit in atomic_hits:
                     after_unit = append_hist_date(
                         fix_josa_after_jo_replace(
-                            before_unit.replace(old, new), new
+                            safe_text_replace(before_unit, old, new), new
                         ),
                         amended,
                     )
@@ -2160,12 +2333,12 @@ def apply_ops_to_article(
                             "compareAfter": strip_hist_tags(after_unit),
                         }
                     )
-                body = append_hist_date(body.replace(old, new), amended)
+                body = append_hist_date(safe_text_replace(body, old, new), amended)
                 continue
             unit_info = find_containing_unit(body, old)
             if unit_info:
                 before_unit, start, end = unit_info
-                after_unit = before_unit.replace(old, new, 1)
+                after_unit = safe_text_replace(before_unit, old, new, count=1)
                 after_clean = re.sub(r"\s*<개정[^>]*>\s*", " ", after_unit).rstrip()
                 after_marked = after_clean + " " + hist_rev
                 body = body[:start] + after_marked + body[end:]
