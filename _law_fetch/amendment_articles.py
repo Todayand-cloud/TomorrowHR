@@ -1311,7 +1311,7 @@ def _pending_phrases_only(
             )
 
     # 구조 개정(단서·각호 신설 등): 현행 본문은 유지하고,
-    # 치환 단위에 단서를 붙인 개정 후 문구를 음영 + 전문 compareAfter
+    # 실제로 바뀐 항·호만 음영(단서 신설이면 해당 항만 — 제54조 ② 오음영 방지)
     if structural and body.strip():
         before_full = body.strip()
         after_full = body
@@ -1384,7 +1384,26 @@ def _pending_phrases_only(
                 + [hos[k] for k in sorted(hos.keys())]
             ).strip()
 
-        if re.search(r"<개정\s*[^>]*>", after_full):
+        # 연혁 태그는 변경된 항에만 붙인다(조 말미 ②에 <개정>이 붙는 오류 방지)
+        mark_p = N_TO_CIRCLE.get(hang_for_proviso, "①")
+        hang_before = ""
+        hang_after = ""
+        m_before = re.search(
+            rf"(?ms)^({re.escape(mark_p)}.*?)(?=^[①-⑮]|\Z)", before_full
+        )
+        m_after = re.search(
+            rf"(?ms)^({re.escape(mark_p)}.*?)(?=^[①-⑮]|\Z)", after_full
+        )
+        if m_before:
+            hang_before = m_before.group(1).rstrip()
+        if m_after:
+            hang_after = append_hist_date(m_after.group(1).rstrip(), amended)
+            after_full = (
+                after_full[: m_after.start()]
+                + hang_after
+                + after_full[m_after.end() :]
+            ).strip()
+        elif re.search(r"<개정\s*[^>]*>", after_full):
             if f"{amended.year}. {amended.month}. {amended.day}." not in after_full:
                 after_full = re.sub(
                     r"<개정\s*([^>]+)>",
@@ -1393,6 +1412,7 @@ def _pending_phrases_only(
                     count=1,
                 )
         else:
+            # 항을 못 찾으면 최후 수단으로만 전문 말미에 연혁
             after_full = after_full.rstrip() + " " + hist_rev
         after_full = after_full.strip()
         compare_after = re.sub(r"\s*<[^>]+>\s*", " ", after_full)
@@ -1407,6 +1427,7 @@ def _pending_phrases_only(
                 after_show = attach_proviso_to_body(
                     after_show, proviso, hang=hang_for_proviso
                 )
+                after_show = append_hist_date(after_show, amended)
             phrases.insert(
                 0,
                 {
@@ -1420,8 +1441,27 @@ def _pending_phrases_only(
                     "effectiveDate": eff,
                     "beforeNote": "",
                     "pending": True,
-                    "compareBefore": compare_before,
-                    "compareAfter": compare_after,
+                    "compareBefore": strip_hist_tags(before_unit),
+                    "compareAfter": strip_hist_tags(after_show),
+                },
+            )
+        elif proviso and hang_before and hang_after:
+            # 단서만 신설: 해당 항(①)만 노란색 — 미변경 ②는 제외
+            phrases.insert(
+                0,
+                {
+                    "text": hang_after,
+                    "beforeText": hang_before,
+                    "isNew": False,
+                    "historyKind": "개정",
+                    "historyDates": [amd],
+                    "locator": f"제{hang_for_proviso}항",
+                    "amendedDate": amd,
+                    "effectiveDate": eff,
+                    "beforeNote": "",
+                    "pending": True,
+                    "compareBefore": strip_hist_tags(hang_before),
+                    "compareAfter": strip_hist_tags(hang_after),
                 },
             )
         elif after_full != before_full:
