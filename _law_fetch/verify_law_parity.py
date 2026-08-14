@@ -12,6 +12,7 @@ import json
 import os
 import re
 import sys
+from collections import Counter
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -146,6 +147,31 @@ COMPOSE_PROBES = [
             "⑨ 육아휴직의 신청방법",
         ],
         "forbidInComposed": ["경우에는는", "는는"],
+    },
+    {
+        # 남녀고용평등법 제18조: 동일 개정의 제1항은 항 전문 1음영·칩 1쌍
+        "lawId": "equal-employment",
+        "articleNo": "제18조",
+        "articleId": "equal-employment-statute-18",
+        "requireInComposed": [
+            "배우자 출산전후휴가",
+            "제18조의4에 따른 배우자 유산ㆍ사산휴가",
+            "제18조의4제1항 본문",
+        ],
+        "forbidInComposed": ["제3장에 제18조의4"],
+        "forbidDualDateChips": True,
+        "requireSingleMarkPerLocator": [
+            {"locator": "제1항", "amendedDate": "2026-03-17"},
+            {"locator": "제2항", "amendedDate": "2026-03-17"},
+        ],
+        "requireHangUnit": [
+            {
+                "locator": "제1항",
+                "mustStartWith": "①",
+                "mustInclude": "배우자 출산전후휴가",
+                "minLen": 80,
+            }
+        ],
     },
 ]
 
@@ -567,8 +593,8 @@ def _resolve_independent_span(p: dict, raw: str) -> tuple[str, str] | None:
 def compose_pending_phrases(body: str, phrases: list[dict]) -> list[dict]:
     """main.js composePendingPhrases 시뮬레이션.
 
-    같은 locator 에 개정이 여러 건이면 현행 본문에 독립 최소 치환이
-    가능하면 음영을 쪼개고(칩 1쌍씩), 아니면 연쇄 합성한다.
+    - 서로 다른 공포·시행: 독립 최소 치환이면 음영 분리(칩 1쌍씩)
+    - 동일 개정: 항·호 단위 1음영·칩 1쌍 (제18조 제1항 회귀 방지)
     """
     pending = [
         p
@@ -606,33 +632,48 @@ def compose_pending_phrases(body: str, phrases: list[dict]) -> list[dict]:
                 p.get("amendedDate") or "",
             ),
         )
-        # 독립 최소 치환
-        spans: list[dict] = []
-        can_split = True
-        for p in sorted_g:
-            sub = _resolve_independent_span(p, raw)
-            if not sub:
-                can_split = False
-                break
-            old, neu = sub
-            spans.append(
-                {
-                    "text": _fix_josa_jo_eul(neu),
-                    "beforeText": old,
-                    "pending": True,
-                    "isNew": False,
-                    "amendedDate": p.get("amendedDate"),
-                    "effectiveDate": p.get("effectiveDate"),
-                    "locator": p.get("locator") or "",
-                    "spanHighlight": True,
-                }
-            )
-        if can_split and len(spans) == len(sorted_g):
-            out.extend(spans)
-            continue
+
+        def _date_key(p: dict) -> str:
+            return f"{p.get('amendedDate') or ''}|{p.get('effectiveDate') or ''}"
+
+        same_amd = all(_date_key(p) == _date_key(sorted_g[0]) for p in sorted_g)
+
+        if not same_amd:
+            spans: list[dict] = []
+            can_split = True
+            for p in sorted_g:
+                sub = _resolve_independent_span(p, raw)
+                if not sub:
+                    can_split = False
+                    break
+                old, neu = sub
+                spans.append(
+                    {
+                        "text": _fix_josa_jo_eul(neu),
+                        "beforeText": old,
+                        "pending": True,
+                        "isNew": False,
+                        "amendedDate": p.get("amendedDate"),
+                        "effectiveDate": p.get("effectiveDate"),
+                        "locator": p.get("locator") or "",
+                        "spanHighlight": True,
+                    }
+                )
+            if can_split and len(spans) == len(sorted_g):
+                out.extend(spans)
+                continue
 
         anchor = None
-        for p in sorted_g:
+        candidates = (
+            sorted(
+                sorted_g,
+                key=lambda p: len(p.get("beforeText") or ""),
+                reverse=True,
+            )
+            if same_amd
+            else sorted_g
+        )
+        for p in candidates:
             b = p.get("beforeText") or ""
             if b and b in raw:
                 anchor = b
@@ -660,6 +701,15 @@ def compose_pending_phrases(body: str, phrases: list[dict]) -> list[dict]:
                 working = _fix_josa_jo_eul(working)
                 applied.append(p)
         if len(applied) <= 1:
+            if same_amd and len(sorted_g) > 1:
+                full = max(
+                    sorted_g, key=lambda p: len(p.get("beforeText") or "")
+                )
+                if _strip_hist_tags(full.get("beforeText") or "") != _strip_hist_tags(
+                    full.get("text") or ""
+                ):
+                    out.append(full)
+                    continue
             out.extend(group)
             continue
         by_eff = sorted(
@@ -916,6 +966,30 @@ def check_no_dual_date_chips(
                     f"dual_date_chips {law_id} {art_no}: "
                     f"locator={p.get('locator')} pairs={len(cf)}"
                 )
+        # 동일 개정(같은 공포·시행)·같은 locator 가 합성 후에도 2개+ → 조각 음영·칩 중복
+        mark_counts: Counter[str] = Counter()
+        for p in composed:
+            if p.get("isNew") or p.get("skipHighlight"):
+                continue
+            loc = (p.get("locator") or "").strip()
+            if not loc:
+                continue
+            dk = (
+                f"{loc}|{p.get('amendedDate') or ''}|"
+                f"{p.get('effectiveDate') or ''}"
+            )
+            mark_counts[dk] += 1
+        for dk, n in mark_counts.items():
+            if n > 1:
+                problems.append(
+                    f"same_amendment_multi_mark {law_id} {art_no}: {dk} x{n}"
+                )
+    if "sameAmendment" not in main_js and "same_amd" not in main_js:
+        # UI/파이썬 합성기 중 하나라도 동일개정 병합 가드가 빠지면 회귀
+        if "sameAmendment" not in main_js:
+            problems.append(
+                "same_amendment_guard_missing: composePendingGroup lacks sameAmendment"
+            )
     if verbose:
         print(f"[INFO] dual_date_chip scan groups={scanned}")
 
@@ -1034,6 +1108,65 @@ def check_compose_probes(
                         f"locator={p.get('locator')} composedFrom={len(cf)}"
                     )
                     ok = False
+        # 동일 개정(같은 공포일)이면 locator당 phrase 1개 — 조각 음영·칩 중복 금지
+        for spec in probe.get("requireSingleMarkPerLocator") or []:
+            loc = spec.get("locator") or ""
+            want_amd = spec.get("amendedDate") or ""
+            matched = [
+                p
+                for p in composed
+                if loc
+                and (p.get("locator") or "") == loc
+                and (not want_amd or (p.get("amendedDate") or "") == want_amd)
+                and not p.get("isNew")
+            ]
+            if len(matched) != 1:
+                problems.append(
+                    f"compose_single_mark {art_no}: locator={loc} "
+                    f"amd={want_amd} count={len(matched)} "
+                    f"(동일 개정은 항·호 1음영·칩 1쌍이어야 함)"
+                )
+                ok = False
+        # 항 단위 음영: 조각(배우자 출산전후휴가만)이 아니라 ① 전문이어야 함
+        for spec in probe.get("requireHangUnit") or []:
+            loc = spec.get("locator") or ""
+            must_start = spec.get("mustStartWith") or ""
+            must_inc = spec.get("mustInclude") or ""
+            min_len = int(spec.get("minLen") or 0)
+            matched = [
+                p
+                for p in composed
+                if loc and (p.get("locator") or "") == loc and not p.get("isNew")
+            ]
+            if not matched:
+                problems.append(f"compose_hang_unit_missing {art_no}: {loc}")
+                ok = False
+                continue
+            hit = max(matched, key=lambda p: len(p.get("text") or ""))
+            text = (hit.get("text") or "").strip()
+            if must_start and not text.startswith(must_start):
+                problems.append(
+                    f"compose_hang_unit_start {art_no}: {loc} "
+                    f"want startswith {must_start!r} got {text[:40]!r}"
+                )
+                ok = False
+            if must_inc and must_inc not in text:
+                problems.append(
+                    f"compose_hang_unit_include {art_no}: {loc} missing {must_inc!r}"
+                )
+                ok = False
+            if min_len and len(text) < min_len:
+                problems.append(
+                    f"compose_hang_unit_short {art_no}: {loc} "
+                    f"len={len(text)} < {min_len} (조각 음영 의심)"
+                )
+                ok = False
+            if hit.get("spanHighlight") and len(text) < min_len:
+                problems.append(
+                    f"compose_hang_unit_span {art_no}: {loc} "
+                    f"spanHighlight on short fragment"
+                )
+                ok = False
         # 미시행 호 삭제: phrase·본문 현행 유지 검증 (법제처와 동일)
         for spec in probe.get("requirePendingDelete") or []:
             loc = spec.get("locator") or ""
