@@ -222,16 +222,19 @@ def status_for(effective: date, base: date) -> str:
     return "시행예정" if effective > base else "시행중"
 
 
-def load_articles() -> dict:
+def load_articles(skip_full_refresh: bool = False) -> dict:
     """수동 갱신: 법제처 전문을 다시 받은 뒤 시드·본문을 현행 기준으로 만든다."""
     try:
-        from fetch_full_texts import refresh_all_full_texts
-
-        report = refresh_all_full_texts()
-        if not report.get("ok"):
-            # 일부 실패해도 기존 전문으로 진행하되 오류는 상위에서 볼 수 있게 보관
-            load_articles.last_full_report = report  # type: ignore[attr-defined]
+        if skip_full_refresh:
+            prev = getattr(load_articles, "last_full_report", None)
+            load_articles.last_full_report = prev or {  # type: ignore[attr-defined]
+                "ok": True,
+                "skipped": True,
+            }
         else:
+            from fetch_full_texts import refresh_all_full_texts
+
+            report = refresh_all_full_texts()
             load_articles.last_full_report = report  # type: ignore[attr-defined]
     except Exception as exc:  # noqa: BLE001
         load_articles.last_full_report = {"ok": False, "errors": [str(exc)]}  # type: ignore[attr-defined]
@@ -428,10 +431,10 @@ def attach_compare_fields(item: dict) -> dict:
     return item
 
 
-def build_amendments(base: date) -> dict:
+def build_amendments(base: date, skip_full_refresh: bool = False) -> dict:
     end = base + timedelta(days=FORWARD_DAYS)
     start = base - timedelta(days=LOOKBACK_DAYS)
-    articles_db = load_articles()
+    articles_db = load_articles(skip_full_refresh=skip_full_refresh)
     collected = []
     errors = []
     audit = {
@@ -441,11 +444,16 @@ def build_amendments(base: date) -> dict:
     }
 
     doc_cache: dict[str, dict[str, str]] = {}
+    fast = os.environ.get("LAW_FETCH_FAST", "").strip() in ("1", "true", "TRUE") or (
+        os.environ.get("CI", "").strip() == "true"
+    )
+    pause = 0.05 if fast else 0.15
 
     for meta in LAW_CATALOG:
         try:
             revs = fetch_revisions(meta["lsId"])
-            time.sleep(0.15)
+            if pause:
+                time.sleep(pause)
         except Exception as exc:  # noqa: BLE001
             errors.append({"lsId": meta["lsId"], "lawName": meta["lawName"], "error": str(exc)})
             continue
@@ -455,7 +463,8 @@ def build_amendments(base: date) -> dict:
         if meta["lsId"] not in doc_cache:
             try:
                 doc_cache[meta["lsId"]] = fetch_doc_map(meta["lsId"])
-                time.sleep(0.2)
+                if pause:
+                    time.sleep(pause)
             except Exception as exc:  # noqa: BLE001
                 errors.append(
                     {"lsId": meta["lsId"], "lawName": meta["lawName"], "error": f"doc:{exc}"}
@@ -726,10 +735,23 @@ def main() -> None:
             f"::notice::simulation cycle {attempt}/{attempts} — "
             "법제처 신규 수집(전문·개정문·예고)"
         )
-        # 매 시도마다 네트워크에서 다시 받음(이전 캐시 재사용 없음)
-        payload = build_amendments(base)
+        # 재시도 시 전문(XML)은 재사용 — 네트워크 폭주·타임아웃 방지
+        skip_full = False
+        prev_full = getattr(load_articles, "last_full_report", None)
+        if attempt > 1 and isinstance(prev_full, dict) and prev_full.get("ok"):
+            skip_full = True
+            print("::notice::reuse full texts from previous cycle (skip XML re-fetch)")
+        try:
+            from amendment_articles import clear_doc_map_cache
+
+            clear_doc_map_cache()
+        except Exception:  # noqa: BLE001
+            pass
+        payload = build_amendments(base, skip_full_refresh=skip_full)
         payload["freshFetch"] = True
         payload["simulationCycle"] = attempt
+        if skip_full:
+            payload["fullTextsReused"] = True
         # 중간 저장·실패 시에는 이전 성공 시각 유지
         keep_prev_fetched_at(payload, prev_fetched_at)
         articles_db = load_articles_db()
