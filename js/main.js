@@ -299,9 +299,11 @@
 
   /**
    * 같은 항·호에 미시행 개정이 여러 건이면:
-   * 1) 현행 본문에 각각 최소 치환이 독립 매칭되면 음영을 쪼갠다
-   *    (제110조: 제104조 변경=4.7/12.8, 제4항부터=6.9/2027.6.10 — 칩 1쌍씩)
-   * 2) 연쇄 의존일 때만 본문을 합성하고, 그래도 칩은 대표 1쌍만 유지
+   * 1) 공포·시행이 서로 다르고 최소 치환이 독립이면 음영을 쪼갠다
+   *    (제110조: 4.7/12.8 과 6.9/2027.6.10 — 칩 1쌍씩)
+   * 2) 동일 개정(같은 공포·시행)이면 항·호 단위 1음영·칩 1쌍만
+   *    (제18조 제1항 다중 「A」→「B」 조각 음영·칩 회귀 방지)
+   * 3) 연쇄 의존일 때만 본문을 합성하고, 그래도 칩은 대표 1쌍만 유지
    */
   function composePendingGroup(raw, group) {
     if (!group || group.length <= 1) return group || [];
@@ -312,43 +314,72 @@
       return parseYMD(a.amendedDate) - parseYMD(b.amendedDate);
     });
 
-    // 독립 최소 치환 시도
-    const spans = [];
-    let canSplit = true;
-    sorted.forEach(function (p) {
-      const sub = resolveIndependentSpan(p, raw);
-      if (!sub) {
-        canSplit = false;
-        return;
-      }
-      spans.push({
-        text: fixJosaJoEul(sub.neu),
-        beforeText: sub.old,
-        beforeNote: p.beforeNote || "",
-        pending: true,
-        isNew: false,
-        amendedDate: p.amendedDate,
-        effectiveDate: p.effectiveDate,
-        amendmentTitle: p.amendmentTitle,
-        locator: p.locator || "",
-        spanHighlight: true,
-      });
+    function dateKey(p) {
+      return (p.amendedDate || "") + "|" + (p.effectiveDate || "");
+    }
+    const sameAmendment = sorted.every(function (p) {
+      return dateKey(p) === dateKey(sorted[0]);
     });
-    if (canSplit && spans.length === sorted.length) {
-      return spans;
+
+    // 서로 다른 개정일만 독립 최소 치환으로 쪼갬
+    if (!sameAmendment) {
+      const spans = [];
+      let canSplit = true;
+      sorted.forEach(function (p) {
+        const sub = resolveIndependentSpan(p, raw);
+        if (!sub) {
+          canSplit = false;
+          return;
+        }
+        spans.push({
+          text: fixJosaJoEul(sub.neu),
+          beforeText: sub.old,
+          beforeNote: p.beforeNote || "",
+          pending: true,
+          isNew: false,
+          amendedDate: p.amendedDate,
+          effectiveDate: p.effectiveDate,
+          amendmentTitle: p.amendmentTitle,
+          locator: p.locator || "",
+          spanHighlight: true,
+        });
+      });
+      if (canSplit && spans.length === sorted.length) {
+        return spans;
+      }
     }
 
     let anchor = null;
-    for (let i = 0; i < sorted.length; i += 1) {
-      const b = sorted[i].beforeText || "";
-      if (b && raw.indexOf(b) !== -1) {
-        anchor = b;
-        break;
+    // 동일 개정이면 가장 긴 beforeText(항 전문)를 앵커로 — 조각 음영 방지
+    if (sameAmendment) {
+      const byLen = sorted.slice().sort(function (a, b) {
+        return (b.beforeText || "").length - (a.beforeText || "").length;
+      });
+      for (let i = 0; i < byLen.length; i += 1) {
+        const b = byLen[i].beforeText || "";
+        if (b && raw.indexOf(b) !== -1) {
+          anchor = b;
+          break;
+        }
+        const bs = stripHistTags(b);
+        if (bs && raw.indexOf(bs) !== -1) {
+          anchor = bs;
+          break;
+        }
       }
-      const bs = stripHistTags(b);
-      if (bs && raw.indexOf(bs) !== -1) {
-        anchor = bs;
-        break;
+    }
+    if (!anchor) {
+      for (let i = 0; i < sorted.length; i += 1) {
+        const b = sorted[i].beforeText || "";
+        if (b && raw.indexOf(b) !== -1) {
+          anchor = b;
+          break;
+        }
+        const bs = stripHistTags(b);
+        if (bs && raw.indexOf(bs) !== -1) {
+          anchor = bs;
+          break;
+        }
       }
     }
     if (!anchor) return group;
@@ -372,7 +403,20 @@
       }
     });
 
-    if (applied.length <= 1) return group;
+    if (applied.length <= 1) {
+      // 동일 개정·동일 앵커면 대표 1개만 (빈 diff·중복 칩 제거)
+      if (sameAmendment && sorted.length > 1) {
+        const full = sorted.slice().sort(function (a, b) {
+          return (b.beforeText || "").length - (a.beforeText || "").length;
+        })[0];
+        if (
+          stripHistTags(full.beforeText || "") !== stripHistTags(full.text || "")
+        ) {
+          return [full];
+        }
+      }
+      return group;
+    }
 
     // 연쇄 합성: 본문은 합치되 칩은 가장 빠른 시행 1쌍만 (다중 칩 금지)
     const byEff = applied.slice().sort(function (a, b) {
