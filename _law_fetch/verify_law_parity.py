@@ -110,6 +110,22 @@ COMPOSE_PROBES = [
         ],
         "forbidDualDateChips": True,
     },
+    {
+        # 퇴직급여법 제43조: 각 호 신설은 1→2→3 순서 (길이순 삽입 회귀 방지)
+        "lawId": "retirement",
+        "articleNo": "제43조",
+        "articleId": "retirement-statute-43",
+        "requireInComposed": [
+            "1. 제9조제1항을 위반하여 퇴직금을 지급하지 아니한 자",
+            "2. 근로자가 퇴직할 때에",
+            "3. 제37조제6항을 위반한 자",
+        ],
+        "requireOrder": [
+            "1. 제9조제1항을 위반하여 퇴직금을 지급하지 아니한 자",
+            "2. 근로자가 퇴직할 때에",
+            "3. 제37조제6항을 위반한 자",
+        ],
+    },
 ]
 
 LIVE_PROBES = [
@@ -671,12 +687,72 @@ def compose_pending_phrases(body: str, phrases: list[dict]) -> list[dict]:
 
 
 CIRCLE_HANGS = "①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮"
+CIRCLE_TO_N = {ch: i + 1 for i, ch in enumerate(CIRCLE_HANGS)}
+
+
+def _extract_ho_num(locator: str, text: str = "") -> int | None:
+    loc = re.sub(r"\s+", "", locator or "")
+    m = re.fullmatch(r"(?:제\d+항)?제?(\d+)(?:의\d+)?호", loc)
+    if m:
+        return int(m.group(1))
+    m = re.match(r"^(\d+)(?:의\d+)?\.", (text or "").lstrip())
+    if m:
+        return int(m.group(1))
+    return None
+
+
+def _phrase_structure_sort_key(phrase: dict) -> int:
+    loc = re.sub(r"\s+", "", phrase.get("locator") or "")
+    text = (phrase.get("text") or "").lstrip()
+    hang = 0
+    hang_m = re.search(r"제(\d+)항", loc)
+    if hang_m:
+        hang = int(hang_m.group(1))
+    elif text and text[0] in CIRCLE_TO_N:
+        hang = CIRCLE_TO_N[text[0]]
+    ho = _extract_ho_num(loc, text)
+    return hang * 100000 + (0 if ho is None else ho)
 
 
 def _insert_index_for_new_phrase(html: str, phrase: dict) -> int:
-    """main.js insertIndexForNewPhrase 와 동일 — 신설 호를 다음 항 앞에 둠."""
+    """main.js insertIndexForNewPhrase 와 동일 — 항 블록 안에서 호 번호순 삽입."""
     loc = re.sub(r"\s+", "", phrase.get("locator") or "")
+    ho_num = _extract_ho_num(loc, phrase.get("text") or "")
     hang_m = re.search(r"제(\d+)항", loc)
+
+    range_start = 0
+    range_end = len(html)
+    if hang_m:
+        hang_n = int(hang_m.group(1))
+        if 1 <= hang_n <= len(CIRCLE_HANGS):
+            circle = CIRCLE_HANGS[hang_n - 1]
+            at = html.find(circle)
+            if at != -1:
+                range_start = at
+            if hang_n < len(CIRCLE_HANGS):
+                next_circle = CIRCLE_HANGS[hang_n]
+                end_at = html.find(next_circle, range_start + 1)
+                if end_at != -1:
+                    range_end = end_at
+
+    if ho_num is not None:
+        slice_ = html[range_start:range_end]
+        for n in range(ho_num + 1, ho_num + 41):
+            m = re.search(rf"(^|\n){n}\.", slice_)
+            if m:
+                return range_start + m.start() + (
+                    len(m.group(1)) if m.group(1) else 0
+                )
+        if ho_num > 1:
+            last = None
+            for m in re.finditer(rf"(^|\n){ho_num - 1}\.[^\n]*", slice_):
+                last = m
+            if last is not None:
+                return range_start + last.end()
+        if hang_m and range_end < len(html):
+            return range_end
+        return -1
+
     if hang_m:
         hang_n = int(hang_m.group(1))
         if 1 <= hang_n < len(CIRCLE_HANGS):
@@ -684,12 +760,6 @@ def _insert_index_for_new_phrase(html: str, phrase: dict) -> int:
             at = html.find(next_circle)
             if at != -1:
                 return at
-    ho_only = re.fullmatch(r"제(\d+)호", loc)
-    if ho_only:
-        next_num = str(int(ho_only.group(1)) + 1)
-        m = re.search(rf"(^|\n){re.escape(next_num)}\.", html)
-        if m:
-            return m.start() + (len(m.group(1)) if m.group(1) else 0)
     return -1
 
 
@@ -715,10 +785,11 @@ def simulate_article_highlight_after(
     """음영 적용 후 본문에 보이는 개정 후 텍스트(합성 포함).
 
     미시행 호 삭제(pendingDelete)는 법제처처럼 현행 문구를 유지한다.
+    미시행 신설 호는 항·호 번호 오름차순으로 삽입한다.
     """
     composed = compose_pending_phrases(body, phrases)
     html = body or ""
-    # 긴 문구부터 (main.js 와 동일)
+    # 긴 문구부터 치환 (main.js 와 동일)
     ordered = sorted(
         [p for p in composed if (p.get("text") or "").strip()],
         key=lambda p: len(p.get("text") or ""),
@@ -740,12 +811,17 @@ def simulate_article_highlight_after(
             continue
         if phrase.get("pending") and before and before in html:
             html = html.replace(before, after, 1)
-        elif phrase.get("pending") and phrase.get("isNew") and after not in html:
-            html = _insert_new_pending_phrase(html, phrase)
-    # isNew 가 before 매칭 루프에서 스킵된 경우 한 번 더
-    for phrase in ordered:
-        if not (phrase.get("pending") and phrase.get("isNew")):
-            continue
+        # isNew 삽입은 아래 오름차순 루프에서 처리
+    # 신설: 항·호 번호 오름차순 (길이순이면 2→1→3 섞임)
+    news = sorted(
+        [
+            p
+            for p in ordered
+            if p.get("pending") and p.get("isNew") and (p.get("text") or "").strip()
+        ],
+        key=_phrase_structure_sort_key,
+    )
+    for phrase in news:
         after = phrase.get("text") or ""
         if after and after not in html:
             html = _insert_new_pending_phrase(html, phrase)
@@ -982,6 +1058,118 @@ def check_compose_probes(
         if verbose:
             status = "OK" if ok else "FAIL"
             print(f"[{status}] compose {art_no} phrases={len(phrases)}")
+
+
+def _leading_ho_nums(text: str) -> list[int]:
+    """합성 본문에서 줄 시작 호 번호(1. 2. 3.)만 추출."""
+    return [int(m.group(1)) for m in re.finditer(r"(?m)^(\d+)(?:의\d+)?\.", text or "")]
+
+
+def _leading_hang_nums(text: str) -> list[int]:
+    """합성 본문에서 줄 시작 항 원문자(①②…) 번호만 추출."""
+    out: list[int] = []
+    for m in re.finditer(r"(?m)^([①-⑮])", text or ""):
+        n = CIRCLE_TO_N.get(m.group(1))
+        if n is not None:
+            out.append(n)
+    return out
+
+
+def check_composed_unit_order(
+    amendments: list[dict], articles: dict, problems: list[str], verbose: bool
+) -> None:
+    """미시행 신설 호·항이 2개 이상인 조: 합성 결과가 번호 오름차순인지 전수 검증.
+
+    제43조처럼 길이순 삽입으로 2→1→3 이 되는 회귀를 자동 차단한다.
+    """
+    # articleId → {lawId, articleNo, phrases}
+    by_aid: dict[str, dict] = {}
+    for item in amendments:
+        if item.get("bodyApplied") is True:
+            continue
+        if item.get("lawId") not in MAJOR_LAWS:
+            continue
+        art_no = item.get("articleNo") or ""
+        law_id = item.get("lawId") or ""
+        for h in item.get("highlights") or []:
+            aid = h.get("articleId") or ""
+            if not aid:
+                continue
+            bucket = by_aid.setdefault(
+                aid,
+                {
+                    "lawId": law_id,
+                    "articleNo": art_no,
+                    "phrases": [],
+                },
+            )
+            if not bucket.get("articleNo") and art_no:
+                bucket["articleNo"] = art_no
+            for p in h.get("phrases") or []:
+                if p.get("skipHighlight"):
+                    continue
+                if not (p.get("text") or "").strip():
+                    continue
+                ph = dict(p)
+                ph["pending"] = True
+                text = (ph.get("text") or "").strip()
+                if not ph.get("pendingDelete") and re.match(
+                    r"\d+(?:의\d+)?\.\s*삭제\b", text
+                ):
+                    ph["pendingDelete"] = True
+                bucket["phrases"].append(ph)
+
+    checked = 0
+    for aid, info in by_aid.items():
+        phrases = info["phrases"]
+        news = [
+            p
+            for p in phrases
+            if p.get("isNew")
+            and p.get("pending")
+            and (
+                re.match(r"^\d+(?:의\d+)?\.", (p.get("text") or "").lstrip())
+                or (
+                    (p.get("text") or "").lstrip()
+                    and (p.get("text") or "").lstrip()[0] in CIRCLE_TO_N
+                )
+            )
+        ]
+        if len(news) < 2:
+            continue
+        art_no = info.get("articleNo") or aid
+        law_id = info.get("lawId") or ""
+        body = (
+            find_article_body(articles, law_id, "statute", art_no)
+            or find_article_body(articles, law_id, "decree", art_no)
+            or find_article_body(articles, law_id, "rule", art_no)
+            or ""
+        )
+        # articleId 로 직접 본문 찾기 (번호 매칭 실패 대비)
+        if not body:
+            for tier in ("statute", "decree", "rule"):
+                for a in (articles.get(law_id) or {}).get(tier) or []:
+                    if a.get("id") == aid:
+                        body = a.get("body") or ""
+                        break
+        after = simulate_article_highlight_after(body, phrases)
+        checked += 1
+        ho_nums = _leading_ho_nums(after)
+        if len(ho_nums) >= 2 and ho_nums != sorted(ho_nums):
+            problems.append(
+                f"ho_order_violation {law_id} {art_no}: got {ho_nums}"
+            )
+            if verbose:
+                print(f"[FAIL] ho_order {art_no}: {ho_nums}")
+        hang_nums = _leading_hang_nums(after)
+        if len(hang_nums) >= 2 and hang_nums != sorted(hang_nums):
+            problems.append(
+                f"hang_order_violation {law_id} {art_no}: got {hang_nums}"
+            )
+            if verbose:
+                print(f"[FAIL] hang_order {art_no}: {hang_nums}")
+    if verbose:
+        print(f"[INFO] unit_order scan articles_with_multi_new={checked}")
 
 
 def run_simulation(verbose: bool = True) -> dict:
@@ -1453,6 +1641,8 @@ def run_simulation(verbose: bool = True) -> dict:
 
     # 같은 조 미시행 개정 합성(제110조: 제104조 + 제4항부터) — UI와 동일 규칙
     check_compose_probes(amendments, articles, problems, verbose)
+    # 신설 호·항 번호 순서 전수 검증 (2→1→3 회귀 차단)
+    check_composed_unit_order(amendments, articles, problems, verbose)
     # 공포·시행 칩 2쌍 회귀 전수 차단
     check_no_dual_date_chips(amendments, articles, problems, verbose)
 
