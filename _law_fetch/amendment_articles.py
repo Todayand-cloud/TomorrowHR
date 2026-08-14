@@ -85,6 +85,11 @@ def resolve_unit_locators(prefix: str) -> list[str]:
         events.append((m.start(), "hang_ho", (int(m.group(1)), int(m.group(2)))))
     for m in re.finditer(r"같은\s*조\s*제\s*(\d+)\s*항제\s*(\d+)\s*호", cleaned):
         events.append((m.start(), "hang_ho", (int(m.group(1)), int(m.group(2)))))
+    # 같은 조 제2항 중 … (호 없음)
+    for m in re.finditer(
+        r"같은\s*조\s*제\s*(\d+)\s*항(?!\s*제\s*\d+\s*호)", cleaned
+    ):
+        events.append((m.start(), "hang", (int(m.group(1)),)))
     for m in re.finditer(r"같은\s*항\s*제\s*(\d+)\s*호", cleaned):
         events.append((m.start(), "same_ho", (int(m.group(1)),)))
     for m in re.finditer(
@@ -502,6 +507,7 @@ _STMT_START_RE = re.compile(
     r"(?:제\s*\d+\s*항)?(?:제\s*\d+\s*호)?"
     r"(?:"
     r"(?:\s*(?:각\s*호(?:\s*외의\s*부분)?|제목(?:\s*외의\s*부분)?|단서|본문|전단|후단))?\s*중\s"
+    r"|의\s*제목"
     r"|\s*제목"
     r"|\s*중\s"
     r"|[을를]\s"
@@ -587,7 +593,14 @@ def _extract_new_paragraphs(chunk: str) -> list[str]:
     for m in re.finditer(r"신설한다\.\s*", chunk):
         rest = chunk[m.end() :]
         stop = _STMT_START_RE.search(rest)
-        block = rest[: stop.start()] if stop else rest[:1200]
+        # 제N장에 제M조를 신설 — 항 본문에 다음 조 지시가 붙지 않게
+        stop2 = re.search(r"제\s*\d+\s*장에\s*제\s*\d+\s*조", rest)
+        end = len(rest)
+        if stop:
+            end = min(end, stop.start())
+        if stop2:
+            end = min(end, stop2.start())
+        block = rest[: min(end, 1200)]
         for pm in re.finditer(r"([①-⑮].+?)(?=[①-⑮]|$)", block, flags=re.S):
             text = re.sub(r"\s+", " ", pm.group(1)).strip()
             if len(text) < 8:
@@ -2116,6 +2129,37 @@ def _pending_phrases_only(
     return phrases
 
 
+def _minimal_substitution_expanded(before: str, after: str) -> tuple[str, str] | None:
+    """before/after 에서 old→new 추출. 공통접미로 old 가 비는 경우(출산휴가↔출산전후휴가) 좌측 확장."""
+    b = strip_hist_tags(before)
+    a = strip_hist_tags(after)
+    if not b or not a or b == a:
+        return None
+    pre = 0
+    while pre < len(b) and pre < len(a) and b[pre] == a[pre]:
+        pre += 1
+    suf = 0
+    while (
+        suf < len(b) - pre
+        and suf < len(a) - pre
+        and b[len(b) - 1 - suf] == a[len(a) - 1 - suf]
+    ):
+        suf += 1
+    while pre > 0:
+        old = b[pre : len(b) - suf if suf else len(b)]
+        occ = b.count(old) if old else 0
+        if old and len(old) >= 2 and occ == 1:
+            break
+        if old and len(old) >= 8 and occ >= 1:
+            break
+        pre -= 1
+    old = b[pre : len(b) - suf if suf else len(b)]
+    neu = a[pre : len(a) - suf if suf else len(a)]
+    if not old or not neu or old == neu:
+        return None
+    return old, neu
+
+
 def _merge_same_unit_replace_phrases(
     phrases: list[dict], amended: date
 ) -> list[dict]:
@@ -2146,30 +2190,16 @@ def _merge_same_unit_replace_phrases(
         base = group[0].get("beforeText") or ""
         after = base
         for p in group:
-            b = strip_hist_tags(p.get("beforeText") or "")
-            a = strip_hist_tags(p.get("text") or "")
-            if not b or not a or b == a:
+            sub = _minimal_substitution_expanded(
+                p.get("beforeText") or "", p.get("text") or ""
+            )
+            if not sub:
                 continue
-            # 최소 치환 구간
-            pre = 0
-            while pre < len(b) and pre < len(a) and b[pre] == a[pre]:
-                pre += 1
-            suf = 0
-            while (
-                suf < len(b) - pre
-                and suf < len(a) - pre
-                and b[len(b) - 1 - suf] == a[len(a) - 1 - suf]
-            ):
-                suf += 1
-            old = b[pre : len(b) - suf if suf else len(b)]
-            neu = a[pre : len(a) - suf if suf else len(a)]
-            if old and neu and old != neu:
-                after = safe_text_replace(after, old, neu, count=1)
-                after = fix_josa_after_jo_replace(after, neu)
+            old, neu = sub
+            after = safe_text_replace(after, old, neu, count=1)
+            after = fix_josa_after_jo_replace(after, neu)
         after = append_hist_date(after, amended)
-        # 오염(경우는는 등) 문구는 버리고 병합 결과만 유지
         if "는는" in after:
-            # 병합 실패 시 가장 긴 정상 후보
             clean = [
                 p
                 for p in group
@@ -2179,6 +2209,17 @@ def _merge_same_unit_replace_phrases(
                 max(
                     clean or group,
                     key=lambda p: len(p.get("text") or ""),
+                )
+            )
+            continue
+        if strip_hist_tags(after) == strip_hist_tags(base):
+            # 병합 실패 시 변경량이 가장 큰 후보
+            out.append(
+                max(
+                    group,
+                    key=lambda p: abs(
+                        len(p.get("text") or "") - len(p.get("beforeText") or "")
+                    ),
                 )
             )
             continue
