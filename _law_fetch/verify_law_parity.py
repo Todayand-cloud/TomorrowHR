@@ -48,6 +48,14 @@ COMPOSE_PROBES = [
         "requireInComposed": ["제104조를", "제4항부터 제6항까지"],
         "forbidInComposed": ["제104조제2항"],
     },
+    {
+        "lawId": "labor-standards",
+        "articleNo": "제114조",
+        "articleId": "labor-standards-statute-114",
+        # 21533(제103조 삭제) + 21784(제60조제9항 추가)
+        "requireInComposed": ["제60조제9항", "제95조 및 제100조"],
+        "forbidInComposed": ["제103조"],
+    },
 ]
 
 LIVE_PROBES = [
@@ -195,15 +203,76 @@ LIVE_PROBES = [
         "file": "full-labor-statute.txt",
         "amendments": [
             {
+                # 부칙: 제1항(기본 6개월) / 제2항제1·4호(8개월) / 제1항제2·제2항제2호(2027.1.1)
                 "amendedDate": "2026-04-07",
                 "noticeNo": "21533",
-                "effectiveDate": "2027-01-01",
+                "effectiveDate": "2026-10-08",
                 "compareBefore": "직장 내 괴롭힘을 한 경우에는",
                 "compareAfter": "다음 각 호의 어느 하나에 해당하는",
                 "requireHighlight": True,
                 "requireBodyApplied": False,
+                "requirePhraseAfter": "다음 각 호의 어느 하나에 해당하는",
+                "requireLocators": ["제1항"],
+            },
+            {
+                "amendedDate": "2026-04-07",
+                "noticeNo": "21533",
+                "effectiveDate": "2026-12-08",
+                "compareBefore": "근로감독관",
+                "compareAfter": "노동감독관",
+                "requireHighlight": True,
+                "requireBodyApplied": False,
+                "requireHighlightPhraseAfter": "노동감독관",
+                "requireDeleteHang": "제2항제4호",
+                "requireLocators": ["제2항제1호", "제2항제4호"],
+                "forbidPhraseAfter": "제102조에 따른 노동감독관",
+            },
+            {
+                "amendedDate": "2026-04-07",
+                "noticeNo": "21533",
+                "effectiveDate": "2027-01-01",
+                "compareBefore": "제48조",
+                "compareAfter": "제44조의4제1항ㆍ제4항ㆍ제5항, 제48조",
+                "requireHighlight": True,
+                "requireBodyApplied": False,
                 "requirePhraseAfter": "수급인이 제44조의4제6항",
-                "requireLocators": ["제1항", "제2항제1호", "제2항제2호", "제2항제4호"],
+                "requireLocators": ["제2항제2호", "제1항제2호"],
+            },
+        ],
+    },
+    {
+        # 법률 제21533·21784호: 제114조 제1호 (일자·합성)
+        "lsId": "001872",
+        "lawId": "labor-standards",
+        "tier": "statute",
+        "article": "제114조",
+        "must_in_live": ["제95조, 제100조 및 제103조", "제67조제1항"],
+        "must_not_in_live": ["제60조제9항"],
+        "must_not_after": "2026-12-08",
+        "file": "full-labor-statute.txt",
+        "amendments": [
+            {
+                "amendedDate": "2026-04-07",
+                "noticeNo": "21533",
+                "effectiveDate": "2026-12-08",
+                "compareBefore": "제95조, 제100조 및 제103조",
+                "compareAfter": "제95조 및 제100조",
+                "requireHighlight": True,
+                "requireBodyApplied": False,
+                "requireHighlightPhraseAfter": "제95조 및 제100조",
+                "forbidPhraseAfter": "제103조",
+                "requireLocators": ["제1호"],
+            },
+            {
+                "amendedDate": "2026-06-09",
+                "noticeNo": "21784",
+                "effectiveDate": "2027-06-10",
+                "compareBefore": "제67조제1항",
+                "compareAfter": "제60조제9항, 제67조제1항",
+                "requireHighlight": True,
+                "requireBodyApplied": False,
+                "requireHighlightPhraseAfter": "제60조제9항",
+                "requireLocators": ["제1호"],
             },
         ],
     },
@@ -647,6 +716,12 @@ def run_simulation(verbose: bool = True) -> dict:
                 and str(a.get("noticeNo") or "") == str(amd["noticeNo"])
                 and a.get("lawId") == probe["lawId"]
             ]
+            if amd.get("effectiveDate"):
+                exact = [
+                    a for a in hits if a.get("effectiveDate") == amd["effectiveDate"]
+                ]
+                if exact:
+                    hits = exact
             if not hits:
                 problems.append(
                     f"cache_missing_amendment {art_no} {amd['amendedDate']} #{amd['noticeNo']}"
