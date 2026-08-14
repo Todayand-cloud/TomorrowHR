@@ -128,6 +128,36 @@ LIVE_PROBES = [
         ],
     },
     {
+        # 법률 제21533호: 제107조 — 제목외→①, 인용 확대, ②(반의사불벌) 신설
+        "lsId": "001872",
+        "lawId": "labor-standards",
+        "tier": "statute",
+        "article": "제107조",
+        "must_in_live": [
+            "제23조제2항 또는 제40조를 위반한",
+        ],
+        "must_not_in_live": [
+            "피해자의 명시적인 의사와 다르게 공소를",
+            "제36조, 제40조, 제43조, 제44조, 제44조의2, 제46조, 제51조의3",
+        ],
+        "must_not_after": "2026-10-08",
+        "file": "full-labor-statute.txt",
+        "amendments": [
+            {
+                "amendedDate": "2026-04-07",
+                "noticeNo": "21533",
+                "effectiveDate": "2026-10-08",
+                "compareBefore": "제23조제2항 또는 제40조",
+                "compareAfter": "피해자의 명시적인 의사와 다르게 공소를",
+                "requireHighlight": True,
+                "requireBodyApplied": False,
+                "requirePhraseAfter": "제51조의3",
+                "requireHighlightPhraseAfter": "피해자의 명시적인 의사와 다르게 공소를",
+                "requireLocators": ["제1항", "제2항"],
+            },
+        ],
+    },
+    {
         # 법률 제21533호: 제116조 과태료 — 제1항 각호 신설 + 제2항제1·2호 개정 + 제4호 삭제
         "lsId": "001872",
         "lawId": "labor-standards",
@@ -500,6 +530,21 @@ def run_simulation(verbose: bool = True) -> dict:
                         f"phrase_after_missing {item.get('id')}: {needle[:40]}"
                     )
                     row["ok"] = False
+            # 노란 음영 phrase에만 있어야 함(compareAfter만 있고 화면 누락 방지)
+            if amd.get("requireHighlightPhraseAfter"):
+                needle = amd["requireHighlightPhraseAfter"]
+                texts = " ".join(
+                    (p.get("text") or "")
+                    for h in (item.get("highlights") or [])
+                    for p in (h.get("phrases") or [])
+                    if not p.get("skipHighlight")
+                )
+                if needle not in texts:
+                    problems.append(
+                        f"highlight_phrase_after_missing {item.get('id')}: {needle[:40]}"
+                    )
+                    row["ok"] = False
+                    row["details"].append(f"highlight_phrase_missing:{needle[:24]}")
             if amd.get("requireLocators"):
                 locs = {
                     (p.get("locator") or "").strip()
@@ -523,22 +568,25 @@ def run_simulation(verbose: bool = True) -> dict:
                     for p in (h.get("phrases") or [])
                     if not p.get("skipHighlight")
                 )
-                # 개정 후(text/compareAfter)에 금지 토큰이 있으면 전·후 뒤집힘으로 본다
+                # 개정 후(text/compareAfter)에 금지 토큰이 있으면 전·후 뒤집힘·과다 음영
                 if bad in texts or bad in (item.get("compareAfter") or ""):
                     problems.append(
                         f"phrase_after_forbidden {item.get('id')}: {bad}"
                     )
                     row["ok"] = False
-                if bad not in (item.get("compareBefore") or "") and bad not in "".join(
+            if amd.get("requirePhraseBefore"):
+                needle = amd["requirePhraseBefore"]
+                befores = (item.get("compareBefore") or "") + " ".join(
                     (p.get("beforeText") or "")
                     for h in (item.get("highlights") or [])
                     for p in (h.get("phrases") or [])
-                ):
-                    # before 쪽에도 없으면 수집 누락
+                )
+                if needle not in befores:
                     problems.append(
-                        f"phrase_before_missing_forbidden_token {item.get('id')}: {bad}"
+                        f"phrase_before_missing {item.get('id')}: {needle[:40]}"
                     )
                     row["ok"] = False
+                    row["details"].append(f"phrase_before_missing:{needle[:24]}")
 
         checks.append(row)
         if verbose:
