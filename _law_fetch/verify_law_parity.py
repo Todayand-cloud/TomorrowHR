@@ -122,6 +122,8 @@ LIVE_PROBES = [
                 "compareAfter": "제60조제8항",
                 "requireHighlight": True,
                 "requireBodyApplied": False,
+                "requirePhraseAfter": "제60조제8항",
+                "requireLocators": ["제1항", "제1항제1호", "제1항제2호", "제2항"],
             },
         ],
     },
