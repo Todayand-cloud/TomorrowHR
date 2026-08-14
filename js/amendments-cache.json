@@ -10,48 +10,17 @@
   "effLookbackDays": 182,
   "effWindowLabel": "±6개월",
   "amdWindowLabel": "±6개월",
-  "fetchedAt": "2026-08-14T15:58:31",
+  "fetchedAt": "2026-08-14T13:13:31",
   "freshFetch": true,
-  "count": 36,
-  "errors": [
-    {
-      "lsId": "003058",
-      "lawName": "근로기준법 시행령",
-      "error": "The read operation timed out"
-    },
-    {
-      "lsId": "006859",
-      "lawName": "근로기준법 시행규칙",
-      "error": "The read operation timed out"
-    },
-    {
-      "lsId": "010035",
-      "lawName": "근로자퇴직급여 보장법 시행령",
-      "error": "doc:The read operation timed out"
-    },
-    {
-      "lsId": "010356",
-      "lawName": "기간제법",
-      "error": "The read operation timed out"
-    },
-    {
-      "lsId": "010461",
-      "lawName": "기간제법 시행령",
-      "error": "The read operation timed out"
-    },
-    {
-      "lsId": "010473",
-      "lawName": "기간제법 시행규칙",
-      "error": "doc:The read operation timed out"
-    }
-  ],
+  "count": 37,
+  "errors": [],
   "audit": {
-    "matchedHighlights": 32,
+    "matchedHighlights": 33,
     "unmatchedRevisions": 4,
     "rejectedDemoRule": "highlight only when article history date == promulgation date"
   },
   "fullTexts": {
-    "ok": false,
+    "ok": true,
     "asOf": "2026-08-14",
     "files": [
       {
@@ -70,32 +39,17 @@
         }
       },
       {
-        "lawId": "retirement",
-        "tier": "statute",
-        "lsId": "009883",
-        "file": "full-retire-statute.txt",
-        "bytes": 75569,
-        "articles": 71,
+        "lawId": "labor-standards",
+        "tier": "decree",
+        "lsId": "003058",
+        "file": "full-labor-decree.txt",
+        "bytes": 55082,
+        "articles": 80,
         "eflaw": {
-          "mst": "284455",
-          "efYd": "20260701",
-          "ancYd": "20260317",
-          "noticeNo": "21475",
-          "status": "현행"
-        }
-      },
-      {
-        "lawId": "retirement",
-        "tier": "rule",
-        "lsId": "010043",
-        "file": "full-retire-rule.txt",
-        "bytes": 17728,
-        "articles": 19,
-        "eflaw": {
-          "mst": "243903",
-          "efYd": "20220712",
-          "ancYd": "20220712",
-          "noticeNo": "00359",
+          "mst": "270551",
+          "efYd": "20251023",
+          "ancYd": "20250408",
+          "noticeNo": "35436",
           "status": "현행"
         }
       },
@@ -116,6 +70,21 @@
       },
       {
         "lawId": "retirement",
+        "tier": "statute",
+        "lsId": "009883",
+        "file": "full-retire-statute.txt",
+        "bytes": 75569,
+        "articles": 71,
+        "eflaw": {
+          "mst": "284455",
+          "efYd": "20260701",
+          "ancYd": "20260317",
+          "noticeNo": "21475",
+          "status": "현행"
+        }
+      },
+      {
+        "lawId": "retirement",
         "tier": "decree",
         "lsId": "010035",
         "file": "full-retire-decree.txt",
@@ -126,6 +95,36 @@
           "efYd": "20260324",
           "ancYd": "20260324",
           "noticeNo": "36220",
+          "status": "현행"
+        }
+      },
+      {
+        "lawId": "retirement",
+        "tier": "rule",
+        "lsId": "010043",
+        "file": "full-retire-rule.txt",
+        "bytes": 17728,
+        "articles": 19,
+        "eflaw": {
+          "mst": "243903",
+          "efYd": "20220712",
+          "ancYd": "20220712",
+          "noticeNo": "00359",
+          "status": "현행"
+        }
+      },
+      {
+        "lawId": "equal-employment",
+        "tier": "statute",
+        "lsId": "000130",
+        "file": "full-equal-statute.txt",
+        "bytes": 70883,
+        "articles": 72,
+        "eflaw": {
+          "mst": "276851",
+          "efYd": "20251001",
+          "ancYd": "20251001",
+          "noticeNo": "21065",
           "status": "현행"
         }
       },
@@ -203,36 +202,15 @@
           "noticeNo": "00277",
           "status": "현행"
         }
-      },
-      {
-        "lawId": "equal-employment",
-        "tier": "statute",
-        "lsId": "000130",
-        "file": "full-equal-statute.txt",
-        "bytes": 70883,
-        "articles": 72,
-        "eflaw": {
-          "mst": "276851",
-          "efYd": "20251001",
-          "ancYd": "20251001",
-          "noticeNo": "21065",
-          "status": "현행"
-        }
       }
     ],
-    "errors": [
-      {
-        "lawId": "labor-standards",
-        "tier": "decree",
-        "lsId": "003058",
-        "file": "full-labor-decree.txt",
-        "error": "The read operation timed out"
-      }
-    ]
+    "errors": []
   },
   "noticesRefresh": {
-    "ok": false,
-    "error": "cannot import name 'fetch_notices' from 'refresh_notices' (/home/runner/work/TomorrowHR/TomorrowHR/_law_fetch/refresh_notices.py)"
+    "ok": true,
+    "count": 24,
+    "latest": "2026-08-12",
+    "errors": []
   },
   "amendments": [
     {
@@ -960,6 +938,64 @@
       "bodyApplied": false
     },
     {
+      "id": "live-010356-2026-04-07-21534-제18조",
+      "lawId": "fixed-term",
+      "lawName": "기간제법",
+      "fullName": "기간제 및 단시간근로자 보호 등에 관한 법률",
+      "tier": "법률",
+      "title": "기간제법 제18조(감독기관에 대한 통지) 개정",
+      "amendedDate": "2026-04-07",
+      "effectiveDate": "2026-12-08",
+      "summary": "「근로감독관」→「노동감독관」",
+      "briefSummary": "「근로감독관」→「노동감독관」",
+      "status": "시행예정",
+      "revisionType": "타법개정",
+      "noticeNo": "21534",
+      "instrument": "법률",
+      "source": "law.go.kr",
+      "sourceUrl": "https://www.law.go.kr/LSW/lsRvsRsnListP.do?chrClsCd=010102&lsId=010356",
+      "mentionedArticles": [
+        "제18조"
+      ],
+      "locators": [
+        "제18조"
+      ],
+      "articleIds": [
+        "fixed-term-statute-18"
+      ],
+      "highlights": [
+        {
+          "articleId": "fixed-term-statute-18",
+          "phrases": [
+            {
+              "text": "사업 또는 사업장에서 이 법 또는 이 법에 의한 명령을 위반한 사실이 있는 경우에는 근로자는 그 사실을 고용노동부장관 또는 노동감독관에게 통지할 수 있다. <개정 2010. 6. 4., 2020. 5. 26., 2026. 4. 7.>",
+              "beforeText": "사업 또는 사업장에서 이 법 또는 이 법에 의한 명령을 위반한 사실이 있는 경우에는 근로자는 그 사실을 고용노동부장관 또는 근로감독관에게 통지할 수 있다. <개정 2010. 6. 4., 2020. 5. 26.>",
+              "isNew": false,
+              "historyKind": "개정",
+              "historyDates": [
+                "2026-04-07"
+              ],
+              "locator": "제18조",
+              "amendedDate": "2026-04-07",
+              "effectiveDate": "2026-12-08",
+              "beforeNote": "",
+              "pending": true,
+              "compareBefore": "사업 또는 사업장에서 이 법 또는 이 법에 의한 명령을 위반한 사실이 있는 경우에는 근로자는 그 사실을 고용노동부장관 또는 근로감독관에게 통지할 수 있다.",
+              "compareAfter": "사업 또는 사업장에서 이 법 또는 이 법에 의한 명령을 위반한 사실이 있는 경우에는 근로자는 그 사실을 고용노동부장관 또는 노동감독관에게 통지할 수 있다."
+            }
+          ]
+        }
+      ],
+      "verified": true,
+      "parentId": "live-010356-2026-04-07-21534",
+      "articleNo": "제18조",
+      "articleTitle": "감독기관에 대한 통지",
+      "articleLevel": true,
+      "compareBefore": "사업 또는 사업장에서 이 법 또는 이 법에 의한 명령을 위반한 사실이 있는 경우에는 근로자는 그 사실을 고용노동부장관 또는 근로감독관에게 통지할 수 있다.",
+      "compareAfter": "사업 또는 사업장에서 이 법 또는 이 법에 의한 명령을 위반한 사실이 있는 경우에는 근로자는 그 사실을 고용노동부장관 또는 노동감독관에게 통지할 수 있다.",
+      "bodyApplied": false
+    },
+    {
       "id": "live-001872-2026-04-07-21533-제13조",
       "lawId": "labor-standards",
       "lawName": "근로기준법",
@@ -1068,6 +1104,7 @@
               "text": "4. 삭제 <개정 2026. 4. 7.>",
               "beforeText": "4. 제102조에 따른 근로감독관 또는 그 위촉을 받은 의사의 현장조사나 검진을 거절, 방해 또는 기피하고 그 심문에 대하여 진술을 하지 아니하거나 거짓된 진술을 하며 장부ㆍ서류를 제출하지 아니하거나 거짓 장부ㆍ서류를 제출한 자",
               "isNew": false,
+              "pendingDelete": true,
               "historyKind": "개정",
               "historyDates": [
                 "2026-04-07"
@@ -1075,7 +1112,7 @@
               "locator": "제2항제4호",
               "amendedDate": "2026-04-07",
               "effectiveDate": "2026-12-08",
-              "beforeNote": "",
+              "beforeNote": "시행일 이후 이 호는 삭제됩니다.",
               "pending": true,
               "compareBefore": "4. 제102조에 따른 근로감독관 또는 그 위촉을 받은 의사의 현장조사나 검진을 거절, 방해 또는 기피하고 그 심문에 대하여 진술을 하지 아니하거나 거짓된 진술을 하며 장부ㆍ서류를 제출하지 아니하거나 거짓 장부ㆍ서류를 제출한 자",
               "compareAfter": "4. 삭제"
@@ -2549,7 +2586,7 @@
     "freshFetch": true,
     "simulation": {
       "attempt": 1,
-      "maxAttempts": 2,
+      "maxAttempts": 3,
       "passed": true,
       "parityOk": true,
       "offlineProblemCount": 0,
@@ -2563,10 +2600,10 @@
     "simulationLog": [
       {
         "attempt": 1,
-        "maxAttempts": 2,
+        "maxAttempts": 3,
         "offlineProblems": 0,
-        "buildCount": 36,
-        "buildErrors": 6,
+        "buildCount": 37,
+        "buildErrors": 0,
         "parityProblems": [],
         "result": "passed"
       }
@@ -2575,10 +2612,10 @@
   "simulationLog": [
     {
       "attempt": 1,
-      "maxAttempts": 2,
+      "maxAttempts": 3,
       "offlineProblems": 0,
-      "buildCount": 36,
-      "buildErrors": 6,
+      "buildCount": 37,
+      "buildErrors": 0,
       "parityProblems": [],
       "result": "passed"
     }
