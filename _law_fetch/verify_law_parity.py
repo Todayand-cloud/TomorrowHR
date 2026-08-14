@@ -52,9 +52,14 @@ COMPOSE_PROBES = [
         "lawId": "labor-standards",
         "articleNo": "제114조",
         "articleId": "labor-standards-statute-114",
-        # 21533(제103조 삭제) + 21784(제60조제9항 추가)
+        # 21533(제103조 삭제, 시행 2026-12-08) + 21784(제60조제9항, 시행 2027-06-10)
         "requireInComposed": ["제60조제9항", "제95조 및 제100조"],
         "forbidInComposed": ["제103조"],
+        # 합성 후 대표 일자는 빠른 시행(4월 개정), composedFrom 에 두 일자 모두
+        "requireComposedDates": [
+            {"amendedDate": "2026-04-07", "effectiveDate": "2026-12-08"},
+            {"amendedDate": "2026-06-09", "effectiveDate": "2027-06-10"},
+        ],
     },
     {
         "lawId": "labor-standards",
@@ -511,15 +516,30 @@ def compose_pending_phrases(body: str, phrases: list[dict]) -> list[dict]:
         if len(applied) <= 1:
             out.extend(group)
             continue
+        by_eff = sorted(
+            applied,
+            key=lambda p: (
+                p.get("effectiveDate") or "",
+                p.get("amendedDate") or "",
+            ),
+        )
+        primary = by_eff[0]
         latest = applied[-1]
         composed = {
             "text": working,
             "beforeText": anchor,
             "pending": True,
             "isNew": False,
-            "amendedDate": latest.get("amendedDate"),
-            "effectiveDate": latest.get("effectiveDate"),
+            "amendedDate": primary.get("amendedDate"),
+            "effectiveDate": primary.get("effectiveDate"),
             "locator": latest.get("locator") or applied[0].get("locator") or "",
+            "composedFrom": [
+                {
+                    "amendedDate": p.get("amendedDate"),
+                    "effectiveDate": p.get("effectiveDate"),
+                }
+                for p in by_eff
+            ],
         }
         used = {
             (
@@ -668,14 +688,12 @@ def check_compose_probes(
                 ok = False
         order = probe.get("requireOrder") or []
         if order:
-            positions = []
             cursor = -1
             for token in order:
                 at = after.find(token)
                 if at == -1:
                     problems.append(f"compose_order_missing {art_no}: {token}")
                     ok = False
-                    positions.append(-1)
                     continue
                 if at < cursor:
                     problems.append(
@@ -683,7 +701,51 @@ def check_compose_probes(
                     )
                     ok = False
                 cursor = at
-                positions.append(at)
+        # 합성 phrase 의 공포·시행 (제114조 다중 개정)
+        want_dates = probe.get("requireComposedDates") or []
+        if want_dates:
+            composed = compose_pending_phrases(body, phrases)
+            target = None
+            for p in composed:
+                if p.get("composedFrom"):
+                    target = p
+                    break
+            if not target:
+                problems.append(f"compose_no_composedFrom {art_no}")
+                ok = False
+            else:
+                got = {
+                    (
+                        (c.get("amendedDate") if isinstance(c, dict) else c) or "",
+                        (c.get("effectiveDate") if isinstance(c, dict) else "") or "",
+                    )
+                    for c in (target.get("composedFrom") or [])
+                }
+                # legacy string-only composedFrom → effective 는 phrase 대표값
+                if got and all(not g[1] for g in got):
+                    got = {
+                        (g[0], target.get("effectiveDate") or "") for g in got
+                    }
+                for d in want_dates:
+                    key = (d.get("amendedDate") or "", d.get("effectiveDate") or "")
+                    if key not in got:
+                        # effective 비어 있으면 amended 만 비교
+                        if not any(g[0] == key[0] for g in got):
+                            problems.append(
+                                f"compose_date_missing {art_no}: {key[0]}/{key[1]}"
+                            )
+                            ok = False
+                # 대표 칩 = 가장 빠른 시행
+                if (target.get("amendedDate"), target.get("effectiveDate")) != (
+                    want_dates[0].get("amendedDate"),
+                    want_dates[0].get("effectiveDate"),
+                ):
+                    problems.append(
+                        f"compose_primary_date {art_no}: "
+                        f"{target.get('amendedDate')}/{target.get('effectiveDate')} "
+                        f"!= {want_dates[0].get('amendedDate')}/{want_dates[0].get('effectiveDate')}"
+                    )
+                    ok = False
         if verbose:
             status = "OK" if ok else "FAIL"
             print(f"[{status}] compose {art_no} phrases={len(phrases)}")
