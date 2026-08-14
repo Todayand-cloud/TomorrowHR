@@ -322,8 +322,48 @@ def fix_josa_after_jo_replace(text: str, new: str) -> str:
 
 
 def parse_special_effective(doc_text: str, amended: date, default_effective: date) -> dict[str, date]:
-    """부칙 시행일 특례를 조문별로 해석한다."""
+    """부칙 시행일 특례를 조·항·호 단위로 해석한다.
+
+    키 예: 제114조, 제114조제1호, 제116조제2항제1호, 제116조제1항제2호
+    조 단위만 있으면 그 조 전체 기본값. 항·호가 있으면 더 구체적 키가 우선.
+    """
     special: dict[str, date] = {}
+
+    def _add_unit_keys(block: str, eff: date) -> None:
+        # 제N조부터 제M조까지
+        for m in re.finditer(
+            r"제\s*(\d+)\s*조(?:의\s*(\d+))?부터\s*제\s*(\d+)\s*조(?:의\s*(\d+))?까지",
+            block,
+        ):
+            a, ao, b, _bo = int(m.group(1)), m.group(2), int(m.group(3)), m.group(4)
+            for n in range(a, b + 1):
+                special[jo_label(str(n), ao if n == a else None)] = eff
+        # 제N조[의K][제H항][제X호[ㆍ제Y호…]]
+        for m in re.finditer(
+            r"제\s*(\d+)\s*조(?:의\s*(\d+))?"
+            r"(?:제\s*(\d+)\s*항)?"
+            r"((?:제\s*\d+\s*호)(?:\s*ㆍ\s*제\s*\d+\s*호)*)?",
+            block,
+        ):
+            jo = jo_label(m.group(1), m.group(2) or None)
+            hang = m.group(3)
+            hos_blob = m.group(4) or ""
+            # 장 제목 등 스킵: "제11장의 제목"
+            if re.search(rf"제\s*{re.escape(m.group(1))}\s*장", block[max(0, m.start() - 2) : m.end() + 4]):
+                continue
+            hos = [int(x) for x in re.findall(r"제\s*(\d+)\s*호", hos_blob)]
+            if hang and hos:
+                for ho in hos:
+                    special[f"{jo}제{int(hang)}항제{ho}호"] = eff
+            elif hang and not hos:
+                special[f"{jo}제{int(hang)}항"] = eff
+            elif hos and not hang:
+                for ho in hos:
+                    special[f"{jo}제{ho}호"] = eff
+            else:
+                # 조 단위만 (다른 항·호 특례와 충돌 시 구체 키가 우선)
+                if jo not in special:
+                    special[jo] = eff
 
     # 제N조의 개정규정은 공포 후 M개월…
     for no, of, months in re.findall(
@@ -332,28 +372,66 @@ def parse_special_effective(doc_text: str, amended: date, default_effective: dat
     ):
         special[jo_label(no, of or None)] = add_months(amended, int(months))
 
-    # 다만, 제13조 … 제114조제1호 … 까지의 개정규정은 공포 후 8개월…
+    # 다만, … 의 개정규정은 공포 후 N개월…
     for block, months in re.findall(
-        r"다만,\s*([^.]{10,500}?)"
+        r"다만,\s*([^.]{10,800}?)"
         r"(?:까지(?:의)?|의)\s*개정규정은\s*공포\s*후\s*([0-9]+)\s*개월이\s*경과한\s*날부터\s*시행",
         doc_text,
     ):
-        eff = add_months(amended, int(months))
-        for no, of in JO_TOKEN_RE.findall(block):
-            special[jo_label(no, of or None)] = eff
+        _add_unit_keys(block, add_months(amended, int(months)))
 
-    # …하고, 제44조의4 … 의 개정규정은 2027년 1월 1일부터 시행
-    # (같은 문장 앞부분의 8개월 특례 조문을 덮어쓰지 않도록 '하고/그리고' 뒤만 대상)
+    # …하고, … 의 개정규정은 YYYY년 M월 D일부터 시행
     for block, y, m, d in re.findall(
-        r"(?:하고|그리고)\s*,?\s*([^.]{8,300}?)"
+        r"(?:하고|그리고)\s*,?\s*([^.]{8,500}?)"
         r"(?:까지(?:의)?|의)\s*개정규정은\s*([0-9]{4})\s*년\s*([0-9]{1,2})\s*월\s*([0-9]{1,2})\s*일부터\s*시행",
         doc_text,
     ):
-        eff = date(int(y), int(m), int(d))
-        for no, of in JO_TOKEN_RE.findall(block):
-            special[jo_label(no, of or None)] = eff
+        _add_unit_keys(block, date(int(y), int(m), int(d)))
 
     return special
+
+
+def law_default_effective(doc_text: str, amended: date, fallback: date) -> date:
+    """부칙 '이 법은 공포 후 N개월' 기본 시행일."""
+    m = re.search(
+        r"이\s*법은\s*공포\s*후\s*(\d+)\s*개월이\s*경과한\s*날부터\s*시행",
+        doc_text or "",
+    )
+    if m:
+        return add_months(amended, int(m.group(1)))
+    m2 = re.search(
+        r"이\s*법은\s*공포\s*후\s*(\d+)\s*년이\s*경과한\s*날부터\s*시행",
+        doc_text or "",
+    )
+    if m2:
+        return add_months(amended, int(m2.group(1)) * 12)
+    return fallback
+
+
+def resolve_unit_effective(
+    jo: str,
+    unit_loc: str,
+    special: dict[str, date],
+    default_eff: date,
+) -> date:
+    """항·호 특례 > 조 특례 > 법률 기본 시행일."""
+    loc = (unit_loc or "").replace(" ", "")
+    candidates: list[str] = []
+    if loc:
+        if loc.startswith("제") and "조" in loc:
+            candidates.append(loc)
+        else:
+            candidates.append(f"{jo}{loc}")
+            candidates.append(loc)
+        # 제2항제1호 → 제2항 도 후보
+        hm = re.match(r"(제\d+항)(제\d+호)?$", loc)
+        if hm and jo:
+            candidates.append(f"{jo}{hm.group(1)}")
+    candidates.append(jo)
+    for key in candidates:
+        if key and key in special:
+            return special[key]
+    return default_eff
 
 
 _STMT_START_RE = re.compile(
@@ -462,14 +540,15 @@ def extract_article_changes(
     law_name: str = "",
 ) -> list[dict]:
     """개정문에서 조문별 변경·치환·신설 항을 뽑는다."""
-    special_eff = parse_special_effective(doc_text, amended, default_effective)
+    law_default = law_default_effective(doc_text, amended, default_effective)
+    special_eff = parse_special_effective(doc_text, amended, law_default)
     changes: dict[str, dict] = {}
 
     def ensure(jo: str) -> dict:
         if jo not in changes:
             changes[jo] = {
                 "articleNo": jo,
-                "effectiveDate": special_eff.get(jo, default_effective),
+                "effectiveDate": special_eff.get(jo, law_default),
                 "summaryParts": [],
                 "ops": [],
                 "newProviso": "",
@@ -478,8 +557,17 @@ def extract_article_changes(
                 "articleTitle": "",
             }
         elif jo in special_eff:
+            # 조 단위 특례만 있을 때 갱신 (항·호 특례는 op에 개별 부여)
             changes[jo]["effectiveDate"] = special_eff[jo]
         return changes[jo]
+
+    def stamp_op(jo: str, op: dict) -> dict:
+        unit = (op.get("unitLocator") or op.get("locator") or "").strip()
+        # locator가 조문번호만이면 단위 없음
+        if unit == jo:
+            unit = ""
+        op["effectiveDate"] = resolve_unit_effective(jo, unit, special_eff, law_default)
+        return op
 
     # 0) 조문 전체 신설 (제목+본문)
     for no, of, _header, title, body in NEW_ARTICLE_RE.findall(doc_text):
@@ -831,6 +919,12 @@ def extract_article_changes(
     # 요약이 전혀 없는 빈 엔트리 제거, ops만 있어도 유지
     results = []
     for jo, data in changes.items():
+        for op in data["ops"]:
+            stamp_op(jo, op)
+        if data["ops"]:
+            data["effectiveDate"] = min(
+                op.get("effectiveDate") or data["effectiveDate"] for op in data["ops"]
+            )
         if not data["ops"] and not data["summaryParts"]:
             continue
         if not data["summaryParts"] and data["ops"]:
@@ -1000,6 +1094,45 @@ def iter_atomic_units(body: str) -> list[tuple[str, str, int, int]]:
                     block_start + off + len(unit),
                 )
             )
+            i = j
+    if out:
+        return out
+
+    # 항 기호(①…) 없는 조문(제110조·제114조 등): 머리말 + 1. 2. 호 단위
+    # (통째로 잡으면 미개정 호까지 노란 음영·전후 합성이 깨짐)
+    idxs: list[tuple[int, str]] = []
+    cursor = 0
+    for ln in text.split("\n"):
+        idxs.append((cursor, ln))
+        cursor += len(ln) + 1
+    lead_upto = len(idxs)
+    for i, (_off, ln) in enumerate(idxs):
+        if re.match(r"^\d+(?:의\d+)?\.\s*", ln):
+            lead_upto = i
+            break
+    if 0 < lead_upto < len(idxs):
+        lead_start = idxs[0][0]
+        last_off, last_ln = idxs[lead_upto - 1]
+        lead_end = last_off + len(last_ln)
+        lead = text[lead_start:lead_end].rstrip()
+        if lead:
+            out.append(("", lead, lead_start, lead_start + len(lead)))
+        i = lead_upto
+        while i < len(idxs):
+            off, ln = idxs[i]
+            if not re.match(r"^\d+(?:의\d+)?\.\s*", ln):
+                i += 1
+                continue
+            ho = ln.split(".", 1)[0]
+            j = i + 1
+            end_off = off + len(ln)
+            while j < len(idxs) and not re.match(
+                r"^\d+(?:의\d+)?\.\s*", idxs[j][1]
+            ):
+                end_off = idxs[j][0] + len(idxs[j][1])
+                j += 1
+            unit = text[off:end_off].rstrip()
+            out.append((f"제{ho}호", unit, off, off + len(unit)))
             i = j
     if not out and text.strip():
         stripped = text.strip()
@@ -1223,7 +1356,9 @@ def _pending_phrases_only(
             au = "① " + au
         return au, "제1항"
 
-    def _fold_inserts_into(after_unit: str, hang_n: int | None) -> str:
+    def _fold_inserts_into(
+        after_unit: str, hang_n: int | None, target_eff: date | None = None
+    ) -> str:
         if hang_n is None:
             return after_unit
         parts = [after_unit.rstrip()]
@@ -1231,6 +1366,14 @@ def _pending_phrases_only(
             if op.get("kind") != "insert" or i in folded_inserts:
                 continue
             if _hang_n_from_loc(str(op.get("locator") or "")) != hang_n:
+                continue
+            # 시행일이 다른 호 신설은 합치지 않음 (제116조 제1항제2호 vs 제1호)
+            op_eff = op.get("effectiveDate")
+            if (
+                target_eff is not None
+                and isinstance(op_eff, date)
+                and op_eff != target_eff
+            ):
                 continue
             raw = re.sub(r"\s*<신설[^>]*>\s*", "", (op.get("text") or "")).strip()
             if not raw:
@@ -1240,6 +1383,12 @@ def _pending_phrases_only(
             parts.append(raw)
             folded_inserts.add(i)
         return "\n".join(parts)
+
+    def _eff_for(op: dict | None = None) -> str:
+        if op and op.get("effectiveDate"):
+            d = op["effectiveDate"]
+            return to_iso(d) if isinstance(d, date) else str(d)[:10]
+        return eff
 
     replace_hits: list[tuple[str, str, str]] = []  # before_unit, after_unit, loc
 
@@ -1314,7 +1463,22 @@ def _pending_phrases_only(
 
             # 조문 전문 음영 금지. old가 들어 있는 항 본문·호만 노란색.
             # (제61조: ①·①1·2호·②만, 미변경 ②1·2호는 제외)
+            # unitLocator가 있으면 그 단위만 (제116조 근로감독관이 1호·4호에 동시 존재)
             atomic_hits = atomic_units_containing(body, old)
+            want_loc = (op.get("unitLocator") or "").strip()
+            if want_loc:
+                filtered = [
+                    (loc, unit)
+                    for loc, unit in atomic_hits
+                    if loc == want_loc
+                    or loc.endswith(want_loc)
+                    or want_loc.endswith(loc)
+                ]
+                if filtered:
+                    atomic_hits = filtered
+                else:
+                    # 지정 단위에 needle이 없으면 다른 호로 확산하지 않음
+                    atomic_hits = []
             if atomic_hits:
                 for loc, before_unit in atomic_hits:
                     before_clean = strip_hist_tags(before_unit)
@@ -1332,7 +1496,13 @@ def _pending_phrases_only(
                         and "호" not in (loc or "")
                         and after_unit.lstrip()[:1] in CIRCLE_TO_N
                     ):
-                        after_unit = _fold_inserts_into(after_unit, hang_n)
+                        after_unit = _fold_inserts_into(
+                            after_unit,
+                            hang_n,
+                            op.get("effectiveDate")
+                            if isinstance(op.get("effectiveDate"), date)
+                            else None,
+                        )
                         after_clean = strip_hist_tags(after_unit)
                     replace_hits.append((before_unit, after_unit, loc))
                     if not structural:
@@ -1373,7 +1543,13 @@ def _pending_phrases_only(
                     and "호" not in (loc or "")
                     and after_unit.lstrip()[:1] in CIRCLE_TO_N
                 ):
-                    after_unit = _fold_inserts_into(after_unit, hang_n)
+                    after_unit = _fold_inserts_into(
+                        after_unit,
+                        hang_n,
+                        op.get("effectiveDate")
+                        if isinstance(op.get("effectiveDate"), date)
+                        else None,
+                    )
                 after_clean = strip_hist_tags(after_unit)
                 replace_hits.append((before_unit, after_unit, loc))
                 if not structural:
@@ -1418,8 +1594,15 @@ def _pending_phrases_only(
             if hist_new not in para and hist_rev not in para:
                 para = para.rstrip() + " " + hist_new
             loc = hang_locator_from_text(para, op.get("locator") or art.get("no") or "")
-            # ①②… 항 신설: 화면 음영·본문 말미 삽입. 호(1.) 신설만 비교 카드용으로 제외
-            circle_hang = bool(para and para.lstrip()[:1] in CIRCLE_TO_N)
+            # ①②… 항 신설·1. 2. 호 신설은 화면 음영. 그 외만 비교 카드용으로 제외
+            lead = para.lstrip()
+            unit_insert = bool(
+                lead
+                and (
+                    lead[0] in CIRCLE_TO_N
+                    or re.match(r"^\d+(?:의\d+)?\.\s*", lead)
+                )
+            )
             phrases.append(
                 {
                     "text": para,
@@ -1432,7 +1615,7 @@ def _pending_phrases_only(
                     "effectiveDate": eff,
                     "beforeNote": "",
                     "pending": True,
-                    "skipHighlight": not circle_hang,
+                    "skipHighlight": not unit_insert,
                     "compareBefore": "해당 항·호 없음(신설)",
                     "compareAfter": re.sub(r"\s*<[^>]+>\s*", "", para).strip(),
                 }
@@ -1750,6 +1933,38 @@ def _pending_phrases_only(
                         f"제{op.get('toStart')}호·제{op.get('toEnd')}호"
                     ),
                 }
+            )
+
+    # 항·호별 부칙 시행일을 phrase에 반영
+    for ph in phrases:
+        loc = (ph.get("locator") or "").strip().replace(" ", "")
+        if not loc:
+            continue
+        best = None
+        best_score = -1
+        for op in ops:
+            if not op.get("effectiveDate"):
+                continue
+            ol = (
+                (op.get("unitLocator") or op.get("locator") or "")
+                .strip()
+                .replace(" ", "")
+            )
+            if not ol:
+                continue
+            score = -1
+            if ol == loc:
+                score = 3
+            elif loc.endswith(ol) or ol.endswith(loc):
+                score = 2
+            elif ol in loc or loc in ol:
+                score = 1
+            if score > best_score:
+                best_score = score
+                best = op.get("effectiveDate")
+        if best is not None and best_score >= 2:
+            ph["effectiveDate"] = (
+                to_iso(best) if isinstance(best, date) else str(best)[:10]
             )
 
     return phrases
@@ -2287,39 +2502,99 @@ def enrich_revision_with_articles(
         if (not apply_body) and (not ops_hit) and (not highlight_phrases):
             continue
 
-        highlights = (
-            [{"articleId": article_id, "phrases": highlight_phrases}]
-            if highlight_phrases
-            else []
-        )
-        locators = []
+        # 부칙 항·호별 시행일이 다르면 카드·칩을 시행일별로 분리
+        groups: dict[str, list[dict]] = {}
         for ph in phrases:
-            if ph.get("locator") and ph["locator"] not in locators:
-                locators.append(ph["locator"])
-        if not locators:
-            locators = [ch["articleNo"] + (f" 제{ch['hang']}항" if ch.get("hang") else "")]
+            ek = (ph.get("effectiveDate") or to_iso(ch["effectiveDate"]))[:10]
+            groups.setdefault(ek, []).append(ph)
+        if not groups:
+            groups[to_iso(ch["effectiveDate"])] = []
 
-        child = dict(item)
-        child.update(
-            {
-                "id": f"{item['id']}-{ch['articleNo']}",
-                "parentId": item["id"],
-                "title": display_title,
-                "articleNo": ch["articleNo"],
-                "articleTitle": title_name,
-                "effectiveDate": to_iso(ch["effectiveDate"]),
-                "summary": ch["summary"],
-                "briefSummary": ch["summary"][:90] + ("…" if len(ch["summary"]) > 90 else ""),
-                "status": "시행예정" if ch["effectiveDate"] > date.today() else item.get("status"),
-                "mentionedArticles": [ch["articleNo"]],
-                "locators": locators,
-                "articleIds": [article_id],
-                "highlights": highlights,
-                "articleLevel": True,
-                "compareBefore": compare_before,
-                "compareAfter": compare_after,
-                "bodyApplied": apply_body,
-            }
-        )
-        expanded.append(child)
+        for eff_iso, group_phrases in sorted(groups.items()):
+            group_highlight = [ph for ph in group_phrases if _can_highlight(ph)]
+            if (not apply_body) and (not ops_hit) and (not group_highlight) and group_phrases:
+                # skipHighlight 만 있는 그룹은 비교용으로라도 유지
+                pass
+            if (not apply_body) and (not group_highlight) and not any(
+                not p.get("skipHighlight") for p in group_phrases
+            ):
+                if not group_phrases:
+                    continue
+
+            cbs: list[str] = []
+            cas: list[str] = []
+            for ph in group_phrases:
+                b = (ph.get("compareBefore") or "").strip()
+                if not b:
+                    b = strip_hist_tags(ph.get("beforeText") or "")
+                a = (ph.get("compareAfter") or "").strip()
+                if not a:
+                    a = strip_hist_tags(ph.get("text") or "")
+                if b and b not in cbs:
+                    cbs.append(b)
+                if a and a not in cas:
+                    cas.append(a)
+
+            locators = []
+            for ph in group_phrases:
+                if ph.get("locator") and ph["locator"] not in locators:
+                    locators.append(ph["locator"])
+            if not locators:
+                locators = [
+                    ch["articleNo"]
+                    + (f" 제{ch['hang']}항" if ch.get("hang") else "")
+                ]
+
+            try:
+                eff_d = date.fromisoformat(eff_iso)
+            except ValueError:
+                eff_d = ch["effectiveDate"]
+
+            # 이 시행일 그룹에 속한 op만으로 요약 축약
+            group_summary_parts = []
+            for op in ops:
+                od = op.get("effectiveDate")
+                oi = to_iso(od) if isinstance(od, date) else str(od or "")[:10]
+                if oi and oi != eff_iso:
+                    continue
+                kind = op.get("kind")
+                if kind == "replace":
+                    group_summary_parts.append(
+                        f"「{(op.get('old') or '')[:24]}」→「{(op.get('new') or '')[:24]}」"
+                    )
+                elif kind == "insert":
+                    t = (op.get("text") or "")[:40]
+                    group_summary_parts.append(f"{t}… 신설" if len(op.get("text") or "") > 40 else f"{t} 신설")
+                elif kind == "delete_ho":
+                    group_summary_parts.append(f"{op.get('locator') or ''} 삭제")
+            summary = " ".join(group_summary_parts) if group_summary_parts else ch["summary"]
+
+            id_suffix = f"-{eff_iso}" if len(groups) > 1 else ""
+            child = dict(item)
+            child.update(
+                {
+                    "id": f"{item['id']}-{ch['articleNo']}{id_suffix}",
+                    "parentId": item["id"],
+                    "title": display_title,
+                    "articleNo": ch["articleNo"],
+                    "articleTitle": title_name,
+                    "effectiveDate": eff_iso,
+                    "summary": summary,
+                    "briefSummary": summary[:90] + ("…" if len(summary) > 90 else ""),
+                    "status": "시행예정" if eff_d > date.today() else item.get("status"),
+                    "mentionedArticles": [ch["articleNo"]],
+                    "locators": locators,
+                    "articleIds": [article_id],
+                    "highlights": (
+                        [{"articleId": article_id, "phrases": group_highlight}]
+                        if group_highlight
+                        else []
+                    ),
+                    "articleLevel": True,
+                    "compareBefore": "\n".join(cbs),
+                    "compareAfter": "\n".join(cas),
+                    "bodyApplied": eff_d <= base,
+                }
+            )
+            expanded.append(child)
     return expanded
