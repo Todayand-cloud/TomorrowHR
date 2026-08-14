@@ -21,6 +21,12 @@ DEFAULT_UA = {
 }
 
 HTTP_TIMEOUT_S = int(os.environ.get("LAW_HTTP_TIMEOUT", "45"))
+# CI/빠른 갱신: 재시도·대기 축소 (7분 예산)
+FAST_MODE = os.environ.get("LAW_FETCH_FAST", "").strip() in ("1", "true", "TRUE") or (
+    os.environ.get("CI", "").strip() == "true"
+)
+PROXY_RETRIES = 1 if FAST_MODE else 2
+PROXY_RETRY_SLEEP_S = 0.35 if FAST_MODE else 1.5
 
 
 def _proxy_base() -> str:
@@ -58,7 +64,7 @@ def _via_proxy(proxy: str, url: str, headers: dict, timeout: int) -> str:
         req_headers["X-Proxy-Secret"] = secret
 
     last_exc: Exception | None = None
-    for attempt in range(2):
+    for attempt in range(PROXY_RETRIES):
         try:
             req = urllib.request.Request(
                 proxy, data=payload, headers=req_headers, method="POST"
@@ -80,7 +86,7 @@ def _via_proxy(proxy: str, url: str, headers: dict, timeout: int) -> str:
             return str(body)
         except Exception as exc:  # noqa: BLE001
             last_exc = exc
-            if attempt == 0:
-                time.sleep(1.5)
+            if attempt + 1 < PROXY_RETRIES:
+                time.sleep(PROXY_RETRY_SLEEP_S)
     assert last_exc is not None
     raise last_exc
