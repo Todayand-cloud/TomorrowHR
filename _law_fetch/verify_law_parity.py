@@ -44,22 +44,43 @@ COMPOSE_PROBES = [
         "lawId": "labor-standards",
         "articleNo": "제110조",
         "articleId": "labor-standards-statute-110",
-        # 21533(제104조제2항→제104조) + 21784(제4항및제5항→부터제6항) 합성
+        # 21533·21784 은 독립 최소 치환 → 음영·일자 칩을 각각 1쌍씩
         "requireInComposed": ["제104조를", "제4항부터 제6항까지"],
         "forbidInComposed": ["제104조제2항"],
+        "requireSpanDates": [
+            {
+                "requireAfter": "제104조",
+                "amendedDate": "2026-04-07",
+                "effectiveDate": "2026-12-08",
+            },
+            {
+                "requireAfter": "제4항부터 제6항까지",
+                "amendedDate": "2026-06-09",
+                "effectiveDate": "2027-06-10",
+            },
+        ],
+        "forbidDualDateChips": True,
     },
     {
         "lawId": "labor-standards",
         "articleNo": "제114조",
         "articleId": "labor-standards-statute-114",
-        # 21533(제103조 삭제, 시행 2026-12-08) + 21784(제60조제9항, 시행 2027-06-10)
+        # 21533(제103조 삭제) + 21784(제60조제9항) — 독립 치환·칩 1쌍씩
         "requireInComposed": ["제60조제9항", "제95조 및 제100조"],
         "forbidInComposed": ["제103조"],
-        # 합성 후 대표 일자는 빠른 시행(4월 개정), composedFrom 에 두 일자 모두
-        "requireComposedDates": [
-            {"amendedDate": "2026-04-07", "effectiveDate": "2026-12-08"},
-            {"amendedDate": "2026-06-09", "effectiveDate": "2027-06-10"},
+        "requireSpanDates": [
+            {
+                "requireAfter": "제95조 및 제100조",
+                "amendedDate": "2026-04-07",
+                "effectiveDate": "2026-12-08",
+            },
+            {
+                "requireAfter": "제60조제9항",
+                "amendedDate": "2026-06-09",
+                "effectiveDate": "2027-06-10",
+            },
         ],
+        "forbidDualDateChips": True,
     },
     {
         "lawId": "labor-standards",
@@ -79,6 +100,7 @@ COMPOSE_PROBES = [
             "노동감독관",
             "④ 삭제",
         ],
+        "forbidDualDateChips": True,
     },
 ]
 
@@ -447,8 +469,60 @@ def _fix_josa_jo_eul(text: str) -> str:
     return re.sub(r"조을(?=\s|위반|위반한|,|\.|$)", "조를", text or "")
 
 
+def _with_jo_prefix(raw: str, old: str, neu: str) -> tuple[str, str]:
+    """최소 치환이 '제'를 빼면 음영이 끊기므로 본문에 '제'+old 있으면 복원."""
+    if not old or not neu:
+        return old, neu
+    if old.startswith("제"):
+        return old, neu
+    prefixed = "제" + old
+    if prefixed in (raw or ""):
+        return prefixed, "제" + neu
+    return old, neu
+
+
+def _is_clean_span(old: str, neu: str) -> bool:
+    if not old or not neu:
+        return False
+    if len(old) < 4 or len(neu) < 2:
+        return False
+    if re.match(r"^[\s,·ㆍ]", old) or re.search(r"[\s,·ㆍ]$", old):
+        return False
+    if re.match(r"^[\s,·ㆍ]", neu) or re.search(r"[\s,·ㆍ]$", neu):
+        return False
+    return True
+
+
+def _resolve_independent_span(p: dict, raw: str) -> tuple[str, str] | None:
+    summary = p.get("amendmentSummary") or p.get("amendmentTitle") or ""
+    sm = re.search(r"「([^」]{2,120})」\s*→\s*「([^」]{2,120})」", summary)
+    sub: tuple[str, str] | None = None
+    if sm and sm.group(1) in raw and _is_clean_span(sm.group(1), sm.group(2)):
+        sub = (sm.group(1), sm.group(2))
+    else:
+        got = _minimal_substitution(p.get("beforeText") or "", p.get("text") or "")
+        if not (got and got[0] and got[0] in raw):
+            return None
+        old, neu = _with_jo_prefix(raw, got[0], got[1])
+        if old not in raw or not _is_clean_span(old, neu):
+            return None
+        sub = (old, neu)
+    old, neu = sub
+    if old + "을" in raw:
+        neu = neu if re.search(r"[을를]$", neu) else neu + "를"
+        old = old + "을"
+    elif old + "를" in raw:
+        neu = neu if re.search(r"[을를]$", neu) else neu + "를"
+        old = old + "를"
+    return old, neu
+
+
 def compose_pending_phrases(body: str, phrases: list[dict]) -> list[dict]:
-    """main.js composePendingPhrases 시뮬레이션 — 같은 locator 연쇄 합성."""
+    """main.js composePendingPhrases 시뮬레이션.
+
+    같은 locator 에 개정이 여러 건이면 현행 본문에 독립 최소 치환이
+    가능하면 음영을 쪼개고(칩 1쌍씩), 아니면 연쇄 합성한다.
+    """
     pending = [
         p
         for p in phrases
@@ -485,6 +559,31 @@ def compose_pending_phrases(body: str, phrases: list[dict]) -> list[dict]:
                 p.get("amendedDate") or "",
             ),
         )
+        # 독립 최소 치환
+        spans: list[dict] = []
+        can_split = True
+        for p in sorted_g:
+            sub = _resolve_independent_span(p, raw)
+            if not sub:
+                can_split = False
+                break
+            old, neu = sub
+            spans.append(
+                {
+                    "text": _fix_josa_jo_eul(neu),
+                    "beforeText": old,
+                    "pending": True,
+                    "isNew": False,
+                    "amendedDate": p.get("amendedDate"),
+                    "effectiveDate": p.get("effectiveDate"),
+                    "locator": p.get("locator") or "",
+                    "spanHighlight": True,
+                }
+            )
+        if can_split and len(spans) == len(sorted_g):
+            out.extend(spans)
+            continue
+
         anchor = None
         for p in sorted_g:
             b = p.get("beforeText") or ""
@@ -533,13 +632,6 @@ def compose_pending_phrases(body: str, phrases: list[dict]) -> list[dict]:
             "amendedDate": primary.get("amendedDate"),
             "effectiveDate": primary.get("effectiveDate"),
             "locator": latest.get("locator") or applied[0].get("locator") or "",
-            "composedFrom": [
-                {
-                    "amendedDate": p.get("amendedDate"),
-                    "effectiveDate": p.get("effectiveDate"),
-                }
-                for p in by_eff
-            ],
         }
         used = {
             (
@@ -640,6 +732,75 @@ def simulate_article_highlight_after(
     return html
 
 
+def check_no_dual_date_chips(
+    amendments: list[dict], articles: dict, problems: list[str], verbose: bool
+) -> None:
+    """음영 1개에 공포·시행 칩이 2쌍 붙는 회귀를 전수 차단.
+
+    - main.js 가 다중 칩 루프를 다시 넣지 않았는지
+    - 같은 조 합성 결과에 composedFrom 다중 일자가 없는지
+    """
+    main_js = MAIN_JS.read_text(encoding="utf-8") if MAIN_JS.is_file() else ""
+    if "phraseDatePairs" in main_js:
+        problems.append("dual_date_chips_regression: phraseDatePairs still in main.js")
+    # buildAmendMark 본문에 '공포 ' 템플릿이 2회 이상이면 다중 칩 루프 의심
+    mark_fn = re.search(
+        r"function buildAmendMark\([\s\S]*?\n  function ",
+        main_js,
+    )
+    if mark_fn:
+        body = mark_fn.group(0)
+        # 주석 제외 후 칩 템플릿 횟수
+        code = re.sub(r"/\*[\s\S]*?\*/|//[^\n]*", "", body)
+        chip_hits = len(re.findall(r"공포\s*['\"]?\s*\+|공포\s*", code))
+        # '공포 ' + formatDotDate 형태가 2회 이상이면 다중 칩
+        if code.count("공포 ") >= 2:
+            problems.append(
+                "dual_date_chips_regression: buildAmendMark emits multiple 공포 chips"
+            )
+
+    # 캐시 전 조: 합성 후 phrase 당 일자 1쌍
+    by_art: dict[tuple[str, str], list[dict]] = {}
+    for item in amendments:
+        if item.get("bodyApplied") is True:
+            continue
+        law_id = item.get("lawId") or ""
+        art_no = item.get("articleNo") or ""
+        if not law_id or not art_no:
+            continue
+        key = (law_id, art_no)
+        by_art.setdefault(key, [])
+        for h in item.get("highlights") or []:
+            for p in h.get("phrases") or []:
+                if p.get("skipHighlight") or not (p.get("text") or "").strip():
+                    continue
+                ph = dict(p)
+                ph["pending"] = True
+                ph["amendmentSummary"] = (
+                    item.get("summary") or item.get("briefSummary") or ""
+                )
+                by_art[key].append(ph)
+
+    scanned = 0
+    for (law_id, art_no), phrases in by_art.items():
+        if len(phrases) < 2:
+            continue
+        body = find_article_body(articles, law_id, "statute", art_no) or find_article_body(
+            articles, law_id, "decree", art_no
+        )
+        composed = compose_pending_phrases(body or "", phrases)
+        scanned += 1
+        for p in composed:
+            cf = p.get("composedFrom")
+            if isinstance(cf, list) and len(cf) > 1:
+                problems.append(
+                    f"dual_date_chips {law_id} {art_no}: "
+                    f"locator={p.get('locator')} pairs={len(cf)}"
+                )
+    if verbose:
+        print(f"[INFO] dual_date_chip scan groups={scanned}")
+
+
 def check_compose_probes(
     amendments: list[dict], articles: dict, problems: list[str], verbose: bool
 ) -> None:
@@ -666,10 +827,13 @@ def check_compose_probes(
                         continue
                     if not (p.get("text") or "").strip():
                         continue
-                    # normalizePhrase 상당: pending 유지
+                    # normalizePhrase 상당: pending 유지 + 요약(독립 치환용)
                     ph = dict(p)
                     if item.get("bodyApplied") is False:
                         ph["pending"] = True
+                    ph["amendmentSummary"] = item.get("summary") or item.get(
+                        "briefSummary"
+                    ) or ""
                     phrases.append(ph)
         if not phrases:
             problems.append(f"compose_no_phrases {art_no}")
@@ -701,49 +865,50 @@ def check_compose_probes(
                     )
                     ok = False
                 cursor = at
-        # 합성 phrase 의 공포·시행 (제114조 다중 개정)
-        want_dates = probe.get("requireComposedDates") or []
-        if want_dates:
-            composed = compose_pending_phrases(body, phrases)
-            target = None
-            for p in composed:
-                if p.get("composedFrom"):
-                    target = p
-                    break
-            if not target:
-                problems.append(f"compose_no_composedFrom {art_no}")
-                ok = False
-            else:
-                got = {
+        # 독립 치환 음영: 각 변경에 올바른 공포·시행 1쌍
+        want_spans = probe.get("requireSpanDates") or []
+        composed = compose_pending_phrases(body, phrases)
+        if want_spans:
+            for spec in want_spans:
+                token = spec.get("requireAfter") or ""
+                want_amd = spec.get("amendedDate") or ""
+                want_eff = spec.get("effectiveDate") or ""
+                matched = [
+                    p
+                    for p in composed
+                    if token and token in (p.get("text") or "")
+                ]
+                if not matched:
+                    problems.append(f"compose_span_missing {art_no}: {token}")
+                    ok = False
+                    continue
+                hit = next(
                     (
-                        (c.get("amendedDate") if isinstance(c, dict) else c) or "",
-                        (c.get("effectiveDate") if isinstance(c, dict) else "") or "",
-                    )
-                    for c in (target.get("composedFrom") or [])
-                }
-                # legacy string-only composedFrom → effective 는 phrase 대표값
-                if got and all(not g[1] for g in got):
-                    got = {
-                        (g[0], target.get("effectiveDate") or "") for g in got
-                    }
-                for d in want_dates:
-                    key = (d.get("amendedDate") or "", d.get("effectiveDate") or "")
-                    if key not in got:
-                        # effective 비어 있으면 amended 만 비교
-                        if not any(g[0] == key[0] for g in got):
-                            problems.append(
-                                f"compose_date_missing {art_no}: {key[0]}/{key[1]}"
-                            )
-                            ok = False
-                # 대표 칩 = 가장 빠른 시행
-                if (target.get("amendedDate"), target.get("effectiveDate")) != (
-                    want_dates[0].get("amendedDate"),
-                    want_dates[0].get("effectiveDate"),
-                ):
+                        p
+                        for p in matched
+                        if (p.get("amendedDate") or "") == want_amd
+                        and (p.get("effectiveDate") or "") == want_eff
+                    ),
+                    None,
+                )
+                if not hit:
+                    got = [
+                        f"{p.get('amendedDate')}/{p.get('effectiveDate')}"
+                        for p in matched
+                    ]
                     problems.append(
-                        f"compose_primary_date {art_no}: "
-                        f"{target.get('amendedDate')}/{target.get('effectiveDate')} "
-                        f"!= {want_dates[0].get('amendedDate')}/{want_dates[0].get('effectiveDate')}"
+                        f"compose_span_date {art_no}: {token} "
+                        f"want {want_amd}/{want_eff} got {got}"
+                    )
+                    ok = False
+        # 음영 1개에 공포·시행 칩이 2쌍 붙지 않도록 (composedFrom 다중 칩 금지)
+        if probe.get("forbidDualDateChips"):
+            for p in composed:
+                cf = p.get("composedFrom")
+                if isinstance(cf, list) and len(cf) > 1:
+                    problems.append(
+                        f"compose_dual_date_chips {art_no}: "
+                        f"locator={p.get('locator')} composedFrom={len(cf)}"
                     )
                     ok = False
         if verbose:
@@ -1168,6 +1333,8 @@ def run_simulation(verbose: bool = True) -> dict:
 
     # 같은 조 미시행 개정 합성(제110조: 제104조 + 제4항부터) — UI와 동일 규칙
     check_compose_probes(amendments, articles, problems, verbose)
+    # 공포·시행 칩 2쌍 회귀 전수 차단
+    check_no_dual_date_chips(amendments, articles, problems, verbose)
 
     # 빈 본문 조문: 개정 캐시에 없고 표시 경로도 없는 경우만 문제로 집계
     empty_n = 0
