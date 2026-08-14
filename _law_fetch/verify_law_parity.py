@@ -418,6 +418,9 @@ LIVE_PROBES = [
                 "compareAfter": "다음 각 호의 어느 하나에 해당하는",
                 "requireHighlight": True,
                 "requireBodyApplied": False,
+                # 각 호 신설이 청크 절단으로 유실되면 안 됨 (CI parity=6 회귀)
+                "requireLocators": ["1호", "2호", "3호"],
+                "requirePhraseAfter": "1. 제9조제1항을 위반하여 퇴직금을 지급하지 아니한 자",
             },
         ],
     },
