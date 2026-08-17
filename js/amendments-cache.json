@@ -10,7 +10,7 @@
   "effLookbackDays": 182,
   "effWindowLabel": "±6개월",
   "amdWindowLabel": "±6개월",
-  "fetchedAt": "2026-08-17T09:00:48",
+  "fetchedAt": "2026-08-17T10:23:50",
   "freshFetch": true,
   "count": 40,
   "errors": [],
@@ -23,6 +23,21 @@
     "ok": true,
     "asOf": "2026-08-17",
     "files": [
+      {
+        "lawId": "retirement",
+        "tier": "statute",
+        "lsId": "009883",
+        "file": "full-retire-statute.txt",
+        "bytes": 75569,
+        "articles": 71,
+        "eflaw": {
+          "mst": "284455",
+          "efYd": "20260701",
+          "ancYd": "20260317",
+          "noticeNo": "21475",
+          "status": "현행"
+        }
+      },
       {
         "lawId": "labor-standards",
         "tier": "decree",
@@ -54,21 +69,6 @@
         }
       },
       {
-        "lawId": "retirement",
-        "tier": "statute",
-        "lsId": "009883",
-        "file": "full-retire-statute.txt",
-        "bytes": 75569,
-        "articles": 71,
-        "eflaw": {
-          "mst": "284455",
-          "efYd": "20260701",
-          "ancYd": "20260317",
-          "noticeNo": "21475",
-          "status": "현행"
-        }
-      },
-      {
         "lawId": "labor-standards",
         "tier": "statute",
         "lsId": "001872",
@@ -80,21 +80,6 @@
           "efYd": "20251023",
           "ancYd": "20241022",
           "noticeNo": "20520",
-          "status": "현행"
-        }
-      },
-      {
-        "lawId": "equal-employment",
-        "tier": "statute",
-        "lsId": "000130",
-        "file": "full-equal-statute.txt",
-        "bytes": 70883,
-        "articles": 72,
-        "eflaw": {
-          "mst": "276851",
-          "efYd": "20251001",
-          "ancYd": "20251001",
-          "noticeNo": "21065",
           "status": "현행"
         }
       },
@@ -140,6 +125,21 @@
           "efYd": "20251001",
           "ancYd": "20251001",
           "noticeNo": "35806",
+          "status": "현행"
+        }
+      },
+      {
+        "lawId": "equal-employment",
+        "tier": "statute",
+        "lsId": "000130",
+        "file": "full-equal-statute.txt",
+        "bytes": 70883,
+        "articles": 72,
+        "eflaw": {
+          "mst": "276851",
+          "efYd": "20251001",
+          "ancYd": "20251001",
+          "noticeNo": "21065",
           "status": "현행"
         }
       },
