@@ -1,7 +1,7 @@
 {
-  "baseDate": "2026-08-17",
-  "from": "2026-02-16",
-  "to": "2027-02-15",
+  "baseDate": "2026-08-18",
+  "from": "2026-02-17",
+  "to": "2027-02-16",
   "forwardDays": 182,
   "lookbackDays": 182,
   "amdForwardDays": 182,
@@ -10,34 +10,25 @@
   "effLookbackDays": 182,
   "effWindowLabel": "±6개월",
   "amdWindowLabel": "±6개월",
-  "fetchedAt": "2026-08-17T10:23:50",
+  "fetchedAt": "2026-08-18T09:04:54",
   "freshFetch": true,
-  "count": 40,
-  "errors": [],
+  "count": 46,
+  "errors": [
+    {
+      "lsId": "006859",
+      "lawName": "근로기준법 시행규칙",
+      "error": "doc:HTTP Error 502: Bad Gateway"
+    }
+  ],
   "audit": {
-    "matchedHighlights": 37,
+    "matchedHighlights": 43,
     "unmatchedRevisions": 3,
     "rejectedDemoRule": "highlight only when article history date == promulgation date"
   },
   "fullTexts": {
     "ok": true,
-    "asOf": "2026-08-17",
+    "asOf": "2026-08-18",
     "files": [
-      {
-        "lawId": "retirement",
-        "tier": "statute",
-        "lsId": "009883",
-        "file": "full-retire-statute.txt",
-        "bytes": 75569,
-        "articles": 71,
-        "eflaw": {
-          "mst": "284455",
-          "efYd": "20260701",
-          "ancYd": "20260317",
-          "noticeNo": "21475",
-          "status": "현행"
-        }
-      },
       {
         "lawId": "labor-standards",
         "tier": "decree",
@@ -50,6 +41,21 @@
           "efYd": "20251023",
           "ancYd": "20250408",
           "noticeNo": "35436",
+          "status": "현행"
+        }
+      },
+      {
+        "lawId": "retirement",
+        "tier": "statute",
+        "lsId": "009883",
+        "file": "full-retire-statute.txt",
+        "bytes": 75569,
+        "articles": 71,
+        "eflaw": {
+          "mst": "284455",
+          "efYd": "20260701",
+          "ancYd": "20260317",
+          "noticeNo": "21475",
           "status": "현행"
         }
       },
@@ -69,21 +75,6 @@
         }
       },
       {
-        "lawId": "labor-standards",
-        "tier": "statute",
-        "lsId": "001872",
-        "file": "full-labor-statute.txt",
-        "bytes": 89433,
-        "articles": 136,
-        "eflaw": {
-          "mst": "265959",
-          "efYd": "20251023",
-          "ancYd": "20241022",
-          "noticeNo": "20520",
-          "status": "현행"
-        }
-      },
-      {
         "lawId": "retirement",
         "tier": "rule",
         "lsId": "010043",
@@ -95,6 +86,21 @@
           "efYd": "20220712",
           "ancYd": "20220712",
           "noticeNo": "00359",
+          "status": "현행"
+        }
+      },
+      {
+        "lawId": "equal-employment",
+        "tier": "statute",
+        "lsId": "000130",
+        "file": "full-equal-statute.txt",
+        "bytes": 70883,
+        "articles": 72,
+        "eflaw": {
+          "mst": "276851",
+          "efYd": "20251001",
+          "ancYd": "20251001",
+          "noticeNo": "21065",
           "status": "현행"
         }
       },
@@ -130,36 +136,6 @@
       },
       {
         "lawId": "equal-employment",
-        "tier": "statute",
-        "lsId": "000130",
-        "file": "full-equal-statute.txt",
-        "bytes": 70883,
-        "articles": 72,
-        "eflaw": {
-          "mst": "276851",
-          "efYd": "20251001",
-          "ancYd": "20251001",
-          "noticeNo": "21065",
-          "status": "현행"
-        }
-      },
-      {
-        "lawId": "fixed-term",
-        "tier": "statute",
-        "lsId": "010356",
-        "file": "full-fixed-statute.txt",
-        "bytes": 18230,
-        "articles": 28,
-        "eflaw": {
-          "mst": "232201",
-          "efYd": "20210518",
-          "ancYd": "20210518",
-          "noticeNo": "18177",
-          "status": "현행"
-        }
-      },
-      {
-        "lawId": "equal-employment",
         "tier": "rule",
         "lsId": "006909",
         "file": "full-equal-rule.txt",
@@ -171,6 +147,21 @@
           "ancYd": "20251001",
           "noticeNo": "00001",
           "status": "연혁"
+        }
+      },
+      {
+        "lawId": "fixed-term",
+        "tier": "rule",
+        "lsId": "010473",
+        "file": "full-fixed-rule.txt",
+        "bytes": 710,
+        "articles": 2,
+        "eflaw": {
+          "mst": "79595",
+          "efYd": "20070701",
+          "ancYd": "20070629",
+          "noticeNo": "00277",
+          "status": "현행"
         }
       },
       {
@@ -189,17 +180,32 @@
         }
       },
       {
-        "lawId": "fixed-term",
-        "tier": "rule",
-        "lsId": "010473",
-        "file": "full-fixed-rule.txt",
-        "bytes": 710,
-        "articles": 2,
+        "lawId": "labor-standards",
+        "tier": "statute",
+        "lsId": "001872",
+        "file": "full-labor-statute.txt",
+        "bytes": 89433,
+        "articles": 136,
         "eflaw": {
-          "mst": "79595",
-          "efYd": "20070701",
-          "ancYd": "20070629",
-          "noticeNo": "00277",
+          "mst": "265959",
+          "efYd": "20251023",
+          "ancYd": "20241022",
+          "noticeNo": "20520",
+          "status": "현행"
+        }
+      },
+      {
+        "lawId": "fixed-term",
+        "tier": "statute",
+        "lsId": "010356",
+        "file": "full-fixed-statute.txt",
+        "bytes": 18230,
+        "articles": 28,
+        "eflaw": {
+          "mst": "232201",
+          "efYd": "20210518",
+          "ancYd": "20210518",
+          "noticeNo": "18177",
           "status": "현행"
         }
       }
@@ -211,6 +217,465 @@
     "error": "cannot import name 'fetch_notices' from 'refresh_notices' (/home/runner/work/TomorrowHR/TomorrowHR/_law_fetch/refresh_notices.py)"
   },
   "amendments": [
+    {
+      "id": "live-003140-2026-08-18-36589-제9조의4",
+      "lawId": "equal-employment",
+      "lawName": "남녀고용평등법 시행령",
+      "fullName": "남녀고용평등과 일ㆍ가정 양립 지원에 관한 법률 시행령",
+      "tier": "시행령",
+      "title": "남녀고용평등법 시행령 제9조의4(배우자 유산ㆍ사산휴가의 청구) 개정",
+      "amendedDate": "2026-08-18",
+      "effectiveDate": "2026-09-18",
+      "summary": "제9조의4(배우자 유산ㆍ사산휴가의 청구) 신설",
+      "briefSummary": "제9조의4(배우자 유산ㆍ사산휴가의 청구) 신설",
+      "status": "시행예정",
+      "revisionType": "일부개정",
+      "noticeNo": "36589",
+      "instrument": "대통령령",
+      "source": "law.go.kr",
+      "sourceUrl": "https://www.law.go.kr/LSW/lsRvsRsnListP.do?chrClsCd=010102&lsId=003140",
+      "mentionedArticles": [
+        "제9조의4"
+      ],
+      "locators": [
+        "제9조의4"
+      ],
+      "articleIds": [
+        "equal-employment-decree-9의4"
+      ],
+      "highlights": [
+        {
+          "articleId": "equal-employment-decree-9의4",
+          "phrases": [
+            {
+              "text": "① 법",
+              "beforeText": "해당 조 없음(신설)",
+              "isNew": true,
+              "historyKind": "신설",
+              "historyDates": [
+                "2026-08-18"
+              ],
+              "locator": "제9조의4",
+              "amendedDate": "2026-08-18",
+              "effectiveDate": "2026-09-18",
+              "beforeNote": "",
+              "pending": true,
+              "compareBefore": "해당 조 없음(신설)",
+              "compareAfter": "① 법"
+            }
+          ]
+        }
+      ],
+      "verified": true,
+      "parentId": "live-003140-2026-08-18-36589",
+      "articleNo": "제9조의4",
+      "articleTitle": "배우자 유산ㆍ사산휴가의 청구",
+      "articleLevel": true,
+      "compareBefore": "해당 조 없음(신설)",
+      "compareAfter": "① 법",
+      "bodyApplied": false
+    },
+    {
+      "id": "live-003140-2026-08-18-36589-제9조의2",
+      "lawId": "equal-employment",
+      "lawName": "남녀고용평등법 시행령",
+      "fullName": "남녀고용평등과 일ㆍ가정 양립 지원에 관한 법률 시행령",
+      "tier": "시행령",
+      "title": "남녀고용평등법 시행령 제9조의2(난임치료휴가의 신청) 개정",
+      "amendedDate": "2026-08-18",
+      "effectiveDate": "2026-09-18",
+      "summary": "제9조의2(배우자 출산전후휴가의 고지) 신설",
+      "briefSummary": "제9조의2(배우자 출산전후휴가의 고지) 신설",
+      "status": "시행예정",
+      "revisionType": "일부개정",
+      "noticeNo": "36589",
+      "instrument": "대통령령",
+      "source": "law.go.kr",
+      "sourceUrl": "https://www.law.go.kr/LSW/lsRvsRsnListP.do?chrClsCd=010102&lsId=003140",
+      "mentionedArticles": [
+        "제9조의2"
+      ],
+      "locators": [
+        "제9조의2"
+      ],
+      "articleIds": [
+        "equal-employment-decree-9조의2"
+      ],
+      "highlights": [
+        {
+          "articleId": "equal-employment-decree-9조의2",
+          "phrases": [
+            {
+              "text": "① 법",
+              "beforeText": "해당 조 없음(신설)",
+              "isNew": true,
+              "historyKind": "신설",
+              "historyDates": [
+                "2026-08-18"
+              ],
+              "locator": "제9조의2",
+              "amendedDate": "2026-08-18",
+              "effectiveDate": "2026-09-18",
+              "beforeNote": "",
+              "pending": true,
+              "compareBefore": "해당 조 없음(신설)",
+              "compareAfter": "① 법"
+            }
+          ]
+        }
+      ],
+      "verified": true,
+      "parentId": "live-003140-2026-08-18-36589",
+      "articleNo": "제9조의2",
+      "articleTitle": "난임치료휴가의 신청",
+      "articleLevel": true,
+      "compareBefore": "해당 조 없음(신설)",
+      "compareAfter": "① 법",
+      "bodyApplied": false
+    },
+    {
+      "id": "live-003140-2026-08-18-36589-제15조의2",
+      "lawId": "equal-employment",
+      "lawName": "남녀고용평등법 시행령",
+      "fullName": "남녀고용평등과 일ㆍ가정 양립 지원에 관한 법률 시행령",
+      "tier": "시행령",
+      "title": "남녀고용평등법 시행령 제15조의2(육아기 근로시간 단축의 허용 예외) 개정",
+      "amendedDate": "2026-08-18",
+      "effectiveDate": "2026-09-18",
+      "summary": "「대통령령으로」→「정상적인 사업 운영에 중대한 지장을 초래하는」 제3호 삭제",
+      "briefSummary": "「대통령령으로」→「정상적인 사업 운영에 중대한 지장을 초래하는」 제3호 삭제",
+      "status": "시행예정",
+      "revisionType": "일부개정",
+      "noticeNo": "36589",
+      "instrument": "대통령령",
+      "source": "law.go.kr",
+      "sourceUrl": "https://www.law.go.kr/LSW/lsRvsRsnListP.do?chrClsCd=010102&lsId=003140",
+      "mentionedArticles": [
+        "제15조의2"
+      ],
+      "locators": [
+        "제3호",
+        "제15조의2"
+      ],
+      "articleIds": [
+        "equal-employment-decree-15조의2"
+      ],
+      "highlights": [
+        {
+          "articleId": "equal-employment-decree-15조의2",
+          "phrases": [
+            {
+              "text": "3. 삭제 <개정 2026. 8. 18.>",
+              "beforeText": "3. 사업주가 「직업안정법」 제2조의2제1호에 따른 직업안정기관(이하 \"직업안정기관\"이라 한다)에 구인신청을 하고 14일 이상 대체인력을 채용하기 위하여 노력하였으나 대체인력을 채용하지 못한 경우. 다만, 직업안정기관의 장의 직업소개에도 불구하고 정당한 이유 없이 2회 이상 채용을 거부한 경우는 제외한다.",
+              "isNew": false,
+              "pendingDelete": true,
+              "historyKind": "개정",
+              "historyDates": [
+                "2026-08-18"
+              ],
+              "locator": "제3호",
+              "amendedDate": "2026-08-18",
+              "effectiveDate": "2026-09-18",
+              "beforeNote": "시행일 이후 이 호는 삭제됩니다.",
+              "pending": true,
+              "compareBefore": "3. 사업주가 「직업안정법」 제2조의2제1호에 따른 직업안정기관(이하 \"직업안정기관\"이라 한다)에 구인신청을 하고 14일 이상 대체인력을 채용하기 위하여 노력하였으나 대체인력을 채용하지 못한 경우. 다만, 직업안정기관의 장의 직업소개에도 불구하고 정당한 이유 없이 2회 이상 채용을 거부한 경우는 제외한다.",
+              "compareAfter": "3. 삭제"
+            },
+            {
+              "text": "법 제19조의2제1항 단서에서 \"정상적인 사업 운영에 중대한 지장을 초래하는 경우 등 대통령령으로 정하는 경우\"란 다음 각 호의 어느 하나에 해당하는 경우를 말한다. <개정 2019. 12. 24., 2026. 8. 18.>",
+              "beforeText": "법 제19조의2제1항 단서에서 \"대통령령으로 정하는 경우\"란 다음 각 호의 어느 하나에 해당하는 경우를 말한다. <개정 2019. 12. 24.>",
+              "isNew": false,
+              "historyKind": "개정",
+              "historyDates": [
+                "2026-08-18"
+              ],
+              "locator": "제15조의2",
+              "amendedDate": "2026-08-18",
+              "effectiveDate": "2026-09-18",
+              "beforeNote": "",
+              "pending": true,
+              "compareBefore": "법 제19조의2제1항 단서에서 \"대통령령으로 정하는 경우\"란 다음 각 호의 어느 하나에 해당하는 경우를 말한다.",
+              "compareAfter": "법 제19조의2제1항 단서에서 \"정상적인 사업 운영에 중대한 지장을 초래하는 경우 등 대통령령으로 정하는 경우\"란 다음 각 호의 어느 하나에 해당하는 경우를 말한다."
+            }
+          ]
+        }
+      ],
+      "verified": true,
+      "parentId": "live-003140-2026-08-18-36589",
+      "articleNo": "제15조의2",
+      "articleTitle": "육아기 근로시간 단축의 허용 예외",
+      "articleLevel": true,
+      "compareBefore": "3. 사업주가 「직업안정법」 제2조의2제1호에 따른 직업안정기관(이하 \"직업안정기관\"이라 한다)에 구인신청을 하고 14일 이상 대체인력을 채용하기 위하여 노력하였으나 대체인력을 채용하지 못한 경우. 다만, 직업안정기관의 장의 직업소개에도 불구하고 정당한 이유 없이 2회 이상 채용을 거부한 경우는 제외한다.\n법 제19조의2제1항 단서에서 \"대통령령으로 정하는 경우\"란 다음 각 호의 어느 하나에 해당하는 경우를 말한다.",
+      "compareAfter": "3. 삭제\n법 제19조의2제1항 단서에서 \"정상적인 사업 운영에 중대한 지장을 초래하는 경우 등 대통령령으로 정하는 경우\"란 다음 각 호의 어느 하나에 해당하는 경우를 말한다.",
+      "bodyApplied": false
+    },
+    {
+      "id": "live-003140-2026-08-18-36589-제14조",
+      "lawId": "equal-employment",
+      "lawName": "남녀고용평등법 시행령",
+      "fullName": "남녀고용평등과 일ㆍ가정 양립 지원에 관한 법률 시행령",
+      "tier": "시행령",
+      "title": "남녀고용평등법 시행령 제14조(육아휴직의 종료) 개정",
+      "amendedDate": "2026-08-18",
+      "effectiveDate": "2026-09-18",
+      "summary": "「육아휴직 중」→「육아휴직 중이거나 남성 근로자가 법 제19조」",
+      "briefSummary": "「육아휴직 중」→「육아휴직 중이거나 남성 근로자가 법 제19조」",
+      "status": "시행예정",
+      "revisionType": "일부개정",
+      "noticeNo": "36589",
+      "instrument": "대통령령",
+      "source": "law.go.kr",
+      "sourceUrl": "https://www.law.go.kr/LSW/lsRvsRsnListP.do?chrClsCd=010102&lsId=003140",
+      "mentionedArticles": [
+        "제14조"
+      ],
+      "locators": [
+        "제1항제1호"
+      ],
+      "articleIds": [
+        "equal-employment-decree-14"
+      ],
+      "highlights": [
+        {
+          "articleId": "equal-employment-decree-14",
+          "phrases": [
+            {
+              "text": "1. 임신 중인 여성 근로자가 육아휴직 중이거나 남성 근로자가 법 제19조제1항 본문에 따라 임신 중인 배우자를 돌보기 위해 육아휴직 중인 경우: 유산 또는 사산 <개정 2026. 8. 18.>",
+              "beforeText": "1. 임신 중인 여성 근로자가 육아휴직 중인 경우: 유산 또는 사산",
+              "isNew": false,
+              "historyKind": "개정",
+              "historyDates": [
+                "2026-08-18"
+              ],
+              "locator": "제1항제1호",
+              "amendedDate": "2026-08-18",
+              "effectiveDate": "2026-09-18",
+              "beforeNote": "",
+              "pending": true,
+              "compareBefore": "1. 임신 중인 여성 근로자가 육아휴직 중인 경우: 유산 또는 사산",
+              "compareAfter": "1. 임신 중인 여성 근로자가 육아휴직 중이거나 남성 근로자가 법 제19조제1항 본문에 따라 임신 중인 배우자를 돌보기 위해 육아휴직 중인 경우: 유산 또는 사산"
+            }
+          ]
+        }
+      ],
+      "verified": true,
+      "parentId": "live-003140-2026-08-18-36589",
+      "articleNo": "제14조",
+      "articleTitle": "육아휴직의 종료",
+      "articleLevel": true,
+      "compareBefore": "1. 임신 중인 여성 근로자가 육아휴직 중인 경우: 유산 또는 사산",
+      "compareAfter": "1. 임신 중인 여성 근로자가 육아휴직 중이거나 남성 근로자가 법 제19조제1항 본문에 따라 임신 중인 배우자를 돌보기 위해 육아휴직 중인 경우: 유산 또는 사산",
+      "bodyApplied": false
+    },
+    {
+      "id": "live-003140-2026-08-18-36589-제13조",
+      "lawId": "equal-employment",
+      "lawName": "남녀고용평등법 시행령",
+      "fullName": "남녀고용평등과 일ㆍ가정 양립 지원에 관한 법률 시행령",
+      "tier": "시행령",
+      "title": "남녀고용평등법 시행령 제13조(육아휴직 신청의 철회 등) 개정",
+      "amendedDate": "2026-08-18",
+      "effectiveDate": "2026-09-18",
+      "summary": "「신청」→「신청하거나 남성 근로자가 법 제19조제1항 」",
+      "briefSummary": "「신청」→「신청하거나 남성 근로자가 법 제19조제1항 」",
+      "status": "시행예정",
+      "revisionType": "일부개정",
+      "noticeNo": "36589",
+      "instrument": "대통령령",
+      "source": "law.go.kr",
+      "sourceUrl": "https://www.law.go.kr/LSW/lsRvsRsnListP.do?chrClsCd=010102&lsId=003140",
+      "mentionedArticles": [
+        "제13조"
+      ],
+      "locators": [
+        "제2항제1호"
+      ],
+      "articleIds": [
+        "equal-employment-decree-13"
+      ],
+      "highlights": [
+        {
+          "articleId": "equal-employment-decree-13",
+          "phrases": [
+            {
+              "text": "1. 임신 중인 여성 근로자가 육아휴직을 신청하거나 남성 근로자가 법 제19조제1항 본문에 따라 임신 중인 배우자를 돌보기 위해 육아휴직을 신청한 경우: 유산 또는 사산 <개정 2026. 8. 18.>",
+              "beforeText": "1. 임신 중인 여성 근로자가 육아휴직을 신청한 경우: 유산 또는 사산",
+              "isNew": false,
+              "historyKind": "개정",
+              "historyDates": [
+                "2026-08-18"
+              ],
+              "locator": "제2항제1호",
+              "amendedDate": "2026-08-18",
+              "effectiveDate": "2026-09-18",
+              "beforeNote": "",
+              "pending": true,
+              "compareBefore": "1. 임신 중인 여성 근로자가 육아휴직을 신청한 경우: 유산 또는 사산",
+              "compareAfter": "1. 임신 중인 여성 근로자가 육아휴직을 신청하거나 남성 근로자가 법 제19조제1항 본문에 따라 임신 중인 배우자를 돌보기 위해 육아휴직을 신청한 경우: 유산 또는 사산"
+            }
+          ]
+        }
+      ],
+      "verified": true,
+      "parentId": "live-003140-2026-08-18-36589",
+      "articleNo": "제13조",
+      "articleTitle": "육아휴직 신청의 철회 등",
+      "articleLevel": true,
+      "compareBefore": "1. 임신 중인 여성 근로자가 육아휴직을 신청한 경우: 유산 또는 사산",
+      "compareAfter": "1. 임신 중인 여성 근로자가 육아휴직을 신청하거나 남성 근로자가 법 제19조제1항 본문에 따라 임신 중인 배우자를 돌보기 위해 육아휴직을 신청한 경우: 유산 또는 사산",
+      "bodyApplied": false
+    },
+    {
+      "id": "live-003140-2026-08-18-36589-제11조",
+      "lawId": "equal-employment",
+      "lawName": "남녀고용평등법 시행령",
+      "fullName": "남녀고용평등과 일ㆍ가정 양립 지원에 관한 법률 시행령",
+      "tier": "시행령",
+      "title": "남녀고용평등법 시행령 제11조(육아휴직의 신청 등) 개정",
+      "amendedDate": "2026-08-18",
+      "effectiveDate": "2026-09-18",
+      "summary": "「법 제18조의2에 따른 배우자 출산휴가」→「배우자 출산전후휴가」 「법 제19조제1항 본문」→「법 제19조제1항 본문 및 같은 조 제6항」 「신청」→「신청하거나 남성 근로자가 법 제19조제1항 」 「사항」→「사항(제7호의 사항은 제외한다)」 「배우자 출산휴가」→「배우자 출산전후휴가」 「유산 또는 사산」→「유산, 조산 또는 사산」 「제1항부터 제3항까지」→「제1항부터 제4항까지」 「3일 이내에」→「3일 이내에, 제4항에 따라 육아휴직을 신청」 「제4항 후단」→「제5항 후단」 ④ 제1항에도 불구하고 고용노동부령으로 정하는 긴급한 사유로 법 제19조… 신설 ⑧ 사업주는 제1항부터 제4항까지의 규정에 따라 육아휴직을 신청한 근로자… 신설 ④ 제1항에도 불구하고 고용노동부령으로 정하는 긴급한 사유로 법 제19조… 신설 ⑧ 사업주는 제1항부터 제4항까지의 규정에 따라 육아휴직을 신청한 근로자… 신설",
+      "briefSummary": "「법 제18조의2에 따른 배우자 출산휴가」→「배우자 출산전후휴가」 「법 제19조제1항 본문」→「법 제19조제1항 본문 및 같은 조 제6항」 「신청」→「신청하거나 …",
+      "status": "시행예정",
+      "revisionType": "일부개정",
+      "noticeNo": "36589",
+      "instrument": "대통령령",
+      "source": "law.go.kr",
+      "sourceUrl": "https://www.law.go.kr/LSW/lsRvsRsnListP.do?chrClsCd=010102&lsId=003140",
+      "mentionedArticles": [
+        "제11조"
+      ],
+      "locators": [
+        "제2항",
+        "제1항",
+        "제1항제2호",
+        "제3항제1호",
+        "제5항",
+        "제6항",
+        "제4항",
+        "제8항",
+        "제7항→제8항",
+        "제6항→제7항",
+        "제5항→제6항",
+        "제4항→제5항"
+      ],
+      "articleIds": [
+        "equal-employment-decree-11"
+      ],
+      "highlights": [
+        {
+          "articleId": "equal-employment-decree-11",
+          "phrases": [
+            {
+              "text": "④ 제1항에도 불구하고 고용노동부령으로 정하는 긴급한 사유로 법 제19조제6항에 따른 육아휴직을 신청하려는 경우에는 휴직개시예정일까지 육아휴직을 신청할 수 있다. <신설 2026. 8. 18.>",
+              "beforeText": "해당 항·호 없음(신설)",
+              "isNew": true,
+              "historyKind": "신설",
+              "historyDates": [
+                "2026-08-18"
+              ],
+              "locator": "제4항",
+              "amendedDate": "2026-08-18",
+              "effectiveDate": "2026-09-18",
+              "beforeNote": "",
+              "pending": true,
+              "skipHighlight": false,
+              "compareBefore": "해당 항·호 없음(신설)",
+              "compareAfter": "④ 제1항에도 불구하고 고용노동부령으로 정하는 긴급한 사유로 법 제19조제6항에 따른 육아휴직을 신청하려는 경우에는 휴직개시예정일까지 육아휴직을 신청할 수 있다."
+            },
+            {
+              "text": "⑧ 사업주는 제1항부터 제4항까지의 규정에 따라 육아휴직을 신청한 근로자에게 다음 각 호의 사항을 증명할 수 있는 서류의 제출을 요구할 수 있다. 1. 본인 또는 배우자가 임신 중인 사실 2. 해당 자녀의 출생 또는 입양 등의 사실 3. 근로자가 법 제19조제6항에 따른 육아휴직을 신청한 경우에는 해당 육아휴직의 신청 사유에 해당한다는 사실 제13조제1항에 단서를 다음과 같이 신설한다. 다만, 근로자가 제11조제4항에 따라 육아휴직을 신청한 경우에는 휴직개시예정일의 전날까지 그 신청을 철회할 수 있다. <신설 2026. 8. 18.>",
+              "beforeText": "해당 항·호 없음(신설)",
+              "isNew": true,
+              "historyKind": "신설",
+              "historyDates": [
+                "2026-08-18"
+              ],
+              "locator": "제8항",
+              "amendedDate": "2026-08-18",
+              "effectiveDate": "2026-09-18",
+              "beforeNote": "",
+              "pending": true,
+              "skipHighlight": false,
+              "compareBefore": "해당 항·호 없음(신설)",
+              "compareAfter": "⑧ 사업주는 제1항부터 제4항까지의 규정에 따라 육아휴직을 신청한 근로자에게 다음 각 호의 사항을 증명할 수 있는 서류의 제출을 요구할 수 있다. 1. 본인 또는 배우자가 임신 중인 사실 2. 해당 자녀의 출생 또는 입양 등의 사실 3. 근로자가 법 제19조제6항에 따른 육아휴직을 신청한 경우에는 해당 육아휴직의 신청 사유에 해당한다는 사실 제13조제1항에 단서를 다음과 같이 신설한다. 다만, 근로자가 제11조제4항에 따라 육아휴직을 신청한 경우에는 휴직개시예정일의 전날까지 그 신청을 철회할 수 있다."
+            },
+            {
+              "text": "⑧ 사업주는 제1항부터 제3항까지의 규정에 따라 육아휴직을 신청한 근로자에게 본인 또는 배우자가 임신 중인 사실을 증명할 수 있는 서류나 해당 자녀의 출생 등을 증명할 수 있는 서류의 제출을 요구할 수 있다. <개정 2021. 11. 19., 2024. 12. 24., 2026. 8. 18.>",
+              "beforeText": "⑦ 사업주는 제1항부터 제3항까지의 규정에 따라 육아휴직을 신청한 근로자에게 본인 또는 배우자가 임신 중인 사실을 증명할 수 있는 서류나 해당 자녀의 출생 등을 증명할 수 있는 서류의 제출을 요구할 수 있다. <개정 2021. 11. 19., 2024. 12. 24.>",
+              "isNew": false,
+              "historyKind": "개정",
+              "historyDates": [
+                "2026-08-18"
+              ],
+              "locator": "제7항→제8항",
+              "amendedDate": "2026-08-18",
+              "effectiveDate": "2026-09-18",
+              "beforeNote": "시행 후 제8항으로 이동",
+              "pending": true,
+              "compareBefore": "⑦ 사업주는 제1항부터 제3항까지의 규정에 따라 육아휴직을 신청한 근로자에게 본인 또는 배우자가 임신 중인 사실을 증명할 수 있는 서류나 해당 자녀의 출생 등을 증명할 수 있는 서류의 제출을 요구할 수 있다.",
+              "compareAfter": "⑧ 사업주는 제1항부터 제3항까지의 규정에 따라 육아휴직을 신청한 근로자에게 본인 또는 배우자가 임신 중인 사실을 증명할 수 있는 서류나 해당 자녀의 출생 등을 증명할 수 있는 서류의 제출을 요구할 수 있다."
+            },
+            {
+              "text": "⑦ 사업주는 근로자가 제1항 또는 제2항 후단에 따른 기한이 지난 뒤에 육아휴직을 신청한 경우에는 그 신청일부터 30일 이내에, 제3항에 따른 기한이 지난 뒤에 육아휴직을 신청한 경우에는 그 신청일부터 7일 이내에 육아휴직 개시일을 지정하여 육아휴직을 허용해야 하고, 그 사실을 서면 또는 전자적 방식으로 알려야 한다. <개정 2024. 12. 24., 2026. 8. 18.>",
+              "beforeText": "⑥ 사업주는 근로자가 제1항 또는 제2항 후단에 따른 기한이 지난 뒤에 육아휴직을 신청한 경우에는 그 신청일부터 30일 이내에, 제3항에 따른 기한이 지난 뒤에 육아휴직을 신청한 경우에는 그 신청일부터 7일 이내에 육아휴직 개시일을 지정하여 육아휴직을 허용해야 하고, 그 사실을 서면 또는 전자적 방식으로 알려야 한다. <개정 2024. 12. 24.>",
+              "isNew": false,
+              "historyKind": "개정",
+              "historyDates": [
+                "2026-08-18"
+              ],
+              "locator": "제6항→제7항",
+              "amendedDate": "2026-08-18",
+              "effectiveDate": "2026-09-18",
+              "beforeNote": "시행 후 제7항으로 이동",
+              "pending": true,
+              "compareBefore": "⑥ 사업주는 근로자가 제1항 또는 제2항 후단에 따른 기한이 지난 뒤에 육아휴직을 신청한 경우에는 그 신청일부터 30일 이내에, 제3항에 따른 기한이 지난 뒤에 육아휴직을 신청한 경우에는 그 신청일부터 7일 이내에 육아휴직 개시일을 지정하여 육아휴직을 허용해야 하고, 그 사실을 서면 또는 전자적 방식으로 알려야 한다.",
+              "compareAfter": "⑦ 사업주는 근로자가 제1항 또는 제2항 후단에 따른 기한이 지난 뒤에 육아휴직을 신청한 경우에는 그 신청일부터 30일 이내에, 제3항에 따른 기한이 지난 뒤에 육아휴직을 신청한 경우에는 그 신청일부터 7일 이내에 육아휴직 개시일을 지정하여 육아휴직을 허용해야 하고, 그 사실을 서면 또는 전자적 방식으로 알려야 한다."
+            },
+            {
+              "text": "⑥ 사업주가 제4항 후단에 따른 기간 이내에 근로자에게 육아휴직을 허용한다는 사실을 알리지 않은 경우에는 근로자가 육아휴직을 신청한 대로 육아휴직을 허용한 것으로 본다. <신설 2024. 12. 24., 2026. 8. 18.>",
+              "beforeText": "⑤ 사업주가 제4항 후단에 따른 기간 이내에 근로자에게 육아휴직을 허용한다는 사실을 알리지 않은 경우에는 근로자가 육아휴직을 신청한 대로 육아휴직을 허용한 것으로 본다. <신설 2024. 12. 24.>",
+              "isNew": false,
+              "historyKind": "개정",
+              "historyDates": [
+                "2026-08-18"
+              ],
+              "locator": "제5항→제6항",
+              "amendedDate": "2026-08-18",
+              "effectiveDate": "2026-09-18",
+              "beforeNote": "시행 후 제6항으로 이동",
+              "pending": true,
+              "compareBefore": "⑤ 사업주가 제4항 후단에 따른 기간 이내에 근로자에게 육아휴직을 허용한다는 사실을 알리지 않은 경우에는 근로자가 육아휴직을 신청한 대로 육아휴직을 허용한 것으로 본다.",
+              "compareAfter": "⑥ 사업주가 제4항 후단에 따른 기간 이내에 근로자에게 육아휴직을 허용한다는 사실을 알리지 않은 경우에는 근로자가 육아휴직을 신청한 대로 육아휴직을 허용한 것으로 본다."
+            },
+            {
+              "text": "⑤ 사업주는 근로자가 제1항부터 제3항까지의 규정에 따라 육아휴직을 신청하는 경우에는 육아휴직을 허용해야 한다. 이 경우 제1항 및 제2항에 따라 육아휴직을 신청하는 근로자에게는 그 신청일부터 14일 이내에, 제3항에 따라 육아휴직을 신청하는 근로자에게는 그 신청일부터 3일 이내에 육아휴직을 허용한 사실을 서면 또는 전자적 방식으로 알려야 한다. <신설 2024. 12. 24., 2026. 8. 18.>",
+              "beforeText": "④ 사업주는 근로자가 제1항부터 제3항까지의 규정에 따라 육아휴직을 신청하는 경우에는 육아휴직을 허용해야 한다. 이 경우 제1항 및 제2항에 따라 육아휴직을 신청하는 근로자에게는 그 신청일부터 14일 이내에, 제3항에 따라 육아휴직을 신청하는 근로자에게는 그 신청일부터 3일 이내에 육아휴직을 허용한 사실을 서면 또는 전자적 방식으로 알려야 한다. <신설 2024. 12. 24.>",
+              "isNew": false,
+              "historyKind": "개정",
+              "historyDates": [
+                "2026-08-18"
+              ],
+              "locator": "제4항→제5항",
+              "amendedDate": "2026-08-18",
+              "effectiveDate": "2026-09-18",
+              "beforeNote": "시행 후 제5항으로 이동",
+              "pending": true,
+              "compareBefore": "④ 사업주는 근로자가 제1항부터 제3항까지의 규정에 따라 육아휴직을 신청하는 경우에는 육아휴직을 허용해야 한다. 이 경우 제1항 및 제2항에 따라 육아휴직을 신청하는 근로자에게는 그 신청일부터 14일 이내에, 제3항에 따라 육아휴직을 신청하는 근로자에게는 그 신청일부터 3일 이내에 육아휴직을 허용한 사실을 서면 또는 전자적 방식으로 알려야 한다.",
+              "compareAfter": "⑤ 사업주는 근로자가 제1항부터 제3항까지의 규정에 따라 육아휴직을 신청하는 경우에는 육아휴직을 허용해야 한다. 이 경우 제1항 및 제2항에 따라 육아휴직을 신청하는 근로자에게는 그 신청일부터 14일 이내에, 제3항에 따라 육아휴직을 신청하는 근로자에게는 그 신청일부터 3일 이내에 육아휴직을 허용한 사실을 서면 또는 전자적 방식으로 알려야 한다."
+            }
+          ]
+        }
+      ],
+      "verified": true,
+      "parentId": "live-003140-2026-08-18-36589",
+      "articleNo": "제11조",
+      "articleTitle": "육아휴직의 신청 등",
+      "articleLevel": true,
+      "compareBefore": "법 제18조의2에 따른 배우자 출산휴가\n법 제19조제1항 본문\n신청\n사항\n유산 또는 사산\n제1항부터 제3항까지\n3일 이내에\n제4항 후단\n해당 항·호 없음(신설)\n⑦ 사업주는 제1항부터 제3항까지의 규정에 따라 육아휴직을 신청한 근로자에게 본인 또는 배우자가 임신 중인 사실을 증명할 수 있는 서류나 해당 자녀의 출생 등을 증명할 수 있는 서류의 제출을 요구할 수 있다.\n⑥ 사업주는 근로자가 제1항 또는 제2항 후단에 따른 기한이 지난 뒤에 육아휴직을 신청한 경우에는 그 신청일부터 30일 이내에, 제3항에 따른 기한이 지난 뒤에 육아휴직을 신청한 경우에는 그 신청일부터 7일 이내에 육아휴직 개시일을 지정하여 육아휴직을 허용해야 하고, 그 사실을 서면 또는 전자적 방식으로 알려야 한다.\n⑤ 사업주가 제4항 후단에 따른 기간 이내에 근로자에게 육아휴직을 허용한다는 사실을 알리지 않은 경우에는 근로자가 육아휴직을 신청한 대로 육아휴직을 허용한 것으로 본다.\n④ 사업주는 근로자가 제1항부터 제3항까지의 규정에 따라 육아휴직을 신청하는 경우에는 육아휴직을 허용해야 한다. 이 경우 제1항 및 제2항에 따라 육아휴직을 신청하는 근로자에게는 그 신청일부터 14일 이내에, 제3항에 따라 육아휴직을 신청하는 근로자에게는 그 신청일부터 3일 이내에 육아휴직을 허용한 사실을 서면 또는 전자적 방식으로 알려야 한다.",
+      "compareAfter": "배우자 출산전후휴가\n법 제19조제1항 본문 및 같은 조 제6항\n신청하거나 남성 근로자가 법 제19조제1항 본문에 따라 임신 중인 배우자를 돌보기 위해 육아휴직을 신청\n사항(제7호의 사항은 제외한다)\n유산, 조산 또는 사산\n제1항부터 제4항까지\n3일 이내에, 제4항에 따라 육아휴직을 신청하는 근로자에게는 지체 없이\n제5항 후단\n④ 제1항에도 불구하고 고용노동부령으로 정하는 긴급한 사유로 법 제19조제6항에 따른 육아휴직을 신청하려는 경우에는 휴직개시예정일까지 육아휴직을 신청할 수 있다.\n⑧ 사업주는 제1항부터 제4항까지의 규정에 따라 육아휴직을 신청한 근로자에게 다음 각 호의 사항을 증명할 수 있는 서류의 제출을 요구할 수 있다. 1. 본인 또는 배우자가 임신 중인 사실 2. 해당 자녀의 출생 또는 입양 등의 사실 3. 근로자가 법 제19조제6항에 따른 육아휴직을 신청한 경우에는 해당 육아휴직의 신청 사유에 해당한다는 사실 제13조제1항에 단서를 다음과 같이 신설한다. 다만, 근로자가 제11조제4항에 따라 육아휴직을 신청한 경우에는 휴직개시예정일의 전날까지 그 신청을 철회할 수 있다.\n⑧ 사업주는 제1항부터 제3항까지의 규정에 따라 육아휴직을 신청한 근로자에게 본인 또는 배우자가 임신 중인 사실을 증명할 수 있는 서류나 해당 자녀의 출생 등을 증명할 수 있는 서류의 제출을 요구할 수 있다.\n⑦ 사업주는 근로자가 제1항 또는 제2항 후단에 따른 기한이 지난 뒤에 육아휴직을 신청한 경우에는 그 신청일부터 30일 이내에, 제3항에 따른 기한이 지난 뒤에 육아휴직을 신청한 경우에는 그 신청일부터 7일 이내에 육아휴직 개시일을 지정하여 육아휴직을 허용해야 하고, 그 사실을 서면 또는 전자적 방식으로 알려야 한다.\n⑥ 사업주가 제4항 후단에 따른 기간 이내에 근로자에게 육아휴직을 허용한다는 사실을 알리지 않은 경우에는 근로자가 육아휴직을 신청한 대로 육아휴직을 허용한 것으로 본다.\n⑤ 사업주는 근로자가 제1항부터 제3항까지의 규정에 따라 육아휴직을 신청하는 경우에는 육아휴직을 허용해야 한다. 이 경우 제1항 및 제2항에 따라 육아휴직을 신청하는 근로자에게는 그 신청일부터 14일 이내에, 제3항에 따라 육아휴직을 신청하는 근로자에게는 그 신청일부터 3일 이내에 육아휴직을 허용한 사실을 서면 또는 전자적 방식으로 알려야 한다.",
+      "bodyApplied": false
+    },
     {
       "id": "live-001872-2026-06-09-21784-제61조",
       "lawId": "labor-standards",
@@ -2866,12 +3331,13 @@
       "bodyApplied": false
     }
   ],
-  "simulationCycle": 1,
+  "simulationCycle": 2,
+  "fullTextsReused": true,
   "selfCheck": {
     "ok": true,
     "problems": [],
     "warnings": [],
-    "repairAttempt": 1,
+    "repairAttempt": 2,
     "healedCompares": [
       {
         "id": "live-009883-2026-03-17-21475-제9조",
@@ -2889,7 +3355,7 @@
     "scrubbedGhosts": [],
     "freshFetch": true,
     "simulation": {
-      "attempt": 1,
+      "attempt": 2,
       "maxAttempts": 2,
       "passed": true,
       "parityOk": true,
@@ -2906,8 +3372,19 @@
         "attempt": 1,
         "maxAttempts": 2,
         "offlineProblems": 0,
-        "buildCount": 40,
-        "buildErrors": 0,
+        "buildCount": 46,
+        "buildErrors": 4,
+        "parityProblems": [
+          "doc_article_missing fixed-term 21534 제18조"
+        ],
+        "result": "retry"
+      },
+      {
+        "attempt": 2,
+        "maxAttempts": 2,
+        "offlineProblems": 0,
+        "buildCount": 46,
+        "buildErrors": 1,
         "parityProblems": [],
         "result": "passed"
       }
@@ -2918,8 +3395,19 @@
       "attempt": 1,
       "maxAttempts": 2,
       "offlineProblems": 0,
-      "buildCount": 40,
-      "buildErrors": 0,
+      "buildCount": 46,
+      "buildErrors": 4,
+      "parityProblems": [
+        "doc_article_missing fixed-term 21534 제18조"
+      ],
+      "result": "retry"
+    },
+    {
+      "attempt": 2,
+      "maxAttempts": 2,
+      "offlineProblems": 0,
+      "buildCount": 46,
+      "buildErrors": 1,
       "parityProblems": [],
       "result": "passed"
     }
