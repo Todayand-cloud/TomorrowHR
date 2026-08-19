@@ -10,18 +10,12 @@
   "effLookbackDays": 182,
   "effWindowLabel": "±6개월",
   "amdWindowLabel": "±6개월",
-  "fetchedAt": "2026-08-19T10:22:19",
+  "fetchedAt": "2026-08-19T13:10:24",
   "freshFetch": true,
-  "count": 46,
-  "errors": [
-    {
-      "lsId": "006909",
-      "lawName": "남녀고용평등법 시행규칙",
-      "error": "HTTP Error 502: Bad Gateway"
-    }
-  ],
+  "count": 48,
+  "errors": [],
   "audit": {
-    "matchedHighlights": 43,
+    "matchedHighlights": 45,
     "unmatchedRevisions": 3,
     "rejectedDemoRule": "highlight only when article history date == promulgation date"
   },
@@ -61,6 +55,21 @@
       },
       {
         "lawId": "labor-standards",
+        "tier": "decree",
+        "lsId": "003058",
+        "file": "full-labor-decree.txt",
+        "bytes": 55082,
+        "articles": 80,
+        "eflaw": {
+          "mst": "270551",
+          "efYd": "20251023",
+          "ancYd": "20250408",
+          "noticeNo": "35436",
+          "status": "현행"
+        }
+      },
+      {
+        "lawId": "labor-standards",
         "tier": "statute",
         "lsId": "001872",
         "file": "full-labor-statute.txt",
@@ -90,32 +99,17 @@
         }
       },
       {
-        "lawId": "labor-standards",
+        "lawId": "equal-employment",
         "tier": "decree",
-        "lsId": "003058",
-        "file": "full-labor-decree.txt",
-        "bytes": 55082,
-        "articles": 80,
+        "lsId": "003140",
+        "file": "full-equal-decree.txt",
+        "bytes": 41640,
+        "articles": 39,
         "eflaw": {
-          "mst": "270551",
-          "efYd": "20251023",
-          "ancYd": "20250408",
-          "noticeNo": "35436",
-          "status": "현행"
-        }
-      },
-      {
-        "lawId": "retirement",
-        "tier": "decree",
-        "lsId": "010035",
-        "file": "full-retire-decree.txt",
-        "bytes": 92078,
-        "articles": 79,
-        "eflaw": {
-          "mst": "284693",
-          "efYd": "20260324",
-          "ancYd": "20260324",
-          "noticeNo": "36220",
+          "mst": "277437",
+          "efYd": "20251001",
+          "ancYd": "20251001",
+          "noticeNo": "35806",
           "status": "현행"
         }
       },
@@ -135,6 +129,36 @@
         }
       },
       {
+        "lawId": "retirement",
+        "tier": "decree",
+        "lsId": "010035",
+        "file": "full-retire-decree.txt",
+        "bytes": 92078,
+        "articles": 79,
+        "eflaw": {
+          "mst": "284693",
+          "efYd": "20260324",
+          "ancYd": "20260324",
+          "noticeNo": "36220",
+          "status": "현행"
+        }
+      },
+      {
+        "lawId": "fixed-term",
+        "tier": "rule",
+        "lsId": "010473",
+        "file": "full-fixed-rule.txt",
+        "bytes": 710,
+        "articles": 2,
+        "eflaw": {
+          "mst": "79595",
+          "efYd": "20070701",
+          "ancYd": "20070629",
+          "noticeNo": "00277",
+          "status": "현행"
+        }
+      },
+      {
         "lawId": "fixed-term",
         "tier": "statute",
         "lsId": "010356",
@@ -146,36 +170,6 @@
           "efYd": "20210518",
           "ancYd": "20210518",
           "noticeNo": "18177",
-          "status": "현행"
-        }
-      },
-      {
-        "lawId": "equal-employment",
-        "tier": "rule",
-        "lsId": "006909",
-        "file": "full-equal-rule.txt",
-        "bytes": 19726,
-        "articles": 23,
-        "eflaw": {
-          "mst": "278827",
-          "efYd": "20251001",
-          "ancYd": "20251001",
-          "noticeNo": "00001",
-          "status": "연혁"
-        }
-      },
-      {
-        "lawId": "equal-employment",
-        "tier": "decree",
-        "lsId": "003140",
-        "file": "full-equal-decree.txt",
-        "bytes": 41640,
-        "articles": 39,
-        "eflaw": {
-          "mst": "277437",
-          "efYd": "20251001",
-          "ancYd": "20251001",
-          "noticeNo": "35806",
           "status": "현행"
         }
       },
@@ -195,18 +189,18 @@
         }
       },
       {
-        "lawId": "fixed-term",
+        "lawId": "equal-employment",
         "tier": "rule",
-        "lsId": "010473",
-        "file": "full-fixed-rule.txt",
-        "bytes": 710,
-        "articles": 2,
+        "lsId": "006909",
+        "file": "full-equal-rule.txt",
+        "bytes": 19726,
+        "articles": 23,
         "eflaw": {
-          "mst": "79595",
-          "efYd": "20070701",
-          "ancYd": "20070629",
-          "noticeNo": "00277",
-          "status": "현행"
+          "mst": "278827",
+          "efYd": "20251001",
+          "ancYd": "20251001",
+          "noticeNo": "00001",
+          "status": "연혁"
         }
       }
     ],
@@ -217,6 +211,125 @@
     "error": "cannot import name 'fetch_notices' from 'refresh_notices' (/home/runner/work/TomorrowHR/TomorrowHR/_law_fetch/refresh_notices.py)"
   },
   "amendments": [
+    {
+      "id": "live-006909-2026-08-19-478-제15조",
+      "lawId": "equal-employment",
+      "lawName": "남녀고용평등법 시행규칙",
+      "fullName": "남녀고용평등과 일ㆍ가정 양립 지원에 관한 법률 시행규칙",
+      "tier": "시행규칙",
+      "title": "남녀고용평등법 시행규칙 제15조(민간단체의 선정 등) 개정",
+      "amendedDate": "2026-08-19",
+      "effectiveDate": "2026-09-18",
+      "summary": "「배우자 출산휴가」→「배우자 출산전후휴가」 「배우자 출산휴가」→「배우자 출산전후휴가」 「배우자 출산휴가」→「배우자 출산전후휴가」 「같은 법 시행규칙 제14조의2에 따라」→「같은 법 시행규칙 제14조의3에 따라」 「같은 법 시행규칙 제14조의2에 따라」→「같은 법 시행규칙 제14조의3에 따라」 「같은 법 시행규칙 제14조의2에 따라」→「같은 법 시행규칙 제14조의3에 따라」 「「남녀고용평등과 일ㆍ가정 양립 지원에 관한 」→「「남녀고용평등과 일ㆍ가정 양립 지원에 관한 」 「「남녀고용평등과 일ㆍ가정 양립 지원에 관한 」→「「남녀고용평등과 일ㆍ가정 양립 지원에 관한 」 「「남녀고용평등과 일ㆍ가정 양립 지원에 관한 」→「「남녀고용평등과 일ㆍ가정 양립 지원에 관한 」",
+      "briefSummary": "「배우자 출산휴가」→「배우자 출산전후휴가」 「배우자 출산휴가」→「배우자 출산전후휴가」 「배우자 출산휴가」→「배우자 출산전후휴가」 「같은 법 시행규칙 제14조의2에…",
+      "status": "시행예정",
+      "revisionType": "일부개정",
+      "noticeNo": "478",
+      "instrument": "고용노동부령",
+      "source": "law.go.kr",
+      "sourceUrl": "https://www.law.go.kr/LSW/lsRvsRsnListP.do?chrClsCd=010102&lsId=006909",
+      "mentionedArticles": [
+        "제15조"
+      ],
+      "locators": [
+        "제15조",
+        "제4항제1호",
+        "제4항제3호",
+        "제4항제4호"
+      ],
+      "articleIds": [
+        "equal-employment-rule-15"
+      ],
+      "highlights": [
+        {
+          "articleId": "equal-employment-rule-15",
+          "phrases": [
+            {
+              "text": "① 법",
+              "beforeText": "해당 조 없음(신설)",
+              "isNew": true,
+              "historyKind": "신설",
+              "historyDates": [
+                "2026-08-19"
+              ],
+              "locator": "제15조",
+              "amendedDate": "2026-08-19",
+              "effectiveDate": "2026-09-18",
+              "beforeNote": "",
+              "pending": true,
+              "compareBefore": "해당 조 없음(신설)",
+              "compareAfter": "① 법"
+            }
+          ]
+        }
+      ],
+      "verified": true,
+      "parentId": "live-006909-2026-08-19-478",
+      "articleNo": "제15조",
+      "articleTitle": "민간단체의 선정 등",
+      "articleLevel": true,
+      "compareBefore": "해당 조 없음(신설)\n배우자 출산휴가\n같은 법 시행규칙 제14조의2에 따라\n「남녀고용평등과 일ㆍ가정 양립 지원에 관한 법률 시행령」 제11조제4항",
+      "compareAfter": "① 법\n배우자 출산전후휴가\n같은 법 시행규칙 제14조의3에 따라\n「남녀고용평등과 일ㆍ가정 양립 지원에 관한 법률 시행령」 제11조제5항",
+      "bodyApplied": false
+    },
+    {
+      "id": "live-006909-2026-08-19-478-제14조의2",
+      "lawId": "equal-employment",
+      "lawName": "남녀고용평등법 시행규칙",
+      "fullName": "남녀고용평등과 일ㆍ가정 양립 지원에 관한 법률 시행규칙",
+      "tier": "시행규칙",
+      "title": "남녀고용평등법 시행규칙 제14조의2(육아휴직의 신청) 개정",
+      "amendedDate": "2026-08-19",
+      "effectiveDate": "2026-09-18",
+      "summary": "제14조의2(유산, 조산 등 위험이 있는 임신 중인 배우자의 범위) 신설",
+      "briefSummary": "제14조의2(유산, 조산 등 위험이 있는 임신 중인 배우자의 범위) 신설",
+      "status": "시행예정",
+      "revisionType": "일부개정",
+      "noticeNo": "478",
+      "instrument": "고용노동부령",
+      "source": "law.go.kr",
+      "sourceUrl": "https://www.law.go.kr/LSW/lsRvsRsnListP.do?chrClsCd=010102&lsId=006909",
+      "mentionedArticles": [
+        "제14조의2"
+      ],
+      "locators": [
+        "제14조의2"
+      ],
+      "articleIds": [
+        "equal-employment-rule-14조의2"
+      ],
+      "highlights": [
+        {
+          "articleId": "equal-employment-rule-14조의2",
+          "phrases": [
+            {
+              "text": "법",
+              "beforeText": "해당 조 없음(신설)",
+              "isNew": true,
+              "historyKind": "신설",
+              "historyDates": [
+                "2026-08-19"
+              ],
+              "locator": "제14조의2",
+              "amendedDate": "2026-08-19",
+              "effectiveDate": "2026-09-18",
+              "beforeNote": "",
+              "pending": true,
+              "compareBefore": "해당 조 없음(신설)",
+              "compareAfter": "법"
+            }
+          ]
+        }
+      ],
+      "verified": true,
+      "parentId": "live-006909-2026-08-19-478",
+      "articleNo": "제14조의2",
+      "articleTitle": "육아휴직의 신청",
+      "articleLevel": true,
+      "compareBefore": "해당 조 없음(신설)",
+      "compareAfter": "법",
+      "bodyApplied": false
+    },
     {
       "id": "live-003140-2026-08-18-36589-제9조의4",
       "lawId": "equal-employment",
@@ -3371,8 +3484,8 @@
         "attempt": 1,
         "maxAttempts": 2,
         "offlineProblems": 0,
-        "buildCount": 46,
-        "buildErrors": 1,
+        "buildCount": 48,
+        "buildErrors": 0,
         "parityProblems": [],
         "result": "passed"
       }
@@ -3383,8 +3496,8 @@
       "attempt": 1,
       "maxAttempts": 2,
       "offlineProblems": 0,
-      "buildCount": 46,
-      "buildErrors": 1,
+      "buildCount": 48,
+      "buildErrors": 0,
       "parityProblems": [],
       "result": "passed"
     }
