@@ -10,7 +10,7 @@
   "effLookbackDays": 182,
   "effWindowLabel": "±6개월",
   "amdWindowLabel": "±6개월",
-  "fetchedAt": "2026-08-20T09:01:53",
+  "fetchedAt": "2026-08-20T10:22:16",
   "freshFetch": true,
   "count": 48,
   "errors": [],
@@ -20,24 +20,9 @@
     "rejectedDemoRule": "highlight only when article history date == promulgation date"
   },
   "fullTexts": {
-    "ok": true,
+    "ok": false,
     "asOf": "2026-08-20",
     "files": [
-      {
-        "lawId": "retirement",
-        "tier": "statute",
-        "lsId": "009883",
-        "file": "full-retire-statute.txt",
-        "bytes": 75569,
-        "articles": 71,
-        "eflaw": {
-          "mst": "284455",
-          "efYd": "20260701",
-          "ancYd": "20260317",
-          "noticeNo": "21475",
-          "status": "현행"
-        }
-      },
       {
         "lawId": "labor-standards",
         "tier": "rule",
@@ -55,21 +40,6 @@
       },
       {
         "lawId": "labor-standards",
-        "tier": "decree",
-        "lsId": "003058",
-        "file": "full-labor-decree.txt",
-        "bytes": 55082,
-        "articles": 80,
-        "eflaw": {
-          "mst": "270551",
-          "efYd": "20251023",
-          "ancYd": "20250408",
-          "noticeNo": "35436",
-          "status": "현행"
-        }
-      },
-      {
-        "lawId": "labor-standards",
         "tier": "statute",
         "lsId": "001872",
         "file": "full-labor-statute.txt",
@@ -80,6 +50,21 @@
           "efYd": "20260820",
           "ancYd": "20260219",
           "noticeNo": "21373",
+          "status": "현행"
+        }
+      },
+      {
+        "lawId": "labor-standards",
+        "tier": "decree",
+        "lsId": "003058",
+        "file": "full-labor-decree.txt",
+        "bytes": 55082,
+        "articles": 80,
+        "eflaw": {
+          "mst": "270551",
+          "efYd": "20251023",
+          "ancYd": "20250408",
+          "noticeNo": "35436",
           "status": "현행"
         }
       },
@@ -115,21 +100,6 @@
       },
       {
         "lawId": "equal-employment",
-        "tier": "decree",
-        "lsId": "003140",
-        "file": "full-equal-decree.txt",
-        "bytes": 42542,
-        "articles": 39,
-        "eflaw": {
-          "mst": "288719",
-          "efYd": "20260820",
-          "ancYd": "20260818",
-          "noticeNo": "36589",
-          "status": "현행"
-        }
-      },
-      {
-        "lawId": "equal-employment",
         "tier": "statute",
         "lsId": "000130",
         "file": "full-equal-statute.txt",
@@ -140,21 +110,6 @@
           "efYd": "20260820",
           "ancYd": "20260219",
           "noticeNo": "21373",
-          "status": "현행"
-        }
-      },
-      {
-        "lawId": "fixed-term",
-        "tier": "statute",
-        "lsId": "010356",
-        "file": "full-fixed-statute.txt",
-        "bytes": 18230,
-        "articles": 28,
-        "eflaw": {
-          "mst": "232201",
-          "efYd": "20210518",
-          "ancYd": "20210518",
-          "noticeNo": "18177",
           "status": "현행"
         }
       },
@@ -175,16 +130,31 @@
       },
       {
         "lawId": "fixed-term",
-        "tier": "decree",
-        "lsId": "010461",
-        "file": "full-fixed-decree.txt",
-        "bytes": 7488,
-        "articles": 7,
+        "tier": "statute",
+        "lsId": "010356",
+        "file": "full-fixed-statute.txt",
+        "bytes": 18230,
+        "articles": 28,
         "eflaw": {
-          "mst": "230833",
-          "efYd": "20210408",
-          "ancYd": "20210406",
-          "noticeNo": "31611",
+          "mst": "232201",
+          "efYd": "20210518",
+          "ancYd": "20210518",
+          "noticeNo": "18177",
+          "status": "현행"
+        }
+      },
+      {
+        "lawId": "equal-employment",
+        "tier": "decree",
+        "lsId": "003140",
+        "file": "full-equal-decree.txt",
+        "bytes": 42542,
+        "articles": 39,
+        "eflaw": {
+          "mst": "288719",
+          "efYd": "20260820",
+          "ancYd": "20260818",
+          "noticeNo": "36589",
           "status": "현행"
         }
       },
@@ -202,9 +172,32 @@
           "noticeNo": "00277",
           "status": "현행"
         }
+      },
+      {
+        "lawId": "retirement",
+        "tier": "statute",
+        "lsId": "009883",
+        "file": "full-retire-statute.txt",
+        "bytes": 75569,
+        "articles": 71,
+        "eflaw": {
+          "mst": "284455",
+          "efYd": "20260701",
+          "ancYd": "20260317",
+          "noticeNo": "21475",
+          "status": "현행"
+        }
       }
     ],
-    "errors": []
+    "errors": [
+      {
+        "lawId": "fixed-term",
+        "tier": "decree",
+        "lsId": "010461",
+        "file": "full-fixed-decree.txt",
+        "error": "HTTP Error 502: Bad Gateway"
+      }
+    ]
   },
   "noticesRefresh": {
     "ok": false,
