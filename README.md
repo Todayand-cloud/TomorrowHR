@@ -1,30 +1,52 @@
 # 인사 관련 법령문 개정 현황
 
-근로기준법·퇴직급여법·남녀고용평등법·기간제법의 최근 개정·주요 법령 3단보기 사이트입니다.  
-데이터는 **국가법령정보센터(law.go.kr)** 기준입니다.
+근로기준법·퇴직급여법·남녀고용평등법·기간제법의 최근 개정·주요 법령 3단보기 사이트입니다.
+데이터는 **국가법령정보센터(law.go.kr)** 기준이며, 법률·시행령·시행규칙 3단 모두 갱신 대상입니다.
 
-## 「지금 갱신」버튼 (GitHub Pages)
+## 데이터 갱신 (자동, 주 2회)
 
-버튼 → GitHub Actions가 법제처를 받아 `js/` 파일을 커밋 → 페이지가 새 데이터를 불러옵니다.
+프런트엔드에는 더 이상 수동 갱신 버튼이 없습니다 (2026-08 제거). 데이터는 오직
+**GitHub Actions 자동 스케줄(매주 월·목요일 09:00 KST)** 로만 갱신되며, 사이트는
+그 결과로 커밋된 `js/*.json`, `js/law-articles.js` 등을 그대로 읽어 보여줍니다.
 
-공개 GitHub Pages에서는 토큰을 브라우저에 넣을 수 없어, **무료 Cloudflare Worker 1회 연결**이 필요합니다.
+갱신 파이프라인은 매회 다음 순서로 동작합니다.
 
-### 최초 1회 설정
+1. 법제처에서 4개 법률·시행령·시행규칙 전문·개정문·예고를 새로 수집 (옛 캐시 재사용 없음)
+2. 자율정정(`self_heal.py`) — 유령 조문 등 명백한 오류 제거
+3. **자체 검증(`_law_fetch/verify_law_parity.py`)** — 수집 직후 법제처 원문과
+   재대조하는 회귀 시뮬레이션. 조문 본문 텍스트, 조문 수, 하이라이트·구성 로직까지
+   확인하며, 여기서 실패하면 커밋 자체가 차단됩니다 (`.github/workflows/refresh-laws.yml`
+   의 "Guard" 단계).
+4. 통과한 신규 데이터만 커밋
 
-1. GitHub → Settings → Developer settings → **Fine-grained personal access tokens** → Generate  
-   - Repository: `TomorrowHR` only  
-   - Permissions → **Actions: Read and write**
-2. [Cloudflare Workers](https://dash.cloudflare.com) → Create Worker  
-   - `_law_fetch/cloudflare-refresh-worker.js` 내용 붙여넣기 → Deploy  
-   - Settings → Variables → Secret `GITHUB_TOKEN` = 위에서 만든 PAT
-3. Worker 주소(예: `https://xxxx.workers.dev`)를 `js/refresh-config.js`의 `proxyUrl`에 넣고 업로드
+이 방식(회당 1회, 주 2회)으로 예전의 "6시간마다 + 사용자 클릭"으로 인한 과도한
+Actions 실행·법제처 요청·git push 경합을 없앴습니다.
 
-이후에는 사이트에서 **「지금 갱신」**만 누르면 됩니다. (보통 1~3분)
+### 관리자 수동 실행이 필요할 때
 
-자동 스케줄: Actions가 **6시간마다**도 갱신합니다.
+일반 사용자용 버튼은 없지만, 저장소 관리자는 즉시 갱신이 필요하면
+**GitHub → Actions 탭 → "Refresh law data" → Run workflow** 로 언제든 수동 실행할 수
+있습니다. (`base` 입력값을 비우면 오늘 날짜 기준으로 실행됩니다.)
 
-## 로컬
+Cloudflare Worker(`_law_fetch/cloudflare-refresh-worker.js`)는 법제처 접근을 위한
+프록시로만 쓰이며, Worker 자체의 Cron Trigger는 대시보드에서 비활성화되어 있습니다.
+자동갱신 스케줄의 유일한 소스는 GitHub Actions입니다.
 
-1. `사이트실행.bat`  
-2. `http://127.0.0.1:8787/`  
-3. 「지금 갱신」
+## 로컬 (개발·점검용)
+
+일반 사용자는 필요 없습니다. 로컬에서 수집 로직을 테스트하거나 특정 기준일로
+갱신 결과를 미리 확인하고 싶은 관리자만 사용하세요.
+
+1. `사이트실행.bat` 실행
+2. `http://127.0.0.1:8787/` 접속 — 로컬 서버가 최신 커밋 데이터를 그대로 보여줍니다.
+3. 새 데이터를 직접 수집해 보려면 `py -3 _law_fetch/refresh_amendments.py [--base YYYY-MM-DD]`
+   를 실행한 뒤 `py -3 _law_fetch/verify_law_parity.py` 로 자체 검증을 통과하는지 확인하세요.
+
+## 남녀고용평등법 시행령·시행규칙 검증 (2026-08 강화)
+
+과거 남녀고용평등법 시행령·시행규칙은 조문 개수(`제N조` 헤더 수)만 확인하는
+얕은 검사만 받고 있어, 조문 "본문 텍스트"가 법제처와 달라져도(예: 2025.10.1
+정부조직 개편으로 "고용노동부장관" → "성평등가족부장관"으로 바뀐 조항들) 걸러내지
+못했습니다. `verify_law_parity.py`의 `LIVE_PROBES`에 시행령 제5·7조, 시행규칙
+제11·14조의2에 대한 본문 대조 검사를 추가해, 갱신 때마다 법제처 원문과 실제
+텍스트까지 자동으로 교차검증하도록 보강했습니다.
