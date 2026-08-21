@@ -1,10 +1,17 @@
 name: Refresh law data
 
-# 자동(매일) / 수동(버튼·workflow_dispatch) 갱신마다:
+# 자동(주 2회: 월·목) / 관리자 수동(GitHub Actions Run workflow) 갱신마다:
 #   1) 법제처에서 전문·개정문·예고를 새로 수집 (옛 캐시 재사용 없음)
 #   2) 자율정정(유령 제거 등)
 #   3) 법제처 대조 시뮬레이션 — 상이하면 재수집·재검증 (최대 2회, 7분 예산)
 #   4) 통과한 신규 데이터만 커밋 (실패·옛 캐시 성공 위장 커밋 금지)
+#
+# 프런트엔드 「지금 갱신」 버튼은 제거됨(2026-08) — 법령 개정은 주 2회로 충분히 반영되고,
+# 사용자 클릭으로 인한 git push 경합·Actions 낭비 실행을 막기 위함.
+# 필요 시 관리자만 GitHub Actions 탭 → Refresh law data → Run workflow 로 즉시 실행 가능.
+#
+# Cloudflare Worker(cloudflare-refresh-worker.js)의 Cron Trigger는 대시보드에서 비활성화 —
+# 이 스케줄(GitHub Actions)만 자동갱신의 유일한 소스로 유지.
 #
 # 실패 원인(과거):
 #  1) Actions IP → law.go.kr timed out
@@ -14,16 +21,14 @@ name: Refresh law data
 
 on:
   schedule:
-    # 매일 한국시간 오전 09:00 = UTC 00:00
-    - cron: "0 0 * * *"
+    # 매주 월·목 한국시간 오전 09:00 = UTC 00:00
+    - cron: "0 0 * * 1,4"
   workflow_dispatch:
     inputs:
       base:
-        description: "기준일 YYYY-MM-DD (비우면 오늘)"
+        description: "기준일 YYYY-MM-DD (비우면 오늘) — 관리자 수동 실행용"
         required: false
         default: ""
-  repository_dispatch:
-    types: [refresh-laws]
 
 permissions:
   contents: write
