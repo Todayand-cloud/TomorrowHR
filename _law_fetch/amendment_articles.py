@@ -37,7 +37,7 @@ QUOTE_SWAP_RE = re.compile(
 #   (예: …제52조제2항제2호…아니하다. 제108조 중 "근로감독관" → 제52조 오귀속)
 _LOCATED_MID = (
     r"(?:\s*(?:각\s*호(?:\s*외의\s*부분)?|제목(?:\s*외의\s*부분)?|"
-    r"단서|본문|전단|후단))?"
+    r"단서|본문|전단|후단))*"
 )
 LOCATED_SWAP_RE = re.compile(
     r"제\s*(\d+)\s*조(?:의\s*(\d+))?"
@@ -213,8 +213,13 @@ NEW_ARTICLE_RE = re.compile(
     r"(제\s*\1\s*조(?:의\s*\2)?\(([^)]+)\)\s*)"
     r"(.+?)(?="
     r"제\s*\d+\s*조(?:의\s*\d+)?를\s*다음과\s*같이\s*신설|"
-    r"제\s*\d+\s*조(?:의\s*\d+)?제\s*\d+\s*(?:항|호)|"
-    r"제\s*\d+\s*조(?:의\s*\d+)?\s*중\s|"
+    # 다음 개정 지시문의 시작만 종료 지점으로 인정한다. 이전에는
+    # '제N조제M항' 패턴만으로 종료를 판정해, 신설 조문 자체가 다른 조를
+    # 인용("① 법 제18조의2제1항에 따라…")하기만 해도 본문이 잘렸다.
+    # 실제 지시문은 항상 "…중" 으로 끝나므로 이를 함께 요구한다.
+    r"제\s*\d+\s*조(?:의\s*\d+)?(?:제\s*\d+\s*항)?(?:제\s*\d+\s*호)?"
+    + _LOCATED_MID
+    + r"\s*중\s|"
     r"제\s*\d+\s*장|"
     r"\s부칙\s|"
     r"$)"
@@ -2641,7 +2646,16 @@ def enrich_revision_with_articles(
         elif not (art.get("title") or "").strip() and (ch.get("articleTitle") or "").strip():
             art["title"] = ch["articleTitle"].strip()
         article_id = art["id"]
-        title_name = (art.get("title") or "").strip()
+        # 신설 조 개정 카드는 새 조문 제목을 표시한다. 조번호 재사용·이동
+        # (예: 종전 제9조의2 → 제9조의3, 새 제9조의2 신설)이 있으면 art["title"]은
+        # 아직 옛 내용을 가리키므로, 카드 제목에는 개정문이 밝힌 새 제목을 쓴다.
+        is_new_article_change = any(
+            op.get("kind") == "new_article" for op in (ch.get("ops") or [])
+        )
+        if is_new_article_change and (ch.get("articleTitle") or "").strip():
+            title_name = ch["articleTitle"].strip()
+        else:
+            title_name = (art.get("title") or "").strip()
         display_title = (
             f"{item['lawName']} {ch['articleNo']}"
             + (f"({title_name})" if title_name else "")
