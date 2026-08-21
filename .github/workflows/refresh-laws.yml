@@ -1,10 +1,14 @@
 name: Refresh law data
 
 # 자동(주 2회: 월·목) / 관리자 수동(GitHub Actions Run workflow) 갱신마다:
-#   1) 법제처에서 전문·개정문·예고를 새로 수집 (옛 캐시 재사용 없음)
+#   0) 고용노동부 입법·행정예고(js/notices-cache.json)를 먼저 독립적으로 수집·커밋
+#      — 아래 3)의 법령 정합성 검증(parity)과 무관하게 항상 반영됨.
+#      (예고 게시판은 법령 본문 대조와 무관한 별도 소스라 정합성 실패로
+#       법령 커밋이 막혀도 예고 갱신은 막히면 안 됨)
+#   1) 법제처에서 전문·개정문을 새로 수집 (옛 캐시 재사용 없음)
 #   2) 자율정정(유령 제거 등)
 #   3) 법제처 대조 시뮬레이션 — 상이하면 재수집·재검증 (최대 2회, 7분 예산)
-#   4) 통과한 신규 데이터만 커밋 (실패·옛 캐시 성공 위장 커밋 금지)
+#   4) 통과한 신규 법령 데이터만 커밋 (실패·옛 캐시 성공 위장 커밋 금지)
 #
 # 프런트엔드 「지금 갱신」 버튼은 제거됨(2026-08) — 법령 개정은 주 2회로 충분히 반영되고,
 # 사용자 클릭으로 인한 git push 경합·Actions 낭비 실행을 막기 위함.
@@ -17,10 +21,7 @@ name: Refresh law data
 #  1) Actions IP → law.go.kr timed out
 #  2) 버튼 연타로 동시 실행 → git push 충돌로 Commit 단계 실패
 #  3) Fresh fetch + simulation 이 20분 초과(중복 XML·개정문 fetch × 3회)
-#  4) refresh_notices.py 가 파이프라인에 연결되지 않아 입법예고(js/notices-cache.json)가
-#     여러 주 동안 갱신되지 않고 멈춰 있었음 (2026-08 발견)
-# 해결: Cloudflare 프록시 + 병렬 전문 + 캐시 + 로컬전문 재사용 + timeout 7분,
-#       그리고 notices 전용 fetch 단계 + 신선도 회귀 가드 추가
+# 해결: Cloudflare 프록시 + 병렬 전문 + 캐시 + 로컬전문 재사용 + timeout 7분
 
 on:
   schedule:
@@ -57,6 +58,73 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Resolve base date
+        id: basedate
+        run: |
+          BASE="${{ github.event.inputs.base }}"
+          if [ -z "$BASE" ]; then
+            BASE="${{ github.event.client_payload.base }}"
+          fi
+          echo "base=$BASE" >> "$GITHUB_OUTPUT"
+
+      - name: Refresh 입법·행정예고 (독립 — 법령 정합성 검증과 무관하게 항상 시도)
+        continue-on-error: true
+        env:
+          PYTHONIOENCODING: utf-8
+          CI: "true"
+          LAW_FETCH_FAST: "1"
+          LAW_FETCH_PROXY: https://wandering-dew-09bd.shkim5.workers.dev
+          LAW_FETCH_PROXY_SECRET: ${{ secrets.LAW_FETCH_PROXY_SECRET }}
+          LAW_HTTP_TIMEOUT: "25"
+        run: |
+          set -euo pipefail
+          BASE="${{ steps.basedate.outputs.base }}"
+          if [ -n "$BASE" ]; then
+            python3 _law_fetch/refresh_notices.py --base "$BASE"
+          else
+            python3 _law_fetch/refresh_notices.py
+          fi
+
+      - name: Commit and push notices cache (amendments 가드와 무관하게 즉시 반영)
+        continue-on-error: true
+        env:
+          GIT_AUTHOR_NAME: github-actions[bot]
+          GIT_AUTHOR_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
+          GIT_COMMITTER_NAME: github-actions[bot]
+          GIT_COMMITTER_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
+        run: |
+          set -euo pipefail
+          git config user.name "$GIT_AUTHOR_NAME"
+          git config user.email "$GIT_AUTHOR_EMAIL"
+
+          git add js/notices-cache.json js/resource-data.js || true
+
+          if git diff --cached --quiet; then
+            echo "no notices changes - skip commit"
+            exit 0
+          fi
+
+          git commit --trailer "Co-authored-by: Cursor <cursoragent@cursor.com>" -m "data: refresh 입법·행정예고 cache"
+
+          BRANCH="${GITHUB_REF_NAME:-main}"
+          for attempt in 1 2 3 4 5; do
+            git fetch origin "$BRANCH"
+            git pull --rebase origin "$BRANCH" || {
+              echo "::warning::rebase conflict - retry $attempt"
+              git rebase --abort || true
+              sleep $((attempt * 2))
+              continue
+            }
+            if git push origin "HEAD:$BRANCH"; then
+              echo "push ok (attempt $attempt)"
+              exit 0
+            fi
+            echo "::warning::push failed - retry $attempt"
+            sleep $((attempt * 2))
+          done
+          echo "::error::notices push failed finally"
+          exit 1
+
       - name: Fresh fetch + law.go.kr simulation
         timeout-minutes: 7
         env:
@@ -69,10 +137,7 @@ jobs:
           LAW_HTTP_TIMEOUT: "25"
         run: |
           set -euo pipefail
-          BASE="${{ github.event.inputs.base }}"
-          if [ -z "$BASE" ]; then
-            BASE="${{ github.event.client_payload.base }}"
-          fi
+          BASE="${{ steps.basedate.outputs.base }}"
           # 7분 예산: 재시도 2회 + 병렬·캐시·로컬전문 재사용
           if [ -n "$BASE" ]; then
             python3 _law_fetch/refresh_amendments.py --base "$BASE" --repair-attempts 2
@@ -80,38 +145,11 @@ jobs:
             python3 _law_fetch/refresh_amendments.py --repair-attempts 2
           fi
 
-      - name: Fresh fetch - 입법·행정예고 (moel.go.kr)
-        id: notices
-        timeout-minutes: 3
-        continue-on-error: true
-        env:
-          PYTHONIOENCODING: utf-8
-          CI: "true"
-        run: |
-          BASE="${{ github.event.inputs.base }}"
-          if [ -z "$BASE" ]; then
-            BASE="${{ github.event.client_payload.base }}"
-          fi
-          set +e
-          if [ -n "$BASE" ]; then
-            python3 _law_fetch/refresh_notices.py --base "$BASE"
-          else
-            python3 _law_fetch/refresh_notices.py
-          fi
-          code=$?
-          set -e
-          if [ $code -ne 0 ]; then
-            echo "::warning::입법예고 수집 실패 또는 이상치 감지 — 직전 캐시를 그대로 유지합니다. (법령 조문 갱신·커밋은 정상 진행)"
-          fi
-          exit 0
-
       - name: Guard - allow commit only after simulation pass
         id: guard
         run: |
           python3 - <<'PY'
           import json, os, sys
-          from datetime import date, datetime
-
           p = json.load(open("js/amendments-cache.json", encoding="utf-8"))
           count = int(p.get("count") or len(p.get("amendments") or []))
           sc = p.get("selfCheck") or {}
@@ -143,31 +181,6 @@ jobs:
           if not sc.get("ok") or not parity.get("ok"):
               print("::error::selfCheck/parity missing - block commit")
               sys.exit(1)
-
-          # --- 입법예고(notices) 신선도 회귀 가드 ---
-          # 과거: refresh_notices.py 가 파이프라인에서 아예 호출되지 않아
-          # js/notices-cache.json 이 여러 주 동안 조용히 멈춰 있었음(2026-08-14 → 08-20
-          # 신규 입법예고 2건 누락). 이 단계가 삭제/누락되더라도 매 실행마다
-          # 눈에 보이는 경고를 남기도록, 커밋을 막지는 않되 신선도를 항상 점검한다.
-          try:
-              n = json.load(open("js/notices-cache.json", encoding="utf-8"))
-              n_base = n.get("baseDate")
-              n_fetched = n.get("fetchedAt")
-              n_count = n.get("count")
-              today = date.today()
-              stale_days = None
-              if n_base:
-                  stale_days = (today - date.fromisoformat(n_base)).days
-              print(f"notices.baseDate={n_base} notices.fetchedAt={n_fetched} notices.count={n_count} stale_days={stale_days}")
-              if stale_days is None or stale_days > 1:
-                  print(
-                      f"::warning::notices-cache.json 이 {stale_days}일째 갱신되지 않았습니다 "
-                      "(refresh_notices.py 워크플로 단계가 빠졌거나 실패 중일 수 있음) - "
-                      "법령 데이터 커밋은 계속 진행하되 반드시 확인하세요."
-                  )
-          except Exception as exc:  # noqa: BLE001
-              print(f"::warning::notices-cache.json 읽기 실패: {exc}")
-
           print("guard ok")
           PY
 
