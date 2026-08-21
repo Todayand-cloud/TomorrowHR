@@ -217,11 +217,25 @@ NEW_ARTICLE_RE = re.compile(
     # '제N조제M항' 패턴만으로 종료를 판정해, 신설 조문 자체가 다른 조를
     # 인용("① 법 제18조의2제1항에 따라…")하기만 해도 본문이 잘렸다.
     # 실제 지시문은 항상 "…중" 으로 끝나므로 이를 함께 요구한다.
+    # 조번호 이동으로 "제14조의3(종전의 제14조의2) 중"처럼 조문번호와
+    # "중" 사이에 괄호 설명이 끼는 경우도 종료 지점으로 인정해야 한다
+    # (남녀고용평등법 시행규칙 제14조의2 신설문이 다음 지시문까지
+    # 삼키는 회귀 방지).
     r"제\s*\d+\s*조(?:의\s*\d+)?(?:제\s*\d+\s*항)?(?:제\s*\d+\s*호)?"
+    r"(?:\s*\([^)]*\))?"
     + _LOCATED_MID
     + r"\s*중\s|"
     r"제\s*\d+\s*장|"
     r"\s부칙\s|"
+    # 별표·별지(서식) 신설·개정 지시도 조문 본문과 무관한 다음 지시문의
+    # 시작이다. 조문 자체 인용("별표 3에 따른…")과 구분하기 위해
+    # "…을/를 별지와 같이 신설" 같은 지시 동사 형태만 종료 지점으로
+    # 인정한다(시행규칙 제15조 신설문이 별표·별지 서식 개정문까지
+    # 삼키는 회귀 방지).
+    r"별표\s*\d+(?:의\s*\d+)?\s*[을를]\s*별지와\s*같이\s*(?:신설|개정)|"
+    r"별지\s*제?\s*\d+\s*호(?:의\s*\d+)?\s*서식"
+    + _LOCATED_MID
+    + r"\s*중\s|"
     r"$)"
 )
 # 조문 번호 자체를 옮기는 지시("제9조의2를 제9조의3으로 하고"). 이 번호가
@@ -589,6 +603,30 @@ def expected_amended_articles_from_doc(doc_text: str) -> list[str]:
     return found
 
 
+def _format_swap_summary(old: str, new: str, limit: int = 40) -> str:
+    """치환 전·후 요약 미리보기 문구를 만든다.
+
+    긴 인용문에서 실제로 달라진 부분이 앞의 `limit`자 이후에 있으면
+    단순히 앞부분만 잘라 보여줄 경우 "전·후가 똑같은" 것처럼 보인다
+    (예: "…법률 시행령」 제11조제4항"→"…제11조제5항"에서 차이는 맨 끝).
+    공통 접두부 길이를 계산해, 달라지는 지점 주변을 보여준다.
+    """
+    if old == new:
+        return f"「{old[:limit]}」→「{new[:limit]}」"
+    if old[:limit] != new[:limit]:
+        return f"「{old[:limit]}」→「{new[:limit]}」"
+    common = 0
+    max_common = min(len(old), len(new))
+    while common < max_common and old[common] == new[common]:
+        common += 1
+    start = max(0, common - 10)
+    ellipsis = "…" if start > 0 else ""
+    return (
+        f"「{ellipsis}{old[start:start + limit]}」→"
+        f"「{ellipsis}{new[start:start + limit]}」"
+    )
+
+
 def _is_cite_token(text: str) -> bool:
     s = re.sub(r"\s+", "", text or "")
     return bool(
@@ -789,7 +827,7 @@ def extract_article_changes(
                 "isNew": False,
             }
         )
-        entry["summaryParts"].append(f"「{old[:40]}」→「{new[:40]}」")
+        entry["summaryParts"].append(_format_swap_summary(old, new))
 
     # 1) 단서 신설 (휴게 등)
     for no, of, hang, proviso in PROVISO_NEW_RE.findall(doc_text):
@@ -838,16 +876,25 @@ def extract_article_changes(
                 continue
             # 같은 조/같은 항 포함 (제116조: 같은 조 제2항제1호, 같은 항 제2호)
             # 제61조: 같은 항 제1호 및 제2호 → 복수 locator
-            unit_locs = resolve_unit_locators(prefix)
+            # 별표·별지(서식) 개정 지시 뒤의 치환은 조문 자체의 항·호가
+            # 아니라 서식 안 문구다. 이 경계 앞쪽(조문 본문)에 있는
+            # "제1호, 제3호 및 제4호" 같은 무관한 언급을 unit_loc으로 잘못
+            # 주워, 서식 치환이 그 항·호들에 걸친 것처럼 여러 번 복제되는
+            # 회귀(시행규칙 제15조 별지 서식 치환 3중 복제)를 막기 위해
+            # 별표·별지 표시 이후 구간만 위치 해석에 사용한다.
+            loc_prefix = prefix
+            for fm in re.finditer(r"별[표지]\s*(?:제\s*)?\d+", prefix):
+                loc_prefix = prefix[fm.end() :]
+            unit_locs = resolve_unit_locators(loc_prefix)
             if not unit_locs:
                 unit_loc = ""
-                for hm in UNIT_HANG_HO_RE.finditer(prefix):
+                for hm in UNIT_HANG_HO_RE.finditer(loc_prefix):
                     unit_loc = f"제{hm.group(1)}항제{hm.group(2)}호"
                 if not unit_loc:
-                    for hm in UNIT_HO_RE.finditer(prefix):
+                    for hm in UNIT_HO_RE.finditer(loc_prefix):
                         unit_loc = f"제{hm.group(1)}호"
                 if not unit_loc:
-                    for am in UNIT_HANG_RE.finditer(prefix):
+                    for am in UNIT_HANG_RE.finditer(loc_prefix):
                         unit_loc = f"제{am.group(1)}항"
                 unit_locs = [unit_loc] if unit_loc else [""]
             for unit_loc in unit_locs:
@@ -870,7 +917,7 @@ def extract_article_changes(
                         "isNew": False,
                     }
                 )
-                entry["summaryParts"].append(f"「{old[:40]}」→「{new[:40]}」")
+                entry["summaryParts"].append(_format_swap_summary(old, new))
 
         # 「제목 외의 부분을 제1항으로 하고」— 현행 단락 본문을 ①로 승격
         if re.search(r"제목\s*외의\s*부분을\s*제\s*1\s*항으로", chunk):
@@ -2957,7 +3004,9 @@ def enrich_revision_with_articles(
                 kind = op.get("kind")
                 if kind == "replace":
                     group_summary_parts.append(
-                        f"「{(op.get('old') or '')[:24]}」→「{(op.get('new') or '')[:24]}」"
+                        _format_swap_summary(
+                            op.get("old") or "", op.get("new") or "", limit=24
+                        )
                     )
                 elif kind == "insert":
                     t = (op.get("text") or "")[:40]
