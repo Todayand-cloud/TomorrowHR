@@ -641,11 +641,23 @@ def _extract_new_paragraphs(chunk: str) -> list[str]:
             break
         # 제N장에 제M조를 신설 — 항 본문에 다음 조 지시가 붙지 않게
         stop2 = re.search(r"제\s*\d+\s*장에\s*제\s*\d+\s*조", rest)
+        # 다음 조의 단서·항 신설 지시 — 원문 호 목록 끝에 마침표가 없이
+        # (예: "…해당한다는 사실 제13조제1항에 단서를…") 곧바로 다음 지시가
+        # 붙으면 `_STMT_START_RE`의 선행 문맥(다./고/며 등) 조건을 만족하지
+        # 못해 못 잡는다. 이런 경우 다른 조의 명시적 "…에 단서를 다음과
+        # 같이 신설" 지시는 문맥과 무관하게 항상 경계로 인정한다
+        # (제11조 ⑧ 신설문이 제13조 단서 신설문까지 삼키는 회귀 방지).
+        stop3 = re.search(
+            r"제\s*\d+\s*조(?:의\s*\d+)?(?:제\s*\d+\s*항)?에\s*단서를\s*다음과\s*같이\s*신설",
+            rest,
+        )
         end = len(rest)
         if stop:
             end = min(end, stop.start())
         if stop2:
             end = min(end, stop2.start())
+        if stop3:
+            end = min(end, stop3.start())
         block = rest[: min(end, 1200)]
         for pm in re.finditer(r"([①-⑮].+?)(?=[①-⑮]|$)", block, flags=re.S):
             text = re.sub(r"\s+", " ", pm.group(1)).strip()
@@ -1591,16 +1603,39 @@ def _pending_phrases_only(
             ts = int(op.get("toStart") or 0)
             if not fs or not ts:
                 continue
+            dst_max = ts + (fe - fs)
+            dst_max_circle = N_TO_CIRCLE.get(dst_max)
+            # 법제처 현행 본문이 시행 전 조문까지 이미 최종 번호로 병합해
+            # 보여주는 경우(예: 신설 항이 이번에 비워진 번호를 재사용하는
+            # 남녀고용평등법 시행령 제11조 ④→⑤), 본문은 '구번호'가 아니라
+            # '신번호' 기준이다. 구번호(sc)로 찾으면 그 번호를 재사용해
+            # 새로 신설된 전혀 다른 항을 "이전 내용"으로 오인해 버린다
+            # (제4항이 제5항으로 잘못 표기되는 회귀). 이동 구간의 최댓값
+            # 번호(dst_max)가 본문에 이미 존재하면 본문이 신번호 기준임을
+            # 뜻하므로, 그 경우엔 목적지 번호(dc)로 찾아 라벨만 역으로
+            # 되돌려 이전 표기를 구성한다.
+            body_is_final = bool(dst_max_circle and dst_max_circle in body)
             for src in range(fe, fs - 1, -1):
                 dst = ts + (src - fs)
                 sc, dc = N_TO_CIRCLE.get(src), N_TO_CIRCLE.get(dst)
-                if not sc or not dc or sc not in body:
+                if not sc or not dc:
                     continue
-                unit_info = find_containing_unit(body, sc)
-                before_unit = unit_info[0] if unit_info else sc
-                after_unit = re.sub(
-                    rf"^{re.escape(sc)}", dc, before_unit, count=1
-                )
+                if body_is_final:
+                    if dc not in body:
+                        continue
+                    unit_info = find_containing_unit(body, dc)
+                    after_unit = unit_info[0] if unit_info else dc
+                    before_unit = re.sub(
+                        rf"^{re.escape(dc)}", sc, after_unit, count=1
+                    )
+                else:
+                    if sc not in body:
+                        continue
+                    unit_info = find_containing_unit(body, sc)
+                    before_unit = unit_info[0] if unit_info else sc
+                    after_unit = re.sub(
+                        rf"^{re.escape(sc)}", dc, before_unit, count=1
+                    )
                 if after_unit == before_unit:
                     continue
                 after_unit = append_hist_date(after_unit, amended)
