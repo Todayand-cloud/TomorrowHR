@@ -224,6 +224,21 @@ NEW_ARTICLE_RE = re.compile(
     r"\s부칙\s|"
     r"$)"
 )
+# 조문 번호 자체를 옮기는 지시("제9조의2를 제9조의3으로 하고"). 이 번호가
+# 곧바로 다른 내용으로 신설되면(NEW_ARTICLE_RE), 옛 조문·새 조문을 같은
+# articleId로 합쳐서 보여주는 회귀(제9조의2 본문 뒤에 다른 조 신설문이
+# 이어 붙는 문제)를 막기 위해 사용한다.
+ARTICLE_RENUMBER_RE = re.compile(
+    r"제\s*(\d+)\s*조(?:의\s*(\d+))?를\s*제\s*(\d+)\s*조(?:의\s*(\d+))?(?:으로|로)\s*(?:하고|한다|하며)"
+)
+# 여러 조를 한꺼번에 옮기는 지시("제14조의2 및 제14조의3을 각각 제14조의3 및
+# 제14조의4로 하고"). 위 단일형 정규식은 '각각' 나열형은 잡지 못한다.
+ARTICLE_RENUMBER_LIST_RE = re.compile(
+    r"((?:제\s*\d+\s*조(?:의\s*\d+)?\s*(?:,|및)\s*)+제\s*\d+\s*조(?:의\s*\d+)?)"
+    r"\s*(?:을|를)\s*각각\s*"
+    r"((?:제\s*\d+\s*조(?:의\s*\d+)?\s*(?:,|및)\s*)+제\s*\d+\s*조(?:의\s*\d+)?)"
+    r"\s*(?:으로|로)\s*(?:하고|한다|하며)"
+)
 CIRCLE = "①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮"
 CIRCLE_TO_N = {c: i + 1 for i, c in enumerate(CIRCLE)}
 N_TO_CIRCLE = {i + 1: c for i, c in enumerate(CIRCLE)}
@@ -681,6 +696,25 @@ def extract_article_changes(
         op["effectiveDate"] = resolve_unit_effective(jo, unit, special_eff, law_default)
         return op
 
+    # 조 번호 자체가 다른 번호로 옮겨가는 지시("제9조의2를 제9조의3으로 하고").
+    # 이 번호가 바로 뒤에서 새 내용으로 신설되면, 옛 조문과 새 조문이 서로
+    # 다른 내용인데도 같은 번호를 잠깐 같이 쓰게 된다.
+    renumbered_away: set[str] = set()
+    for m in ARTICLE_RENUMBER_RE.finditer(doc_text):
+        from_jo = jo_label(m.group(1), m.group(2))
+        to_jo = jo_label(m.group(3), m.group(4))
+        if from_jo and to_jo and from_jo != to_jo:
+            renumbered_away.add(from_jo)
+    for m in ARTICLE_RENUMBER_LIST_RE.finditer(doc_text):
+        from_tokens = JO_TOKEN_RE.findall(m.group(1))
+        to_tokens = JO_TOKEN_RE.findall(m.group(2))
+        if from_tokens and len(from_tokens) == len(to_tokens):
+            for (fn, fo), (tn, to_) in zip(from_tokens, to_tokens):
+                from_jo = jo_label(fn, fo or None)
+                to_jo = jo_label(tn, to_ or None)
+                if from_jo and to_jo and from_jo != to_jo:
+                    renumbered_away.add(from_jo)
+
     # 0) 조문 전체 신설 (제목+본문)
     for no, of, _header, title, body in NEW_ARTICLE_RE.findall(doc_text):
         jo = jo_label(no, of or None)
@@ -690,6 +724,10 @@ def extract_article_changes(
         body = re.sub(r"\s*(\d+(?:의\d+)?\.)\s*", r"\n\1 ", body).strip()
         entry = ensure(jo)
         entry["articleTitle"] = title.strip()
+        # 같은 번호를 옛 조문이 막 비워주고 새 조문이 들어오는 경우 표시
+        # (같은 번호라도 서로 다른 내용 — 화면에서 한 조문으로 합치면 안 됨)
+        if jo in renumbered_away:
+            entry["numberReused"] = True
         entry["ops"].append(
             {
                 "kind": "new_article",
@@ -1089,6 +1127,7 @@ def extract_article_changes(
                 "hang": data.get("hang") or "",
                 "patchBody": bool(data.get("patchBody") or data.get("ops")),
                 "ops": data.get("ops") or [],
+                "numberReused": bool(data.get("numberReused")),
             }
         )
     return results
@@ -2629,18 +2668,38 @@ def enrich_revision_with_articles(
 
     expanded = []
     for ch in changes:
-        art = ensure_article(
-            articles_db,
-            item["lawId"],
-            tier_key,
-            ch["articleNo"],
-            ARTICLE_TITLES.get((item["lawId"], ch["articleNo"]), ""),
-        )
-        # 매번 전문(eflaw) 현행 본문으로 리셋 후 비교·음영만 계산
-        if full_index is not None:
-            fill_article_from_full(art, item["lawId"], tier_key, full_index)
-        # 시행된 신설 조만 제목 덮어쓰기 (미시행 신설 제목으로 현행을 바꾸지 않음)
         apply_body = ch["effectiveDate"] <= base
+        is_new_article_change_early = any(
+            op.get("kind") == "new_article" for op in (ch.get("ops") or [])
+        )
+        # 번호 재사용 + 아직 미시행: 같은 번호의 옛(다른 내용) 조문과
+        # articleId를 공유하면 화면에서 두 조문이 한 카드로 합쳐 보인다
+        # (예: 제9조의2 옛 "난임치료휴가" 본문 뒤에 신설 "배우자 출산전후휴가"
+        # 본문이 이어 붙는 회귀). 시행일이 지나면 전문(eflaw)이 번호를
+        # 실제로 분리해 주므로 그 전까지만 별도 id를 쓴다.
+        pending_detached = bool(
+            is_new_article_change_early and ch.get("numberReused") and not apply_body
+        )
+        if pending_detached:
+            num = re.sub(r"[^0-9의]", "", ch["articleNo"])
+            art = {
+                "id": f"{item['lawId']}-{tier_key}-{num}-신설예정",
+                "no": ch["articleNo"],
+                "title": (ch.get("articleTitle") or "").strip(),
+                "body": "",
+            }
+        else:
+            art = ensure_article(
+                articles_db,
+                item["lawId"],
+                tier_key,
+                ch["articleNo"],
+                ARTICLE_TITLES.get((item["lawId"], ch["articleNo"]), ""),
+            )
+            # 매번 전문(eflaw) 현행 본문으로 리셋 후 비교·음영만 계산
+            if full_index is not None:
+                fill_article_from_full(art, item["lawId"], tier_key, full_index)
+        # 시행된 신설 조만 제목 덮어쓰기 (미시행 신설 제목으로 현행을 바꾸지 않음)
         if apply_body and (ch.get("articleTitle") or "").strip():
             art["title"] = ch["articleTitle"].strip()
         elif not (art.get("title") or "").strip() and (ch.get("articleTitle") or "").strip():
@@ -2671,8 +2730,10 @@ def enrich_revision_with_articles(
             phrases = apply_ops_to_article(
                 art, ops, amended, ch["effectiveDate"], apply_body=apply_body
             )
-            # 본문은 항상 전문 현행 유지(재적용 오염 방지)
-            if full_index is not None:
+            # 본문은 항상 전문 현행 유지(재적용 오염 방지). 다만 번호 재사용으로
+            # 분리해 둔 미시행 신설 조는 전문에 아직 옛 내용만 있으므로 리셋하지
+            # 않는다(그러면 옛 조문 본문이 다시 섞여 들어온다).
+            if full_index is not None and not pending_detached:
                 fill_article_from_full(art, item["lawId"], tier_key, full_index)
         elif ch.get("newProviso") and ch.get("patchBody") and apply_body:
             new_body, phrase = apply_proviso_to_article(art, ch["newProviso"], amended)
