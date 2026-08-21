@@ -17,7 +17,10 @@ name: Refresh law data
 #  1) Actions IP → law.go.kr timed out
 #  2) 버튼 연타로 동시 실행 → git push 충돌로 Commit 단계 실패
 #  3) Fresh fetch + simulation 이 20분 초과(중복 XML·개정문 fetch × 3회)
-# 해결: Cloudflare 프록시 + 병렬 전문 + 캐시 + 로컬전문 재사용 + timeout 7분
+#  4) refresh_notices.py 가 파이프라인에 연결되지 않아 입법예고(js/notices-cache.json)가
+#     여러 주 동안 갱신되지 않고 멈춰 있었음 (2026-08 발견)
+# 해결: Cloudflare 프록시 + 병렬 전문 + 캐시 + 로컬전문 재사용 + timeout 7분,
+#       그리고 notices 전용 fetch 단계 + 신선도 회귀 가드 추가
 
 on:
   schedule:
@@ -77,11 +80,38 @@ jobs:
             python3 _law_fetch/refresh_amendments.py --repair-attempts 2
           fi
 
+      - name: Fresh fetch - 입법·행정예고 (moel.go.kr)
+        id: notices
+        timeout-minutes: 3
+        continue-on-error: true
+        env:
+          PYTHONIOENCODING: utf-8
+          CI: "true"
+        run: |
+          BASE="${{ github.event.inputs.base }}"
+          if [ -z "$BASE" ]; then
+            BASE="${{ github.event.client_payload.base }}"
+          fi
+          set +e
+          if [ -n "$BASE" ]; then
+            python3 _law_fetch/refresh_notices.py --base "$BASE"
+          else
+            python3 _law_fetch/refresh_notices.py
+          fi
+          code=$?
+          set -e
+          if [ $code -ne 0 ]; then
+            echo "::warning::입법예고 수집 실패 또는 이상치 감지 — 직전 캐시를 그대로 유지합니다. (법령 조문 갱신·커밋은 정상 진행)"
+          fi
+          exit 0
+
       - name: Guard - allow commit only after simulation pass
         id: guard
         run: |
           python3 - <<'PY'
           import json, os, sys
+          from datetime import date, datetime
+
           p = json.load(open("js/amendments-cache.json", encoding="utf-8"))
           count = int(p.get("count") or len(p.get("amendments") or []))
           sc = p.get("selfCheck") or {}
@@ -113,6 +143,31 @@ jobs:
           if not sc.get("ok") or not parity.get("ok"):
               print("::error::selfCheck/parity missing - block commit")
               sys.exit(1)
+
+          # --- 입법예고(notices) 신선도 회귀 가드 ---
+          # 과거: refresh_notices.py 가 파이프라인에서 아예 호출되지 않아
+          # js/notices-cache.json 이 여러 주 동안 조용히 멈춰 있었음(2026-08-14 → 08-20
+          # 신규 입법예고 2건 누락). 이 단계가 삭제/누락되더라도 매 실행마다
+          # 눈에 보이는 경고를 남기도록, 커밋을 막지는 않되 신선도를 항상 점검한다.
+          try:
+              n = json.load(open("js/notices-cache.json", encoding="utf-8"))
+              n_base = n.get("baseDate")
+              n_fetched = n.get("fetchedAt")
+              n_count = n.get("count")
+              today = date.today()
+              stale_days = None
+              if n_base:
+                  stale_days = (today - date.fromisoformat(n_base)).days
+              print(f"notices.baseDate={n_base} notices.fetchedAt={n_fetched} notices.count={n_count} stale_days={stale_days}")
+              if stale_days is None or stale_days > 1:
+                  print(
+                      f"::warning::notices-cache.json 이 {stale_days}일째 갱신되지 않았습니다 "
+                      "(refresh_notices.py 워크플로 단계가 빠졌거나 실패 중일 수 있음) - "
+                      "법령 데이터 커밋은 계속 진행하되 반드시 확인하세요."
+                  )
+          except Exception as exc:  # noqa: BLE001
+              print(f"::warning::notices-cache.json 읽기 실패: {exc}")
+
           print("guard ok")
           PY
 
