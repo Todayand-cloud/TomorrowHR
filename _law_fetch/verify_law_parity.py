@@ -1335,6 +1335,49 @@ def check_corrupt_and_duplicate_phrases(
         )
 
 
+def check_reused_article_identity(
+    amendments: list[dict], articles: dict, problems: list[str], verbose: bool
+) -> None:
+    """조번호 재사용 신설이 기존(다른 내용) 조문과 한 카드로 합쳐지지 않는지 검사.
+
+    '해당 조 없음(신설)'을 내세우는 개정 항목의 articleId가, 이미 본문·제목이
+    있는(=다른 조문이 그 번호를 쓰고 있는) 기존 조문과 같은 id를 쓰면, 화면에서
+    옛 조문 본문 뒤에 새 조문 본문이 이어 붙어 보이는 회귀다(예: 남녀고용평등법
+    시행령 제9조의2 "난임치료휴가" 본문에 "배우자 출산전후휴가" 신설문이 합쳐짐).
+    """
+    n = 0
+    for item in amendments:
+        if not item.get("articleLevel"):
+            continue
+        cb = (item.get("compareBefore") or "").strip()
+        if not cb.startswith("해당 조 없음"):
+            continue
+        aid = (item.get("articleIds") or [None])[0]
+        if not aid:
+            continue
+        law_id = item.get("lawId") or ""
+        tier = TIER_KEY.get(item.get("tier") or "", "")
+        new_title = (item.get("articleTitle") or "").strip()
+        for a in (articles.get(law_id) or {}).get(tier) or []:
+            if a.get("id") != aid:
+                continue
+            body = (a.get("body") or "").strip()
+            title = (a.get("title") or "").strip()
+            if body and title and new_title and title != new_title:
+                n += 1
+                problems.append(
+                    f"merged_reused_article {item.get('id')}: articleId={aid} "
+                    f"existing_title={title!r} new_title={new_title!r}"
+                )
+                if verbose:
+                    print(
+                        f"[FAIL] merged_reused_article {item.get('id')}: "
+                        f"{title!r} vs {new_title!r}"
+                    )
+    if verbose:
+        print(f"[INFO] reused_article_identity scan flagged={n}")
+
+
 def check_doc_expected_articles(
     amendments: list[dict], problems: list[str], verbose: bool
 ) -> None:
@@ -1877,6 +1920,8 @@ def run_simulation(verbose: bool = True) -> dict:
     check_corrupt_and_duplicate_phrases(amendments, problems, verbose)
     # 개정문 명시 조 ↔ 캐시 누락 (제19조 등)
     check_doc_expected_articles(amendments, problems, verbose)
+    # 조번호 재사용 신설이 기존(다른 내용) 조문과 한 카드로 합쳐지지 않는지
+    check_reused_article_identity(amendments, articles, problems, verbose)
     # 공포·시행 칩 2쌍 회귀 전수 차단
     check_no_dual_date_chips(amendments, articles, problems, verbose)
 
