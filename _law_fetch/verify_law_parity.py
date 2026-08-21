@@ -1920,21 +1920,25 @@ def run_simulation(verbose: bool = True) -> dict:
             print(f"[FAIL] amended empty bodies without text: {orphan_empty}")
 
     # --- 개정문 파서가 뽑은 조가 캐시에 있는지 (제61조 누락 등) ---
+    # 법률만이 아니라 시행령·시행규칙도 같은 방식으로 검증한다(누락 시
+    # CI가 놓치는 회귀 방지 — 예: 남녀고용평등법 시행령/시행규칙 신설조 누락).
     try:
         from datetime import date as _date
 
         from amendment_articles import extract_article_changes, fetch_doc_map
 
-        law_meta = {
-            "labor-standards": ("001872", "근로기준법"),
-            "retirement": ("009883", "근로자퇴직급여 보장법"),
-            "equal-employment": ("000130", "남녀고용평등과 일ㆍ가정 양립 지원에 관한 법률"),
-            "fixed-term": ("010356", "기간제 및 단시간근로자 보호 등에 관한 법률"),
+        law_names = {
+            "labor-standards": "근로기준법",
+            "retirement": "근로자퇴직급여 보장법",
+            "equal-employment": "남녀고용평등과 일ㆍ가정 양립 지원에 관한 법률",
+            "fixed-term": "기간제 및 단시간근로자 보호 등에 관한 법률",
         }
-        for law_id, (ls_id, law_name) in law_meta.items():
+        for law_id, tier_key, ls_id, _filename, _must in FULL_TARGETS:
+            law_name = law_names.get(law_id, "")
+            tier_kr = {v: k for k, v in TIER_KEY.items()}.get(tier_key, "법률")
             notice_dates: dict[str, tuple[str, str]] = {}
             for a in amendments:
-                if a.get("lawId") != law_id or a.get("tier") != "법률":
+                if a.get("lawId") != law_id or a.get("tier") != tier_kr:
                     continue
                 n = str(a.get("noticeNo") or "")
                 if not n:
@@ -1961,20 +1965,22 @@ def run_simulation(verbose: bool = True) -> dict:
                 parsed = extract_article_changes(
                     text, amd, eff, law_id=law_id, law_name=law_name
                 )
-                have = {
-                    a.get("articleNo")
+                cache_items = [
+                    a
                     for a in amendments
                     if a.get("lawId") == law_id
                     and str(a.get("noticeNo") or "") == notice
                     and a.get("articleLevel")
                     and a.get("articleNo")
-                }
+                ]
+                have = {a.get("articleNo") for a in cache_items}
+                by_jo: dict[str, dict] = {a.get("articleNo"): a for a in cache_items}
                 for ch in parsed:
                     jo = ch.get("articleNo")
-                    if not jo or jo in have:
+                    if not jo:
                         continue
                     # 본문에 적용 불가한 치환만 있는 파싱 결과는 누락으로 보지 않음
-                    body = find_article_body(articles, law_id, "statute", jo)
+                    body = find_article_body(articles, law_id, tier_key, jo)
                     ops = ch.get("ops") or []
                     applicable = False
                     for op in ops:
@@ -1999,11 +2005,31 @@ def run_simulation(verbose: bool = True) -> dict:
                             break
                     if ch.get("newProviso"):
                         applicable = True
-                    if not applicable:
+                    if jo not in have:
+                        if not applicable:
+                            continue
+                        problems.append(f"doc_article_missing {law_id} {notice} {jo}")
+                        if verbose:
+                            print(f"[FAIL] doc_article_missing {law_id} {notice} {jo}")
                         continue
-                    problems.append(f"doc_article_missing {law_id} {notice} {jo}")
-                    if verbose:
-                        print(f"[FAIL] doc_article_missing {law_id} {notice} {jo}")
+                    # 조는 캐시에 있어도, 신설 조문 본문이 개정문 원문보다
+                    # 훨씬 짧게 잘렸는지 대조(파서 종료지점 오탐 회귀 방지).
+                    new_ops = [o for o in ops if o.get("kind") == "new_article"]
+                    if not new_ops:
+                        continue
+                    fresh_len = max(len((o.get("text") or "")) for o in new_ops)
+                    cached = by_jo.get(jo) or {}
+                    cached_len = len((cached.get("compareAfter") or "").strip())
+                    if fresh_len >= 60 and cached_len + 20 < fresh_len:
+                        problems.append(
+                            f"new_article_truncated {law_id} {notice} {jo}: "
+                            f"cached={cached_len} fresh={fresh_len}"
+                        )
+                        if verbose:
+                            print(
+                                f"[FAIL] new_article_truncated {jo}: "
+                                f"cached={cached_len} fresh={fresh_len}"
+                            )
     except Exception as exc:  # noqa: BLE001
         problems.append(f"doc_coverage_error: {exc}")
 
