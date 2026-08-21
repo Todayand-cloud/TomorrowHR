@@ -2466,14 +2466,8 @@
       });
     }
 
-    const refreshBtn = document.getElementById("amendmentRefresh");
-    if (refreshBtn) {
-      refreshBtn.textContent = "지금 갱신";
-      refreshBtn.title = "법제처 데이터를 다시 받아 사이트를 갱신합니다.";
-      refreshBtn.addEventListener("click", function () {
-        refreshAmendmentsFromServer(baseDate);
-      });
-    }
+    // 「지금 갱신」 프런트엔드 버튼 제거됨 — 데이터는 GitHub Actions 자동갱신(주 2회)만 반영.
+    // 관리자는 GitHub Actions → Refresh law data → Run workflow 로 수동 실행 가능.
 
     currentBaseDate = baseDate;
     syncDisplay();
@@ -2653,36 +2647,28 @@
     `;
   }
 
+  /**
+   * 조번호 재사용(신설 예정) 등으로 로컬 조문 목록에 아직 없는 개정 항목.
+   * 법률·시행령과 같은 "제N조 + 제목 + 개정 배지" 카드 형태로 보이도록
+   * articleButton과 동일한 렌더링 경로로 위임한다(시행규칙 카드가
+   * 다른 두 단과 다르게 「법령명 제N조(제목) 개정」 한 줄로만 표기되던
+   * 불일치 해결).
+   */
   function renderArticleLevelCard(item) {
-    const pair = getComparePair(item);
-    const compareHtml = renderCompareBlock(item);
-    return (
-      '<li class="tier-rev article-item article-item--amended is-open" data-amend-id="' +
-      escapeHtml(item.id) +
-      '">' +
-      '<div class="tier-rev__head">' +
-      '<span class="badge badge--tier">' +
-      escapeHtml(item.tier || "") +
-      "</span>" +
-      '<span class="amend-badge">개정</span>' +
-      "</div>" +
-      '<h3 class="tier-rev__title">' +
-      escapeHtml(item.title) +
-      "</h3>" +
-      '<p class="tier-rev__meta">개정 ' +
-      escapeHtml(formatDotDate(item.amendedDate)) +
-      " · 시행 " +
-      escapeHtml(formatDotDate(item.effectiveDate)) +
-      "</p>" +
-      '<p class="tier-rev__summary">' +
-      escapeHtml(item.summary || makeChangeBrief(item)) +
-      "</p>" +
-      (compareHtml ||
-        (pair.before || pair.after
-          ? ""
-          : '<p class="tier-rev__note">3단 본문 조문이 로컬에 없어 변경 요약만 표시합니다.</p>')) +
-      "</li>"
-    );
+    const phrases = [];
+    (item.highlights || []).forEach(function (h) {
+      (h.phrases || []).forEach(function (p) {
+        if (p) phrases.push(p);
+      });
+    });
+    const article = {
+      id: firstArticleId(item) || item.id,
+      no: item.articleNo || "",
+      title: item.articleTitle || "",
+      body: "",
+    };
+    const highlightInfo = { phrases: phrases, amendments: [item] };
+    return articleButton(article, highlightInfo, true);
   }
 
   function articleSortKey(no) {
