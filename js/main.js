@@ -17,6 +17,8 @@
   const AMENDMENTS_CACHE_URL = "js/amendments-cache.json";
   const NOTICES_CACHE_URL = "js/notices-cache.json";
   const ENSURE_SERVER_HREF = "_law_fetch/ensure_server.bat";
+  // GitHub Actions refresh-laws.yml: cron "0 0 * * 1,4" (UTC 00:00 = KST 09:00, 월·목)
+  const AUTO_REFRESH_SCHEDULE_LABEL = "매주 월·목요일 오전 9시(주 2회) 자동갱신";
   const bundledAmendments = Array.isArray(DATA.amendments) ? DATA.amendments.slice() : [];
   let liveAmendments = null;
   let liveAmendmentsMeta = null;
@@ -1523,7 +1525,9 @@
     const items = filterUpcoming(baseDate);
     if (!items.length) {
       root.innerHTML =
-        '<div class="empty-state">기준일 이후 시행 예정인 법령이 없습니다. 「최근 개정」에서 수동 갱신 후 다시 확인해 주세요.</div>';
+        '<div class="empty-state">기준일 이후 시행 예정인 법령이 없습니다. 데이터는 ' +
+        AUTO_REFRESH_SCHEDULE_LABEL +
+        "되니 잠시 후 다시 확인해 주세요.</div>";
       return;
     }
 
@@ -1738,7 +1742,9 @@
 
     if (!filtered.length) {
       root.innerHTML =
-        '<div class="empty-state">기준일 기준 공포 또는 시행 ±6개월 범위에 해당하는 개정이 없습니다. 「지금 갱신」으로 최신 이력을 가져올 수 있습니다.</div>';
+        '<div class="empty-state">기준일 기준 공포 또는 시행 ±6개월 범위에 해당하는 개정이 없습니다. 데이터는 ' +
+        AUTO_REFRESH_SCHEDULE_LABEL +
+        "됩니다.</div>";
       return;
     }
 
@@ -1875,7 +1881,7 @@
           );
           const ok = isSuccessfulRefreshPayload(payload);
           setRefreshStatus(
-            (ok ? "저장된 수동갱신 데이터 " : "이전 성공 데이터 표시 · ") +
+            (ok ? "자동갱신 데이터 " : "이전 성공 데이터 표시 · ") +
               (payload.count || payload.amendments.length) +
               "건 (수집 기준일 " +
               (payload.baseDate || "") +
@@ -1885,8 +1891,10 @@
               (payload.to || "") +
               ")" +
               (at ? " · 마지막 갱신 " + at : "") +
+              " · " +
+              AUTO_REFRESH_SCHEDULE_LABEL +
               (ok
-                ? ". 기준일이 바뀌면 「수동 갱신」을 다시 실행하세요."
+                ? "."
                 : ". 최근 갱신이 실패해 시각을 갱신하지 않았습니다.")
           );
         }
