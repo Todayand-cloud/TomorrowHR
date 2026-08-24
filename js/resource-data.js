@@ -145,7 +145,7 @@ window.LAW_DATA.upcomingLaws = [
 window.LAW_DATA.noticesMeta = {
   "sourcePortal": "https://www.moel.go.kr/info/lawinfo/lawmaking/list.do",
   "note": "고용노동부 「입법·행정예고」 게시판을 기준일 기준으로 자동 수집한 결과입니다.",
-  "fetchedAt": "2026-08-24T00:30:35",
+  "fetchedAt": "2026-08-24T00:31:26",
   "baseDate": "2026-08-24"
 };
 
@@ -343,7 +343,7 @@ window.LAW_DATA.notices = [
     "title": "근로기준법 시행령 일부개정령안 입법예고",
     "dept": "임금근로시간정책과",
     "date": "2026-07-13",
-    "views": 4075,
+    "views": 4076,
     "summary": "입법예고 · 임금근로시간정책과",
     "url": "https://www.moel.go.kr/info/lawinfo/lawmaking/view.do?bbs_seq=20260700444",
     "bbsSeq": "20260700444"
