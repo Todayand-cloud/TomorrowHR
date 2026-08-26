@@ -3,7 +3,7 @@
   "from": "2026-05-28",
   "to": "2026-08-26",
   "lookbackDays": 90,
-  "fetchedAt": "2026-08-26T06:38:15",
+  "fetchedAt": "2026-08-26T06:39:09",
   "sourcePortal": "https://www.moel.go.kr/info/lawinfo/lawmaking/list.do",
   "note": "고용노동부 「입법·행정예고」 게시판을 기준일 기준으로 자동 수집한 결과입니다.",
   "count": 24,
@@ -273,7 +273,5 @@
       "url": "https://www.moel.go.kr/info/lawinfo/lawmaking/view.do?bbs_seq=20260700381",
       "bbsSeq": "20260700381"
     }
-  ],
-  "ok": true,
-  "prevCount": 24
+  ]
 }

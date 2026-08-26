@@ -1,7 +1,7 @@
 {
-  "baseDate": "2026-08-24",
-  "from": "2026-02-23",
-  "to": "2027-02-22",
+  "baseDate": "2026-08-26",
+  "from": "2026-02-25",
+  "to": "2027-02-24",
   "forwardDays": 182,
   "lookbackDays": 182,
   "amdForwardDays": 182,
@@ -10,7 +10,7 @@
   "effLookbackDays": 182,
   "effWindowLabel": "±6개월",
   "amdWindowLabel": "±6개월",
-  "fetchedAt": "2026-08-24T09:31:26",
+  "fetchedAt": "2026-08-26T15:39:09",
   "freshFetch": true,
   "count": 48,
   "errors": [],
@@ -21,8 +21,38 @@
   },
   "fullTexts": {
     "ok": true,
-    "asOf": "2026-08-24",
+    "asOf": "2026-08-26",
     "files": [
+      {
+        "lawId": "labor-standards",
+        "tier": "statute",
+        "lsId": "001872",
+        "file": "full-labor-statute.txt",
+        "bytes": 89438,
+        "articles": 136,
+        "eflaw": {
+          "mst": "283457",
+          "efYd": "20260820",
+          "ancYd": "20260219",
+          "noticeNo": "21373",
+          "status": "현행"
+        }
+      },
+      {
+        "lawId": "labor-standards",
+        "tier": "decree",
+        "lsId": "003058",
+        "file": "full-labor-decree.txt",
+        "bytes": 55082,
+        "articles": 80,
+        "eflaw": {
+          "mst": "270551",
+          "efYd": "20251023",
+          "ancYd": "20250408",
+          "noticeNo": "35436",
+          "status": "현행"
+        }
+      },
       {
         "lawId": "retirement",
         "tier": "statute",
@@ -54,21 +84,6 @@
         }
       },
       {
-        "lawId": "labor-standards",
-        "tier": "statute",
-        "lsId": "001872",
-        "file": "full-labor-statute.txt",
-        "bytes": 89438,
-        "articles": 136,
-        "eflaw": {
-          "mst": "283457",
-          "efYd": "20260820",
-          "ancYd": "20260219",
-          "noticeNo": "21373",
-          "status": "현행"
-        }
-      },
-      {
         "lawId": "retirement",
         "tier": "decree",
         "lsId": "010035",
@@ -84,21 +99,6 @@
         }
       },
       {
-        "lawId": "labor-standards",
-        "tier": "decree",
-        "lsId": "003058",
-        "file": "full-labor-decree.txt",
-        "bytes": 55082,
-        "articles": 80,
-        "eflaw": {
-          "mst": "270551",
-          "efYd": "20251023",
-          "ancYd": "20250408",
-          "noticeNo": "35436",
-          "status": "현행"
-        }
-      },
-      {
         "lawId": "retirement",
         "tier": "rule",
         "lsId": "010043",
@@ -110,6 +110,21 @@
           "efYd": "20220712",
           "ancYd": "20220712",
           "noticeNo": "00359",
+          "status": "현행"
+        }
+      },
+      {
+        "lawId": "fixed-term",
+        "tier": "statute",
+        "lsId": "010356",
+        "file": "full-fixed-statute.txt",
+        "bytes": 18230,
+        "articles": 28,
+        "eflaw": {
+          "mst": "232201",
+          "efYd": "20210518",
+          "ancYd": "20210518",
+          "noticeNo": "18177",
           "status": "현행"
         }
       },
@@ -144,32 +159,17 @@
         }
       },
       {
-        "lawId": "fixed-term",
-        "tier": "statute",
-        "lsId": "010356",
-        "file": "full-fixed-statute.txt",
-        "bytes": 18230,
-        "articles": 28,
-        "eflaw": {
-          "mst": "232201",
-          "efYd": "20210518",
-          "ancYd": "20210518",
-          "noticeNo": "18177",
-          "status": "현행"
-        }
-      },
-      {
-        "lawId": "fixed-term",
+        "lawId": "equal-employment",
         "tier": "rule",
-        "lsId": "010473",
-        "file": "full-fixed-rule.txt",
-        "bytes": 710,
-        "articles": 2,
+        "lsId": "006909",
+        "file": "full-equal-rule.txt",
+        "bytes": 21164,
+        "articles": 24,
         "eflaw": {
-          "mst": "79595",
-          "efYd": "20070701",
-          "ancYd": "20070629",
-          "noticeNo": "00277",
+          "mst": "288939",
+          "efYd": "20260820",
+          "ancYd": "20260819",
+          "noticeNo": "00478",
           "status": "현행"
         }
       },
@@ -189,17 +189,17 @@
         }
       },
       {
-        "lawId": "equal-employment",
+        "lawId": "fixed-term",
         "tier": "rule",
-        "lsId": "006909",
-        "file": "full-equal-rule.txt",
-        "bytes": 21164,
-        "articles": 24,
+        "lsId": "010473",
+        "file": "full-fixed-rule.txt",
+        "bytes": 710,
+        "articles": 2,
         "eflaw": {
-          "mst": "288939",
-          "efYd": "20260820",
-          "ancYd": "20260819",
-          "noticeNo": "00478",
+          "mst": "79595",
+          "efYd": "20070701",
+          "ancYd": "20070629",
+          "noticeNo": "00277",
           "status": "현행"
         }
       }
@@ -209,7 +209,7 @@
   "noticesRefresh": {
     "ok": true,
     "count": 24,
-    "latest": "2026-08-20",
+    "latest": "2026-08-25",
     "errors": []
   },
   "amendments": [
