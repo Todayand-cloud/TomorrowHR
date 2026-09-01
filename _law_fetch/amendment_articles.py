@@ -50,6 +50,22 @@ LOCATED_SWAP_RE = re.compile(
     + r'(?:"([^"]{1,320})"|「([^」]{1,320})」)\s*(?:으로|로)'
     + r"(?:\s*한다|\s*하고|\s*하며)?"
 )
+# 단일 호 신설("같은 항에 제2호의3을 다음과 같이 신설한다. 2의3. …")
+# — 조번호는 명시되지 않고 직전 지시문의 "같은 항"을 참조하므로, 전문을
+# 스캔해 가장 가까운 앞쪽 "제N조[의K]제M항"으로 소속을 해석한다(0.6 단계).
+NEW_HO_INSERT_RE = re.compile(
+    r"같은\s*항에\s*제\s*(\d+)\s*호(?:의\s*(\d+))?[을를]\s*다음과\s*같이\s*신설한다\.\s*"
+    r"(\d+(?:의\d+)?\.\s*.+?)(?="
+    r"제\s*\d+\s*조(?:의\s*\d+)?(?:제\s*\d+\s*항)?(?:제\s*\d+\s*호)?"
+    + _LOCATED_MID
+    + r"\s*중\s|"
+    r"제\s*\d+\s*조(?:의\s*\d+)?를\s*다음과\s*같이\s*신설|"
+    r"같은\s*항에|"
+    r"\s부칙\s|$)"
+)
+# 인용치환 위치 앞쪽 "제N호의K" 세부번호 — LOCATED_SWAP_RE·resolve_unit_locators
+# 는 "제2호"까지만 인식해 "의2"를 놓친다(제37조제2항제2호의2 오귀속 방지).
+_HO_OF_RE = re.compile(r"제\s*(\d+)\s*호\s*의\s*(\d+)(?!\s*호)")
 JO_TOKEN_RE = re.compile(r"제\s*([0-9]+)\s*조(?:의\s*([0-9]+))?")
 UNIT_HANG_HO_RE = re.compile(
     r"제\s*\d+\s*조(?:의\s*\d+)?제\s*(\d+)\s*항제\s*(\d+)\s*호"
@@ -545,7 +561,9 @@ _STMT_START_RE = re.compile(
     r"제\s*([0-9]+)\s*조(?:의\s*([0-9]+))?"
     r"(?="
     # 제19조제6항을 제9항으로 — 항·호 접미사 뒤 조사/중/신설 지시
-    r"(?:제\s*\d+\s*항)?(?:제\s*\d+\s*호)?"
+    # (?:의\s*\d+)? — "제2호의3"처럼 호에 세부번호가 붙는 경우도 인식
+    # (남녀고용평등법 제37조제2항제2호의2 오귀속 방지)
+    r"(?:제\s*\d+\s*항)?(?:제\s*\d+\s*호(?:의\s*\d+)?)?"
     r"(?:"
     r"(?:\s*(?:각\s*호(?:\s*외의\s*부분)?|제목(?:\s*외의\s*부분)?|단서|본문|전단|후단))?\s*중\s"
     r"|의\s*제목"
@@ -669,6 +687,42 @@ def _explicit_owner_jo_before(text: str, end_pos: int) -> str | None:
     if not m:
         return None
     return jo_label(m.group(1), m.group(2))
+
+
+def _apply_ho_of(loc_prefix: str, unit_loc: str) -> str:
+    """"제2호의3"처럼 호에 세부번호(의N)가 붙어 있으면 unit_loc에 반영한다.
+
+    `resolve_unit_locators`/`UNIT_HO_RE` 등은 "제2호"까지만 인식해 "의3"을
+    놓치는데, 그러면 "2호"와 "2호의3"이 서로 다른 호인데도 같은 위치로
+    합쳐져 오귀속된다(제37조제2항제2호의2 치환이 제2호로 잘못 붙는 회귀).
+    """
+    if not unit_loc:
+        return unit_loc
+    matches = list(_HO_OF_RE.finditer(loc_prefix or ""))
+    if not matches:
+        return unit_loc
+    ho_no, ho_of = matches[-1].group(1), matches[-1].group(2)
+    plain = f"제{ho_no}호"
+    labeled = f"제{ho_no}의{ho_of}호"
+    if plain in unit_loc and labeled not in unit_loc:
+        return unit_loc.replace(plain, labeled)
+    return unit_loc
+
+
+def _nearest_preceding_jo_hang(doc_text: str, pos: int) -> tuple[str, int] | None:
+    """`pos` 앞쪽에서 가장 가까운 명시적 "제N조[의K]제M항"을 찾는다.
+
+    "같은 항에 제H호를 다음과 같이 신설한다"처럼 조 번호가 생략된 지시문의
+    소속(조·항)을 직전 문맥에서 해석하기 위한 최후 방어선이다.
+    """
+    window = doc_text[max(0, pos - 200) : pos]
+    matches = list(
+        re.finditer(r"제\s*(\d+)\s*조(?:의\s*(\d+))?제\s*(\d+)\s*항", window)
+    )
+    if not matches:
+        return None
+    m = matches[-1]
+    return jo_label(m.group(1), m.group(2)), int(m.group(3))
 
 
 def _split_jo_chunks(doc_text: str) -> list[tuple[str, str]]:
@@ -871,6 +925,42 @@ def extract_article_changes(
         )
         entry["summaryParts"].append(_format_swap_summary(old, new))
 
+    # 0.6) 단일 호 신설 ("같은 항에 제2호의3을 다음과 같이 신설한다. 2의3. …")
+    # 조 번호가 생략되고 직전 지시문의 "같은 항"만 참조하므로, 청크 분리와
+    # 무관하게 전문을 스캔해 가장 가까운 앞쪽 "제N조[의K]제M항"으로 소속을
+    # 해석한다. (남녀고용평등법 제37조제2항 2의3호·제39조제3항 3의3호 신설
+    # 누락 회귀 방지)
+    for m in NEW_HO_INSERT_RE.finditer(doc_text):
+        ctx = _nearest_preceding_jo_hang(doc_text, m.start())
+        if not ctx:
+            continue
+        jo, hang = ctx
+        ho_no, ho_of, text = m.group(1), m.group(2), m.group(3)
+        text = re.sub(r"\s+", " ", text).strip()
+        if not text:
+            continue
+        if not text.endswith(("다.", "다", ".", "함")):
+            text = text.rstrip("· ,") + "."
+        ho_label = f"{ho_no}의{ho_of}" if ho_of else ho_no
+        loc = f"제{hang}항제{ho_label}호"
+        entry = ensure(jo)
+        dup = any(
+            op.get("kind") == "insert" and op.get("locator") == loc for op in entry["ops"]
+        )
+        if dup:
+            continue
+        entry["ops"].append(
+            {
+                "kind": "insert",
+                "text": text,
+                "locator": loc,
+                "isNew": True,
+            }
+        )
+        summary_text = text if len(text) <= 60 else text[:60] + "…"
+        entry["summaryParts"].append(f"{ho_label}호({summary_text}) 신설")
+        entry["patchBody"] = True
+
     # 1) 단서 신설 (휴게 등)
     for no, of, hang, proviso in PROVISO_NEW_RE.findall(doc_text):
         jo = jo_label(no, of or None)
@@ -947,6 +1037,7 @@ def extract_article_changes(
                     for am in UNIT_HANG_RE.finditer(loc_prefix):
                         unit_loc = f"제{am.group(1)}항"
                 unit_locs = [unit_loc] if unit_loc else [""]
+            unit_locs = [_apply_ho_of(loc_prefix, loc) for loc in unit_locs]
             for unit_loc in unit_locs:
                 # 동일 치환이라도 단위(항·호)가 다르면 각각 유지
                 if any(
