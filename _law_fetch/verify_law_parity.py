@@ -1378,6 +1378,57 @@ def check_reused_article_identity(
         print(f"[INFO] reused_article_identity scan flagged={n}")
 
 
+# 조문 청크 분리 실패로 다른 조문(우변)의 치환 문구가 좌변 조문에 잘못
+# 들러붙었던 실제 회귀 사례. (articleNo) 조문의 하이라이트 문구에 아래
+# 문자열이 나타나면, 그 문구는 원래 이 조문 것이 아니라는 뜻이다.
+# 새 회귀를 찾을 때마다 여기에 (lawId, articleNo): [금지 문자열…] 을
+# 추가한다.
+FORBIDDEN_CROSS_ARTICLE_TEXT: dict[tuple[str, str], list[str]] = {
+    # 남녀고용평등법 제18조의3(난임치료휴가)제2항 ← 제39조(과태료) "친족" 치환
+    # 오귀속 (2026-05-26 개정, 법률 제21700호).
+    ("equal-employment", "제18조의3"): ["법인의 대표자", "친족"],
+}
+
+
+def check_no_cross_article_swap_bleed(
+    amendments: list[dict], problems: list[str], verbose: bool
+) -> None:
+    """다른 조문의 치환 문구가 잘못 들러붙는 회귀를 조문별로 재검증한다.
+
+    개정문의 지시문이 마침표 없이 이어질 때(예: "…불리한 처우를 한 경우
+    제39조제2항 중 …") 조문 청크 분리가 실패하면, 그 안의 인용 치환이
+    엉뚱한 조문에도 중복 표시된다. `FORBIDDEN_CROSS_ARTICLE_TEXT`에
+    등록된 조문·금지 문구 조합을 전수 검사해 재발을 막는다.
+    """
+    n = 0
+    for item in amendments:
+        key = (item.get("lawId") or "", item.get("articleNo") or "")
+        forbidden = FORBIDDEN_CROSS_ARTICLE_TEXT.get(key)
+        if not forbidden:
+            continue
+        for h in item.get("highlights") or []:
+            for p in h.get("phrases") or []:
+                haystacks = [
+                    p.get("text") or "",
+                    p.get("compareAfter") or "",
+                    item.get("summary") or "",
+                ]
+                for token in forbidden:
+                    if any(token in hay for hay in haystacks):
+                        n += 1
+                        problems.append(
+                            f"cross_article_swap_bleed {item.get('id')}: "
+                            f"contains forbidden token {token!r} (belongs to another article)"
+                        )
+                        if verbose:
+                            print(
+                                f"[FAIL] cross_article_swap_bleed {item.get('id')}: "
+                                f"{token!r}"
+                            )
+    if verbose:
+        print(f"[INFO] cross_article_swap_bleed scan flagged={n}")
+
+
 def check_doc_expected_articles(
     amendments: list[dict], problems: list[str], verbose: bool
 ) -> None:
@@ -1922,6 +1973,8 @@ def run_simulation(verbose: bool = True) -> dict:
     check_doc_expected_articles(amendments, problems, verbose)
     # 조번호 재사용 신설이 기존(다른 내용) 조문과 한 카드로 합쳐지지 않는지
     check_reused_article_identity(amendments, articles, problems, verbose)
+    # 청크 분리 실패로 다른 조문 치환이 잘못 들러붙는 회귀(제18조의3 등)
+    check_no_cross_article_swap_bleed(amendments, problems, verbose)
     # 공포·시행 칩 2쌍 회귀 전수 차단
     check_no_dual_date_chips(amendments, articles, problems, verbose)
 
