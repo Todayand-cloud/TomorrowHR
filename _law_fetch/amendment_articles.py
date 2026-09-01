@@ -2597,7 +2597,18 @@ def apply_ops_to_article(
             old, new = op["old"], op["new"]
             # 이미 eflaw 현행 본문에 반영된 치환은 재적용하지 않음.
             # 다만 전·후 비교 카드는 남겨 빈 카드/유령 스크럽을 막는다.
-            if old not in body and new and new in body:
+            # 주의: new가 old를 포함하는 확장형 치환(예: "제4항"→"제4항ㆍ제6항")은
+            # 이미 반영된 뒤에도 old가 new의 부분문자열로 여전히 남아있어
+            # "old not in body" 조건만으로는 이미 반영됨을 감지하지 못한다.
+            # 이 경우 아래 "일반 치환" 경로로 빠지면 (1) 이미 붙은 확장 문구를
+            # 다시 못 찾아 before==after인 무의미한 음영이 생기거나,
+            # (2) old가 본문 뒤쪽에 우연히 다시 나타나는 자리에 잘못 치환되어
+            # 문구가 중복되는 오류가 났다(제19조의4제1항, 남녀고용평등법
+            # 2026-02-19 개정 사례). apply_body=True일 때 body는 항상 방금
+            # eflaw로 리셋한 "현행" 전문이므로, new가 이미 본문에 있으면
+            # (old의 잔존 여부와 무관하게) 이 개정은 이미 반영된 것으로 보고
+            # new를 기준으로 단위를 찾아 역치환으로 before를 재구성한다.
+            if new and new in body:
                 # 이미 시행·본문 반영됨 → 재치환 없이 개정 후(현행) 음영 + 호버=개정 전
                 unit_info = find_containing_unit(body, new)
                 loc = op.get("unitLocator") or op.get("locator") or art.get("no")
