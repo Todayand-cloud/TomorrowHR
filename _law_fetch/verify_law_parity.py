@@ -1445,6 +1445,68 @@ def check_no_cross_article_swap_bleed(
         print(f"[INFO] cross_article_swap_bleed scan flagged={n}")
 
 
+def check_no_noop_replace_phrase(
+    amendments: list[dict], problems: list[str], verbose: bool
+) -> None:
+    """이미 시행된 개정인데 before/after 비교문이 완전히 동일한 회귀를 검사.
+
+    시행일이 지난("현행"에 이미 반영된) 치환은 amendment_articles.py의
+    apply_ops_to_article()에서 항상 "new(개정 후 문구)가 이미 현행 본문에
+    있는지"를 기준으로 이미 반영 여부를 판단해야 한다. 이 판단이 실패하면
+    (예: "제4항"→"제4항ㆍ제6항"처럼 new가 old를 포함하는 확장형 치환) 두 가지
+    회귀가 난다:
+      1) before==after인 의미 없는 노란 음영 카드가 남거나(제37조제4호,
+         2026-02-19 개정 사례),
+      2) old가 이미 반영된 본문 뒤쪽에 우연히 다시 나타나는 자리에 잘못
+         치환되어 문구가 중복된다(제19조의4제1항 사례).
+    이 검사는 (1)을 직접 잡고, compareAfter 안에 동일 구절이 90%+ 겹치는
+    형태로 두 번 반복되면 (2)도 함께 잡는다.
+    """
+    n = 0
+    for item in amendments:
+        for h in item.get("highlights") or []:
+            for p in h.get("phrases") or []:
+                cb = (p.get("compareBefore") or "").strip()
+                ca = (p.get("compareAfter") or "").strip()
+                if not cb or not ca:
+                    continue
+                if cb == ca:
+                    n += 1
+                    problems.append(
+                        f"noop_replace_phrase {item.get('id')} "
+                        f"{h.get('articleId')} {p.get('locator')}: "
+                        f"compareBefore == compareAfter (의미 없는 음영)"
+                    )
+                    if verbose:
+                        print(
+                            f"[FAIL] noop_replace_phrase {item.get('id')} "
+                            f"{h.get('articleId')} {p.get('locator')}"
+                        )
+                    continue
+                # 같은 구절(20자 이상)이 개정 후 문구 안에서 반복되면 치환
+                # 위치를 잘못 잡아 중복된 것일 가능성이 높다.
+                for seg_len in (40, 30, 20):
+                    if len(ca) < seg_len * 2:
+                        continue
+                    seg = ca[:seg_len]
+                    if seg and ca.count(seg) > 1 and seg not in cb:
+                        n += 1
+                        problems.append(
+                            f"duplicated_replace_phrase {item.get('id')} "
+                            f"{h.get('articleId')} {p.get('locator')}: "
+                            f"repeated segment {seg!r} in compareAfter"
+                        )
+                        if verbose:
+                            print(
+                                f"[FAIL] duplicated_replace_phrase "
+                                f"{item.get('id')} {h.get('articleId')} "
+                                f"{p.get('locator')}"
+                            )
+                        break
+    if verbose:
+        print(f"[INFO] noop/duplicated replace scan flagged={n}")
+
+
 def check_doc_expected_articles(
     amendments: list[dict], problems: list[str], verbose: bool
 ) -> None:
@@ -1991,6 +2053,7 @@ def run_simulation(verbose: bool = True) -> dict:
     check_reused_article_identity(amendments, articles, problems, verbose)
     # 청크 분리 실패로 다른 조문 치환이 잘못 들러붙는 회귀(제18조의3 등)
     check_no_cross_article_swap_bleed(amendments, problems, verbose)
+    check_no_noop_replace_phrase(amendments, problems, verbose)
     # 공포·시행 칩 2쌍 회귀 전수 차단
     check_no_dual_date_chips(amendments, articles, problems, verbose)
 
