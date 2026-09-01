@@ -1186,6 +1186,21 @@ def _leading_ho_nums(text: str) -> list[int]:
     return [int(m.group(1)) for m in re.finditer(r"(?m)^(\d+)(?:의\d+)?\.", text or "")]
 
 
+def _segments_by_hang(text: str) -> list[str]:
+    """항(①②…) 마커 기준으로 조문을 세그먼트로 분리.
+
+    한 조문 안에 항이 여러 개면(예: 제37조 제2항·제3항) 각 항마다 호
+    번호가 1부터 다시 시작한다. 이를 나누지 않고 조문 전체를 한 번에
+    훑으면 "…8, 9, 1, 2…"처럼 항이 바뀌며 번호가 리셋될 때마다 정상
+    조문인데도 순서 위반으로 오탐한다(제37조 제2항→제3항 전환 오탐 방지).
+    마커가 없으면 전체를 한 세그먼트로 취급한다.
+    """
+    marks = "".join(CIRCLE_TO_N.keys())
+    parts = re.split(rf"(?m)^(?=[{re.escape(marks)}])", text or "")
+    segs = [p for p in parts if p.strip()]
+    return segs or [text or ""]
+
+
 def _leading_hang_nums(text: str) -> list[int]:
     """합성 본문에서 줄 시작 항 원문자(①②…) 번호만 추출."""
     out: list[int] = []
@@ -1275,13 +1290,14 @@ def check_composed_unit_order(
                         break
         after = simulate_article_highlight_after(body, phrases)
         checked += 1
-        ho_nums = _leading_ho_nums(after)
-        if len(ho_nums) >= 2 and ho_nums != sorted(ho_nums):
-            problems.append(
-                f"ho_order_violation {law_id} {art_no}: got {ho_nums}"
-            )
-            if verbose:
-                print(f"[FAIL] ho_order {art_no}: {ho_nums}")
+        for seg in _segments_by_hang(after):
+            ho_nums = _leading_ho_nums(seg)
+            if len(ho_nums) >= 2 and ho_nums != sorted(ho_nums):
+                problems.append(
+                    f"ho_order_violation {law_id} {art_no}: got {ho_nums}"
+                )
+                if verbose:
+                    print(f"[FAIL] ho_order {art_no}: {ho_nums}")
         hang_nums = _leading_hang_nums(after)
         if len(hang_nums) >= 2 and hang_nums != sorted(hang_nums):
             problems.append(
