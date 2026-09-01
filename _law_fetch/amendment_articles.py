@@ -647,6 +647,30 @@ def _is_ho_list_embedded_jo(text: str, pos: int) -> bool:
     return bool(re.search(r"\d+(?:의\d+)?\.\s*$", prev))
 
 
+_EXPLICIT_JO_BEFORE_JUNG_RE = re.compile(
+    r"제\s*(\d+)\s*조(?:의\s*(\d+))?"
+    r"(?:제\s*\d+\s*항)?(?:제\s*\d+\s*호)?"
+    + _LOCATED_MID
+    + r"\s*중\s*$"
+)
+
+
+def _explicit_owner_jo_before(text: str, end_pos: int) -> str | None:
+    """`end_pos` 바로 앞이 명시적 "제N조[…] 중 " 형태면 그 조 번호를 반환.
+
+    청크 분리가 놓친 뒤섞임(예: 호 목록 서술 뒤에 마침표 없이 곧바로
+    "…한 경우 제39조제2항 중 …"이 이어지는 경우)에서도, 인용 치환이
+    청크의 기본 조문이 아니라 이 명시적 조문으로 귀속돼야 함을
+    알려주는 최후 방어선이다(남녀고용평등법 제18조의3제2항에 제39조의
+    치환이 잘못 들러붙는 회귀 방지).
+    """
+    window = text[max(0, end_pos - 60) : end_pos]
+    m = _EXPLICIT_JO_BEFORE_JUNG_RE.search(window)
+    if not m:
+        return None
+    return jo_label(m.group(1), m.group(2))
+
+
 def _split_jo_chunks(doc_text: str) -> list[tuple[str, str]]:
     """개정 본문을 조문 지시 단위로 자른다(인용·본문 속 조문번호 제외)."""
     main = re.split(r"\s부칙\s", doc_text, maxsplit=1)[0]
@@ -655,6 +679,24 @@ def _split_jo_chunks(doc_text: str) -> list[tuple[str, str]]:
         for m in _STMT_START_RE.finditer(main)
         if not _is_ho_list_embedded_jo(main, m.start())
     ]
+    # 명시적 위치 치환 지시("제N조[제M항] 중 "A"를 "B"로 한다")는 그
+    # 자체로 항상 새 조문 지시의 경계다. `_STMT_START_RE`는 선행 문맥이
+    # 다./고/며/자 등으로 끝나야 새 지시로 인식하는데, 호 목록 서술처럼
+    # 마침표 없이 바로 다음 지시로 넘어가는 문장(예: "…불리한 처우를 한
+    # 경우 제39조제2항 중 …")은 이 조건을 만족하지 못해 앞 조문 청크가
+    # 뒤 지시문까지 삼킨다. 그 결과 안의 인용 치환이 엉뚱한 조문으로
+    # 오귀속되는 회귀(남녀고용평등법 제18조의3제2항 ← 제39조 치환 오귀속)
+    # 를 막기 위해, 명시적 조문번호가 있는 위치 치환 지시는 선행 문맥과
+    # 무관하게 항상 경계로 추가한다.
+    existing_starts = {m.start() for m in starts}
+    for lm in LOCATED_SWAP_RE.finditer(main):
+        if _is_ho_list_embedded_jo(main, lm.start()):
+            continue
+        if any(abs(lm.start() - s) <= 2 for s in existing_starts):
+            continue
+        starts.append(lm)
+        existing_starts.add(lm.start())
+    starts.sort(key=lambda m: m.start())
     chunks: list[tuple[str, str]] = []
     for i, m in enumerate(starts):
         jo = jo_label(m.group(1), m.group(2))
@@ -869,6 +911,14 @@ def extract_article_changes(
             if not old or not new or old == new:
                 continue
             prefix = chunk[: qm.start()]
+            # 명시적으로 다른 조문번호가 "…중" 바로 앞에 붙어 있으면
+            # (예: 청크 분리가 놓쳐 다른 지시문이 이 청크에 섞여 들어온
+            # 경우) 이 치환은 현재 청크의 기본 조문이 아니라 그 명시적
+            # 조문에 귀속돼야 한다. 0.5단계 전역 스캔이 이미 정확히
+            # 처리하므로 여기서는 건너뛴다(오귀속 방지 최후 방어선).
+            owner_jo = _explicit_owner_jo_before(chunk, qm.start())
+            if owner_jo and owner_jo != jo:
+                continue
             # 장 제목 변경은 조문 본문 치환이 아님
             if re.search(r"제\s*\d+\s*장의\s*제목", prefix[-40:]):
                 continue
