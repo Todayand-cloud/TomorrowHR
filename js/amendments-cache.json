@@ -1,7 +1,7 @@
 {
-  "baseDate": "2026-09-03",
-  "from": "2026-03-05",
-  "to": "2027-03-04",
+  "baseDate": "2026-09-07",
+  "from": "2026-03-09",
+  "to": "2027-03-08",
   "forwardDays": 182,
   "lookbackDays": 182,
   "amdForwardDays": 182,
@@ -10,7 +10,7 @@
   "effLookbackDays": 182,
   "effWindowLabel": "±6개월",
   "amdWindowLabel": "±6개월",
-  "fetchedAt": "2026-09-03T10:42:11",
+  "fetchedAt": "2026-09-07T10:30:45",
   "freshFetch": true,
   "count": 51,
   "errors": [],
@@ -20,8 +20,8 @@
     "rejectedDemoRule": "highlight only when article history date == promulgation date"
   },
   "fullTexts": {
-    "ok": true,
-    "asOf": "2026-09-03",
+    "ok": false,
+    "asOf": "2026-09-07",
     "files": [
       {
         "lawId": "retirement",
@@ -35,21 +35,6 @@
           "efYd": "20260701",
           "ancYd": "20260317",
           "noticeNo": "21475",
-          "status": "현행"
-        }
-      },
-      {
-        "lawId": "labor-standards",
-        "tier": "statute",
-        "lsId": "001872",
-        "file": "full-labor-statute.txt",
-        "bytes": 89438,
-        "articles": 136,
-        "eflaw": {
-          "mst": "283457",
-          "efYd": "20260820",
-          "ancYd": "20260219",
-          "noticeNo": "21373",
           "status": "현행"
         }
       },
@@ -99,21 +84,6 @@
         }
       },
       {
-        "lawId": "equal-employment",
-        "tier": "statute",
-        "lsId": "000130",
-        "file": "full-equal-statute.txt",
-        "bytes": 72078,
-        "articles": 72,
-        "eflaw": {
-          "mst": "283455",
-          "efYd": "20260820",
-          "ancYd": "20260219",
-          "noticeNo": "21373",
-          "status": "현행"
-        }
-      },
-      {
         "lawId": "retirement",
         "tier": "rule",
         "lsId": "010043",
@@ -140,6 +110,36 @@
           "efYd": "20260820",
           "ancYd": "20260818",
           "noticeNo": "36589",
+          "status": "현행"
+        }
+      },
+      {
+        "lawId": "equal-employment",
+        "tier": "rule",
+        "lsId": "006909",
+        "file": "full-equal-rule.txt",
+        "bytes": 21164,
+        "articles": 24,
+        "eflaw": {
+          "mst": "288939",
+          "efYd": "20260820",
+          "ancYd": "20260819",
+          "noticeNo": "00478",
+          "status": "현행"
+        }
+      },
+      {
+        "lawId": "fixed-term",
+        "tier": "statute",
+        "lsId": "010356",
+        "file": "full-fixed-statute.txt",
+        "bytes": 18230,
+        "articles": 28,
+        "eflaw": {
+          "mst": "232201",
+          "efYd": "20210518",
+          "ancYd": "20210518",
+          "noticeNo": "18177",
           "status": "현행"
         }
       },
@@ -174,37 +174,30 @@
         }
       },
       {
-        "lawId": "fixed-term",
+        "lawId": "labor-standards",
         "tier": "statute",
-        "lsId": "010356",
-        "file": "full-fixed-statute.txt",
-        "bytes": 18230,
-        "articles": 28,
+        "lsId": "001872",
+        "file": "full-labor-statute.txt",
+        "bytes": 89438,
+        "articles": 136,
         "eflaw": {
-          "mst": "232201",
-          "efYd": "20210518",
-          "ancYd": "20210518",
-          "noticeNo": "18177",
-          "status": "현행"
-        }
-      },
-      {
-        "lawId": "equal-employment",
-        "tier": "rule",
-        "lsId": "006909",
-        "file": "full-equal-rule.txt",
-        "bytes": 21164,
-        "articles": 24,
-        "eflaw": {
-          "mst": "288939",
+          "mst": "283457",
           "efYd": "20260820",
-          "ancYd": "20260819",
-          "noticeNo": "00478",
+          "ancYd": "20260219",
+          "noticeNo": "21373",
           "status": "현행"
         }
       }
     ],
-    "errors": []
+    "errors": [
+      {
+        "lawId": "equal-employment",
+        "tier": "statute",
+        "lsId": "000130",
+        "file": "full-equal-statute.txt",
+        "error": "HTTP Error 502: Bad Gateway"
+      }
+    ]
   },
   "noticesRefresh": {
     "ok": true,
