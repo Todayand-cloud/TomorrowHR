@@ -1,11 +1,54 @@
 {
   "ok": true,
   "problems": [],
+  "softProblems": [
+    "missing_highlight_for_dated_paragraph live-003140-2026-08-18-36589-제13조: 항=[1] tagDate='2026. 8. 18.'",
+    "missing_highlight_for_dated_paragraph live-003140-2026-08-18-36589-제11조: 항=[1] tagDate='2026. 8. 18.'",
+    "missing_highlight_for_dated_paragraph live-009883-2026-03-17-21475-제2조: 항=[1] tagDate='2026. 3. 17.'",
+    "missing_highlight_for_dated_paragraph live-009883-2026-03-17-21475-제23조의8: 항=[1] tagDate='2026. 3. 17.'",
+    "missing_highlight_for_dated_paragraph live-000130-2026-02-19-21373-제19조: 항=[9] tagDate='2026. 2. 19.'",
+    "duplicate_phrase_content live-003140-2026-08-18-36589-제11조: locator='제7항→제8항' duplicates '제8항'"
+  ],
   "checks": [
     {
       "lsId": "001872",
       "article": "제110조",
       "liveChars": 391,
+      "ok": true,
+      "details": []
+    },
+    {
+      "lsId": "001872",
+      "article": "제54조",
+      "liveChars": 110,
+      "ok": true,
+      "details": []
+    },
+    {
+      "lsId": "001872",
+      "article": "제61조",
+      "liveChars": 1254,
+      "ok": true,
+      "details": []
+    },
+    {
+      "lsId": "001872",
+      "article": "제107조",
+      "liveChars": 100,
+      "ok": true,
+      "details": []
+    },
+    {
+      "lsId": "001872",
+      "article": "제116조",
+      "liveChars": 777,
+      "ok": true,
+      "details": []
+    },
+    {
+      "lsId": "001872",
+      "article": "제114조",
+      "liveChars": 286,
       "ok": true,
       "details": []
     },
@@ -17,12 +60,19 @@
       "details": []
     },
     {
+      "lsId": "001872",
+      "article": "제109조",
+      "liveChars": 467,
+      "ok": true,
+      "details": []
+    },
+    {
       "article": "제44조의4",
       "ok": true,
       "details": []
     }
   ],
-  "emptyBodies": 2,
+  "emptyBodies": 3,
   "orphanEmptyAmended": 0,
   "displayGaps": 0
 }
