@@ -1351,6 +1351,162 @@ def check_corrupt_and_duplicate_phrases(
         )
 
 
+def _tag_date_str(iso: str) -> str | None:
+    """'2026-08-18' → '2026. 8. 18.' (본문 이력 태그 표기와 동일한 형식, 0 패딩 없음)."""
+    try:
+        y, m, d = (iso or "").split("-")
+        return f"{int(y)}. {int(m)}. {int(d)}."
+    except Exception:
+        return None
+
+
+CIRCLE_HANGS = "①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮"
+
+
+def _paragraphs_with_tag_date(body: str, tag_date: str) -> set[int]:
+    """본문에서 <개정 …tag_date…> 또는 <신설 …tag_date…> 태그가 붙은 항 번호(1-based) 집합."""
+    hits: set[int] = set()
+    if not body or not tag_date:
+        return hits
+    marks = [(i, ch) for i, ch in enumerate(body) if ch in CIRCLE_HANGS]
+    if not marks:
+        # 항 구분 없이 바로 본문·호만 있는 조문은 조 전체를 1항으로 취급
+        for tag_m in re.finditer(r"<(?:개정|신설)([^>]*)>", body):
+            if tag_date in tag_m.group(1):
+                hits.add(1)
+                break
+        return hits
+    for idx, (pos, ch) in enumerate(marks):
+        end = marks[idx + 1][0] if idx + 1 < len(marks) else len(body)
+        chunk = body[pos:end]
+        for tag_m in re.finditer(r"<(?:개정|신설)([^>]*)>", chunk):
+            if tag_date in tag_m.group(1):
+                hits.add(CIRCLE_HANGS.index(ch) + 1)
+                break
+    return hits
+
+
+def _phrase_covered_hangs(item: dict) -> set[int]:
+    covered: set[int] = set()
+    for h in item.get("highlights") or []:
+        for p in h.get("phrases") or []:
+            loc = str(p.get("locator") or "")
+            for m in re.finditer(r"제\s*(\d+)\s*항", loc):
+                covered.add(int(m.group(1)))
+            text = str(p.get("text") or "")
+            if text and text[0] in CIRCLE_HANGS:
+                covered.add(CIRCLE_HANGS.index(text[0]) + 1)
+    return covered
+
+
+def check_history_tag_phrase_coverage(
+    amendments: list[dict], articles: dict, problems: list[str], verbose: bool
+) -> None:
+    """조문 본문에 이번 개정 날짜의 이력 태그(<개정 …>/<신설 …>)가 붙은 항인데,
+    그 항을 가리키는 하이라이트 phrase가 하나도 없는 경우를 검사한다.
+
+    개정문 파서가 "조문 본문 안 인용구 치환"류 지시(예: 제11조제1항 각 호
+    외의 부분 중 "…"을 "…"으로 한다)를 놓치면, 본문에는 <개정 2026. 8. 18.>
+    태그가 버젓이 붙어 있는데도 화면에는 그 항이 노란 음영 없이 그냥
+    지나쳐 보이는 회귀가 생긴다(남녀고용평등법 시행령 제11조제1항 2026-08-18
+    개정 누락 사례). 태그가 있는데 커버하는 phrase가 없으면 무조건 문제로
+    잡아, 어떤 개정문 표현이든 빠짐없이 걸러지게 한다.
+    """
+    n = 0
+    for item in amendments:
+        if not item.get("articleLevel"):
+            continue
+        tag_date = _tag_date_str(item.get("amendedDate") or "")
+        if not tag_date:
+            continue
+        aid = (item.get("articleIds") or [None])[0]
+        if not aid:
+            continue
+        law_id = item.get("lawId") or ""
+        tier = TIER_KEY.get(item.get("tier") or "", "")
+        body = ""
+        for a in (articles.get(law_id) or {}).get(tier) or []:
+            if a.get("id") == aid:
+                body = a.get("body") or ""
+                break
+        if not body:
+            continue
+        dated_hangs = _paragraphs_with_tag_date(body, tag_date)
+        if not dated_hangs:
+            continue
+        covered = _phrase_covered_hangs(item)
+        missing = sorted(dated_hangs - covered)
+        if missing:
+            n += 1
+            problems.append(
+                f"missing_highlight_for_dated_paragraph {item.get('id')}: "
+                f"항={missing} tagDate={tag_date!r}"
+            )
+            if verbose:
+                print(
+                    f"[FAIL] missing_highlight_for_dated_paragraph {item.get('id')}: "
+                    f"항={missing} tagDate={tag_date!r}"
+                )
+    if verbose:
+        print(f"[INFO] history_tag_phrase_coverage scan flagged={n}")
+
+
+def check_duplicate_phrase_content(
+    amendments: list[dict], problems: list[str], verbose: bool
+) -> None:
+    """같은 항목 안에서, 이력 태그·문장부호만 다르고 실제 내용은 같은 phrase가
+    2개 이상 등록되지 않았는지 검사한다.
+
+    "신설" phrase(줄바꿈 있는 전체 문단)와 "제N항→제M항 개정" phrase(한 줄
+    요약)가 사실은 같은 문단을 가리키는데 텍스트 형식만 달라 둘 다 등록되면,
+    화면에서 같은 문단이 두 번 삽입되는 회귀가 생긴다(남녀고용평등법 시행령
+    제11조 제8항 중복 표시 사례). 이력 태그를 지우고 공백·문장부호까지
+    정규화한 뒤 비교해 이런 사실상 중복을 잡아낸다.
+    """
+    n = 0
+    tag_re = re.compile(r"<(?:개정|신설)[^>]*>")
+
+    def _norm(t: str) -> str:
+        t = tag_re.sub(" ", t or "")
+        t = re.sub(r"[.,·ㆍ]", "", t)
+        t = re.sub(r"\s+", " ", t).strip()
+        return t
+
+    for item in amendments:
+        for h in item.get("highlights") or []:
+            normed: list[tuple[str, str]] = []  # (norm_text, locator), 등장 순서 유지
+            for p in h.get("phrases") or []:
+                norm = _norm(p.get("text") or "")
+                if not norm:
+                    continue
+                loc = str(p.get("locator") or "")
+                dup_of = None
+                for prev_norm, prev_loc in normed:
+                    if prev_loc == loc:
+                        continue
+                    # 완전히 같거나, 한쪽이 다른 쪽 전체를 포함하면(예: 항 머리
+                    # 문장만 담은 짧은 "개정" phrase가 항·호 전체를 담은 긴
+                    # "신설" phrase에 그대로 포함되는 경우) 같은 문단으로 본다.
+                    if norm == prev_norm or norm in prev_norm or prev_norm in norm:
+                        dup_of = prev_loc
+                        break
+                if dup_of is not None:
+                    n += 1
+                    problems.append(
+                        f"duplicate_phrase_content {item.get('id')}: "
+                        f"locator={loc!r} duplicates {dup_of!r}"
+                    )
+                    if verbose:
+                        print(
+                            f"[FAIL] duplicate_phrase_content {item.get('id')}: "
+                            f"{loc!r} vs {dup_of!r}"
+                        )
+                else:
+                    normed.append((norm, loc))
+    if verbose:
+        print(f"[INFO] duplicate_phrase_content scan flagged={n}")
+
+
 def check_reused_article_identity(
     amendments: list[dict], articles: dict, problems: list[str], verbose: bool
 ) -> None:
@@ -1505,6 +1661,51 @@ def check_no_noop_replace_phrase(
                         break
     if verbose:
         print(f"[INFO] noop/duplicated replace scan flagged={n}")
+
+
+# 항·호 단위 문구 안에 섞여 들면 안 되는 "지시문(개정문 메타 문장)" 표지.
+# 실제 법령 조문 본문에는 거의 나오지 않는 어구들로, 청크·캡처 경계 실패로
+# 다음 지시문(개정문 문장) 전체가 통째로 삼켜졌을 때만 나타난다.
+# (시행령 제11조 1의2호 715자 과다캡처 — "제11조제4항부터 제7항까지를
+#  각각 제5항부터 제8항까지로 하고, 같은 조에 제4항을 다음과 같이
+#  신설하며 …" 지시문 전체가 신설 호 문구에 섞여 들어간 사례)
+_LEAKED_INSTRUCTION_MARKERS = (
+    "다음과 같이 신설한다",
+    "다음과 같이 한다",
+    "다음과 같이 신설하며",
+    "까지로 하고",
+    "까지로 하며",
+)
+
+
+def check_no_leaked_instruction_text(
+    amendments: list[dict], problems: list[str], verbose: bool
+) -> None:
+    """조문 항·호 문구 안에 개정 지시문(메타 문장)이 섞여 들어간 과다캡처를 검사."""
+    n = 0
+    for item in amendments:
+        for h in item.get("highlights") or []:
+            for p in h.get("phrases") or []:
+                text = p.get("text") or ""
+                if not text:
+                    continue
+                for marker in _LEAKED_INSTRUCTION_MARKERS:
+                    if marker in text:
+                        n += 1
+                        problems.append(
+                            f"leaked_instruction_text {item.get('id')} "
+                            f"{h.get('articleId')} {p.get('locator')}: "
+                            f"contains {marker!r} (len={len(text)}) — 과다캡처 의심"
+                        )
+                        if verbose:
+                            print(
+                                f"[FAIL] leaked_instruction_text "
+                                f"{item.get('id')} {h.get('articleId')} "
+                                f"{p.get('locator')} len={len(text)}"
+                            )
+                        break
+    if verbose:
+        print(f"[INFO] leaked_instruction_text scan flagged={n}")
 
 
 def check_doc_expected_articles(
@@ -2051,9 +2252,16 @@ def run_simulation(verbose: bool = True) -> dict:
     check_doc_expected_articles(amendments, problems, verbose)
     # 조번호 재사용 신설이 기존(다른 내용) 조문과 한 카드로 합쳐지지 않는지
     check_reused_article_identity(amendments, articles, problems, verbose)
+    # 본문에 이번 개정 날짜 이력태그가 붙었는데 커버하는 하이라이트가 없는지
+    # (제11조제1항 "본문 안 인용구 치환" 누락 회귀 방지)
+    check_history_tag_phrase_coverage(amendments, articles, problems, verbose)
+    # 같은 문단이 태그만 다른 phrase 2개로 중복 등록돼 화면에 두 번 나오지 않는지
+    # (제11조 제8항 중복 표시 회귀 방지)
+    check_duplicate_phrase_content(amendments, problems, verbose)
     # 청크 분리 실패로 다른 조문 치환이 잘못 들러붙는 회귀(제18조의3 등)
     check_no_cross_article_swap_bleed(amendments, problems, verbose)
     check_no_noop_replace_phrase(amendments, problems, verbose)
+    check_no_leaked_instruction_text(amendments, problems, verbose)
     # 공포·시행 칩 2쌍 회귀 전수 차단
     check_no_dual_date_chips(amendments, articles, problems, verbose)
 
