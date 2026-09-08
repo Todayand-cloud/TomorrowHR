@@ -45,14 +45,29 @@ def _http_get(url: str) -> str:
     return http_get(url, headers=UA)
 
 
+def _strip_cdata_wrapper(text: str) -> str:
+    """<![CDATA[...]]> 래퍼가 (예상 못한 XML 구조·중첩 등으로) 안 벗겨진 채
+    남아있으면 안쪽 텍스트만 남기고 벗겨낸다.
+
+    법제처 목·호내용 필드가 예상한 <목내용>/<호내용> 자식 태그 없이
+    <목><![CDATA[가. …]]></목>처럼 CDATA를 바로 담는 경우가 있어, 특정 태그명
+    기준 정규식만으로는 못 잡고 <![CDATA[…]]>가 화면 본문에 그대로 노출되는
+    사고가 있었다(남녀고용평등법 제2조 4호 가·나·다목 등 9개 파일 165건).
+    태그 구조를 신뢰하지 않고, 남은 CDATA 마커 자체를 최종 방어선으로 벗긴다.
+    """
+    if not text or "CDATA" not in text:
+        return text
+    return re.sub(r"<!\[CDATA\[(.*?)\]\]>", r"\1", text, flags=re.S)
+
+
 def _plain_tag(tag: str, block: str) -> str:
     m = re.search(rf"<{tag}[^>]*><!\[CDATA\[(.*?)\]\]></{tag}>", block, flags=re.S)
     if m:
-        return m.group(1).strip()
+        return _strip_cdata_wrapper(m.group(1).strip())
     m = re.search(rf"<{tag}[^>]*>(.*?)</{tag}>", block, flags=re.S)
     if not m:
         return ""
-    return re.sub(r"<[^>]+>", "", m.group(1)).strip()
+    return _strip_cdata_wrapper(re.sub(r"<[^>]+>", "", m.group(1)).strip())
 
 
 def resolve_eflaw_ref(ls_id: str, as_of: date | None = None) -> dict | None:
@@ -145,9 +160,9 @@ def fetch_xml(ls_id: str, as_of: date | None = None) -> str:
 def _cdata(tag: str, block: str) -> str:
     m = re.search(rf"<{tag}[^>]*><!\[CDATA\[(.*?)\]\]></{tag}>", block, flags=re.S)
     if m:
-        return m.group(1).strip()
+        return _strip_cdata_wrapper(m.group(1).strip())
     m = re.search(rf"<{tag}[^>]*>(.*?)</{tag}>", block, flags=re.S)
-    return (m.group(1).strip() if m else "")
+    return (_strip_cdata_wrapper(m.group(1).strip()) if m else "")
 
 
 def normalize_hist(text: str) -> str:
@@ -250,7 +265,7 @@ def xml_to_full_text(xml: str) -> str:
             lines.append(cont)
         lines.append("")
 
-    return "\n".join(lines).strip() + "\n"
+    return _strip_cdata_wrapper("\n".join(lines).strip() + "\n")
 
 
 def validate_text(text: str, must_contain: list[str], tier: str) -> list[str]:
