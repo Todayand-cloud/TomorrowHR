@@ -62,6 +62,15 @@ def clean_body(text: str) -> str:
             continue
         if re.match(r"^제\s*\d+호$", line):
             continue
+        # 법제처 XML 목·호내용 필드가 예상한 자식 태그 없이 CDATA를 바로
+        # 담는 등의 이유로 <![CDATA[…]]> 래퍼가 안 벗겨진 채 넘어오는 경우가
+        # 있다(예: 남녀고용평등법 제2조 4호 가·나·다목). fetch_full_texts.py
+        # 쪽에서도 걸러내지만, 이 함수가 그 출력을 다시 가공하는 마지막
+        # 관문이므로 여기서도 한 번 더 방어한다.
+        if "CDATA" in line:
+            line = re.sub(r"<!\[CDATA\[(.*?)\]\]>", r"\1", line, flags=re.S).strip()
+            if not line:
+                continue
         lines.append(line)
     return "\n".join(lines).strip()
 
