@@ -545,10 +545,12 @@
     return Boolean(normPhrase) && normHtml.indexOf(normPhrase) !== -1;
   }
 
-  function insertNewPendingPhrase(html, phrase) {
+  function insertNewPendingPhrase(html, phrase, originalHtml) {
     const afterEsc = escapeHtml(phrase.text);
     if (!afterEsc) return html;
-    if (bodyAlreadyHasPhrase(html, afterEsc)) return html;
+    if (bodyAlreadyHasPhrase(originalHtml != null ? originalHtml : html, afterEsc)) {
+      return html;
+    }
     const markHtml = buildAmendMark(phrase, afterEsc);
     const at = insertIndexForNewPhrase(html, phrase);
     if (at < 0) {
@@ -564,6 +566,15 @@
   function highlightBody(body, phrases) {
     let html = escapeHtml(body || "");
     if (!phrases || !phrases.length) return html;
+
+    // "이미 본문에 있는지" 판정은 이 스냅샷(어떤 <mark>도 삽입되기 전 원본)과
+    // 비교해야 한다. 아래 forEach에서 앞선 phrase가 먼저 <mark>로 감싸이면서
+    // 그 안에 위치 칩("제7항→제8항")·공포일·시행일 배지 텍스트가 섞여
+    // 들어가는데, 그 뒤 html을 기준으로 다음 phrase의 "이미 있는지"를
+    // 검사하면 배지 텍스트가 끼어들어 원래 연속이던 문장이 끊긴 것처럼
+    // 보여 중복 판정에 실패한다(제11조 제8항이 "개정" 칩 버전과 "신설"
+    // 전문 버전 두 번 삽입되는 회귀). 항상 이 원본 스냅샷으로만 비교한다.
+    const originalHtml = html;
 
     const composed = composePendingPhrases(body, phrases);
     const list = composed
@@ -643,7 +654,7 @@
         return phraseStructureSortKey(a) - phraseStructureSortKey(b);
       })
       .forEach(function (phrase) {
-        html = insertNewPendingPhrase(html, phrase);
+        html = insertNewPendingPhrase(html, phrase, originalHtml);
       });
 
     return html;
