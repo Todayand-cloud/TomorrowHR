@@ -2688,45 +2688,50 @@
   function renderTier(label, name, articles, cite, highlightMap, tierItems, articleCountHint) {
     // 법제처식 3단: 조회기간 내 조문 단위 개정을 모두 나열
     const shownIds = {};
-    const amendedOnly = (articles || [])
-      .filter(function (article) {
-        return Boolean(highlightMap[article.id]);
+    const amendedArticles = (articles || []).filter(function (article) {
+      return Boolean(highlightMap[article.id]);
+    });
+    // extraCards(미시행 신설 등 조문 DB에 아직 없는 별도 카드) 필터링에
+    // 쓰이므로, extraCards를 뽑기 전에 먼저 채워둔다.
+    amendedArticles.forEach(function (article) {
+      shownIds[article.id] = true;
+    });
+
+    const extraItems = (tierItems || []).filter(function (item) {
+      const aid = firstArticleId(item);
+      if (aid && shownIds[aid]) return false;
+      return item.articleLevel || hasPhraseHighlights(item);
+    });
+
+    // 정식 조문 카드(amendedArticles)와 별도 카드(extraItems, 예: 번호
+    // 재사용으로 분리된 미시행 신설 조문)를 각각 정렬한 뒤 이어 붙이면,
+    // extraItems가 조문번호와 무관하게 항상 뒤로 밀린다(제9조의2가 맨
+    // 아래로 밀려나는 회귀). 두 종류를 하나의 배열로 합쳐 조문번호
+    // 기준으로 한 번에 정렬해야 화면 순서가 실제 조문 순서와 일치한다.
+    const combined = amendedArticles
+      .map(function (article) {
+        return {
+          sortKey: articleSortKey(article.no),
+          html: articleButton(article, highlightMap[article.id], true),
+        };
       })
-      .slice()
+      .concat(
+        extraItems.map(function (item) {
+          return {
+            sortKey: articleSortKey(item.articleNo || item.title || ""),
+            html: renderArticleLevelCard(item),
+          };
+        })
+      )
       .sort(function (a, b) {
-        const ka = articleSortKey(a.no);
-        const kb = articleSortKey(b.no);
-        return ka[0] - kb[0] || ka[1] - kb[1];
+        return a.sortKey[0] - b.sortKey[0] || a.sortKey[1] - b.sortKey[1];
       });
 
-    let list = "";
-    if (amendedOnly.length) {
-      list += amendedOnly
-        .map(function (article) {
-          shownIds[article.id] = true;
-          return articleButton(article, highlightMap[article.id], true);
-        })
-        .join("");
-    }
-    const extraCards = (tierItems || [])
-      .filter(function (item) {
-        const aid = firstArticleId(item);
-        if (aid && shownIds[aid]) return false;
-        return item.articleLevel || hasPhraseHighlights(item);
-      })
-      .slice()
-      .sort(function (a, b) {
-        const ka = articleSortKey(a.articleNo || a.title || "");
-        const kb = articleSortKey(b.articleNo || b.title || "");
-        return ka[0] - kb[0] || ka[1] - kb[1];
-      });
-    if (extraCards.length) {
-      list += extraCards.map(renderArticleLevelCard).join("");
-    }
+    let list = combined.map(function (entry) { return entry.html; }).join("");
     const shownCount =
       articleCountHint != null
         ? articleCountHint
-        : amendedOnly.length + extraCards.length;
+        : amendedArticles.length + extraItems.length;
     if (!list) {
       list =
         '<li class="empty-state" style="margin:16px;border:none">이 단에 표시할 조문 단위 개정이 없습니다.</li>';
