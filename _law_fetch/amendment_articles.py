@@ -50,17 +50,40 @@ LOCATED_SWAP_RE = re.compile(
     + r'(?:"([^"]{1,320})"|「([^」]{1,320})」)\s*(?:으로|로)'
     + r"(?:\s*한다|\s*하고|\s*하며)?"
 )
+# 다음 지시문 시작 — 새 호·항 삽입문(NEW_HO_INSERT_RE) 등에서 캡처 종료 지점으로
+# 재사용하는 비캡처 패턴. "제N조…" 계열뿐 아니라 "같은 조에/같은 항에"처럼
+# 조문번호를 되풀이하지 않는 후속 지시문까지 포괄해야 한다. 그렇지 않으면
+# (실제 회귀 사례) "같은 항에 제1호의2를 다음과 같이 신설한다. 1의2. …" 뒤에
+# "제11조제4항부터 제7항까지를 각각 제5항부터 제8항까지로 하고, 같은 조에
+# 제4항을 다음과 같이 신설하며, …" 같은 후속 지시문 전체(신설될 항 본문까지)를
+# 통째로 삼켜 700자 넘는 음영 카드가 생긴다(시행령 제11조 1의2호 과다캡처).
+_NEXT_INSTRUCTION_NC = (
+    r"제\s*\d+\s*조(?:의\s*\d+)?"
+    r"(?:제\s*\d+\s*항)?(?:제\s*\d+\s*호(?:의\s*\d+)?)?"
+    r"(?:"
+    r"(?:\s*(?:각\s*호(?:\s*외의\s*부분)?|제목(?:\s*외의\s*부분)?|단서|본문|전단|후단))?\s*중\s"
+    r"|의\s*제목"
+    r"|\s*제목"
+    r"|\s*중\s"
+    r"|[을를]\s"
+    r"|\s*[을를]\s"
+    r"|\s*에\s"
+    r"|\s*부터\s"
+    r"|\s*각\s*호"
+    r"|를\s*다음과"
+    r"|\("
+    r")"
+    r"|같은\s*조(?:에|\s)"
+    r"|같은\s*항(?:에|\s)"
+)
 # 단일 호 신설("같은 항에 제2호의3을 다음과 같이 신설한다. 2의3. …")
 # — 조번호는 명시되지 않고 직전 지시문의 "같은 항"을 참조하므로, 전문을
 # 스캔해 가장 가까운 앞쪽 "제N조[의K]제M항"으로 소속을 해석한다(0.6 단계).
 NEW_HO_INSERT_RE = re.compile(
     r"같은\s*항에\s*제\s*(\d+)\s*호(?:의\s*(\d+))?[을를]\s*다음과\s*같이\s*신설한다\.\s*"
     r"(\d+(?:의\d+)?\.\s*.+?)(?="
-    r"제\s*\d+\s*조(?:의\s*\d+)?(?:제\s*\d+\s*항)?(?:제\s*\d+\s*호)?"
-    + _LOCATED_MID
-    + r"\s*중\s|"
-    r"제\s*\d+\s*조(?:의\s*\d+)?를\s*다음과\s*같이\s*신설|"
-    r"같은\s*항에|"
+    + _NEXT_INSTRUCTION_NC
+    + r"|제\s*\d+\s*조(?:의\s*\d+)?를\s*다음과\s*같이\s*신설|"
     r"\s부칙\s|$)"
 )
 # 인용치환 위치 앞쪽 "제N호의K" 세부번호 — LOCATED_SWAP_RE·resolve_unit_locators
@@ -2911,8 +2934,35 @@ def enrich_revision_with_articles(
         # (예: 제9조의2 옛 "난임치료휴가" 본문 뒤에 신설 "배우자 출산전후휴가"
         # 본문이 이어 붙는 회귀). 시행일이 지나면 전문(eflaw)이 번호를
         # 실제로 분리해 주므로 그 전까지만 별도 id를 쓴다.
+        #
+        # ch["numberReused"]는 "제N조를 제M조로 한다"류의 명시적 이동 문구가
+        # 있을 때만 켜진다. 그런 이동 문구 없이 같은 번호가 조용히 다른
+        # 내용으로 신설되는 경우(예: 남녀고용평등법 시행규칙 제14조의2가
+        # "육아휴직의 신청"에서 "유산, 조산 등 위험이 있는 임신 중인 배우자의
+        # 범위"로 바뀐 2026-08-19 개정) numberReused가 안 켜져 이 가드를
+        # 못 통과하고 옛 제목이 그대로 남는 회귀가 있었다. 명시적 이동 문구
+        # 유무와 무관하게, 새로 신설되는 조문 제목이 현재 저장된 같은 번호
+        # 조문 제목과 다르면 그 자체로 번호 재사용의 강한 증거이므로
+        # 항상 번호 재사용으로 취급한다(최후 방어선).
+        existing_art_for_reuse_check = find_article(
+            articles_db, item["lawId"], tier_key, ch["articleNo"]
+        )
+        existing_title_for_reuse_check = (
+            (existing_art_for_reuse_check.get("title") or "").strip()
+            if existing_art_for_reuse_check
+            else ""
+        )
+        new_title_for_reuse_check = (ch.get("articleTitle") or "").strip()
+        title_conflict = bool(
+            is_new_article_change_early
+            and existing_title_for_reuse_check
+            and new_title_for_reuse_check
+            and existing_title_for_reuse_check != new_title_for_reuse_check
+        )
         pending_detached = bool(
-            is_new_article_change_early and ch.get("numberReused") and not apply_body
+            is_new_article_change_early
+            and (ch.get("numberReused") or title_conflict)
+            and not apply_body
         )
         if pending_detached:
             num = re.sub(r"[^0-9의]", "", ch["articleNo"])
