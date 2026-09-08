@@ -145,6 +145,18 @@ jobs:
             python3 _law_fetch/refresh_amendments.py --repair-attempts 2
           fi
 
+      - name: Deep parity check (조문 커버리지·중복 등 정밀 검증)
+        id: deep_parity
+        run: |
+          set +e
+          python3 _law_fetch/verify_law_parity.py
+          code=$?
+          set -e
+          echo "exit_code=$code" >> "$GITHUB_OUTPUT"
+          if [ "$code" -ne 0 ]; then
+            echo "::error::verify_law_parity.py failed - block commit (see _law_fetch/_parity_report.json)"
+          fi
+
       - name: Guard - allow commit only after simulation pass
         id: guard
         run: |
@@ -155,12 +167,14 @@ jobs:
           sc = p.get("selfCheck") or {}
           parity = sc.get("parity") or {}
           sim = sc.get("simulation") or {}
+          deep_exit = os.environ.get("DEEP_PARITY_EXIT_CODE", "1")
           print(f"count={count}")
           print(f"freshFetch={p.get('freshFetch')}")
           print(f"selfCheck.ok={sc.get('ok')}")
           print(f"parity.ok={parity.get('ok')}")
           print(f"simulation.passed={sim.get('passed')}")
           print(f"commitBlocked={sc.get('commitBlocked')}")
+          print(f"deepParity.exitCode={deep_exit}")
           with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as out:
               out.write(f"count={count}\n")
               out.write(f"ok={'1' if sc.get('ok') else '0'}\n")
@@ -181,8 +195,19 @@ jobs:
           if not sc.get("ok") or not parity.get("ok"):
               print("::error::selfCheck/parity missing - block commit")
               sys.exit(1)
+          if deep_exit != "0":
+              print("::error::deep parity check (verify_law_parity.py) failed - block commit")
+              try:
+                  report = json.load(open("_law_fetch/_parity_report.json", encoding="utf-8"))
+                  for x in (report.get("problems") or [])[:15]:
+                      print(" -", x)
+              except Exception as exc:
+                  print(f"(_parity_report.json read failed: {exc})")
+              sys.exit(1)
           print("guard ok")
           PY
+        env:
+          DEEP_PARITY_EXIT_CODE: ${{ steps.deep_parity.outputs.exit_code }}
 
       - name: Commit and push updated data
         if: ${{ steps.guard.outputs.count != '0' && steps.guard.outputs.ok == '1' }}
