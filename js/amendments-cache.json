@@ -10,7 +10,7 @@
   "effLookbackDays": 182,
   "effWindowLabel": "±6개월",
   "amdWindowLabel": "±6개월",
-  "fetchedAt": "2026-09-08T17:03:31",
+  "fetchedAt": "2026-09-08T17:53:19",
   "freshFetch": true,
   "count": 51,
   "errors": [],
@@ -23,21 +23,6 @@
     "ok": true,
     "asOf": "2026-09-08",
     "files": [
-      {
-        "lawId": "labor-standards",
-        "tier": "decree",
-        "lsId": "003058",
-        "file": "full-labor-decree.txt",
-        "bytes": 55082,
-        "articles": 80,
-        "eflaw": {
-          "mst": "270551",
-          "efYd": "20251023",
-          "ancYd": "20250408",
-          "noticeNo": "35436",
-          "status": "현행"
-        }
-      },
       {
         "lawId": "labor-standards",
         "tier": "rule",
@@ -58,13 +43,28 @@
         "tier": "statute",
         "lsId": "009883",
         "file": "full-retire-statute.txt",
-        "bytes": 75569,
+        "bytes": 75485,
         "articles": 71,
         "eflaw": {
           "mst": "284455",
           "efYd": "20260701",
           "ancYd": "20260317",
           "noticeNo": "21475",
+          "status": "현행"
+        }
+      },
+      {
+        "lawId": "labor-standards",
+        "tier": "decree",
+        "lsId": "003058",
+        "file": "full-labor-decree.txt",
+        "bytes": 55046,
+        "articles": 80,
+        "eflaw": {
+          "mst": "270551",
+          "efYd": "20251023",
+          "ancYd": "20250408",
+          "noticeNo": "35436",
           "status": "현행"
         }
       },
@@ -88,7 +88,7 @@
         "tier": "rule",
         "lsId": "010043",
         "file": "full-retire-rule.txt",
-        "bytes": 17728,
+        "bytes": 17656,
         "articles": 19,
         "eflaw": {
           "mst": "243903",
@@ -100,16 +100,16 @@
       },
       {
         "lawId": "equal-employment",
-        "tier": "decree",
-        "lsId": "003140",
-        "file": "full-equal-decree.txt",
-        "bytes": 42542,
-        "articles": 39,
+        "tier": "statute",
+        "lsId": "000130",
+        "file": "full-equal-statute.txt",
+        "bytes": 72042,
+        "articles": 72,
         "eflaw": {
-          "mst": "288719",
+          "mst": "283455",
           "efYd": "20260820",
-          "ancYd": "20260818",
-          "noticeNo": "36589",
+          "ancYd": "20260219",
+          "noticeNo": "21373",
           "status": "현행"
         }
       },
@@ -118,7 +118,7 @@
         "tier": "decree",
         "lsId": "010035",
         "file": "full-retire-decree.txt",
-        "bytes": 92078,
+        "bytes": 90758,
         "articles": 79,
         "eflaw": {
           "mst": "284693",
@@ -130,16 +130,16 @@
       },
       {
         "lawId": "equal-employment",
-        "tier": "statute",
-        "lsId": "000130",
-        "file": "full-equal-statute.txt",
-        "bytes": 72078,
-        "articles": 72,
+        "tier": "decree",
+        "lsId": "003140",
+        "file": "full-equal-decree.txt",
+        "bytes": 42470,
+        "articles": 39,
         "eflaw": {
-          "mst": "283455",
+          "mst": "288719",
           "efYd": "20260820",
-          "ancYd": "20260219",
-          "noticeNo": "21373",
+          "ancYd": "20260818",
+          "noticeNo": "36589",
           "status": "현행"
         }
       },
@@ -148,7 +148,7 @@
         "tier": "statute",
         "lsId": "010356",
         "file": "full-fixed-statute.txt",
-        "bytes": 18230,
+        "bytes": 18182,
         "articles": 28,
         "eflaw": {
           "mst": "232201",
@@ -163,7 +163,7 @@
         "tier": "decree",
         "lsId": "010461",
         "file": "full-fixed-decree.txt",
-        "bytes": 7488,
+        "bytes": 7380,
         "articles": 7,
         "eflaw": {
           "mst": "230833",
@@ -178,7 +178,7 @@
         "tier": "rule",
         "lsId": "006909",
         "file": "full-equal-rule.txt",
-        "bytes": 21164,
+        "bytes": 20960,
         "articles": 24,
         "eflaw": {
           "mst": "288939",
@@ -207,10 +207,12 @@
     "errors": []
   },
   "noticesRefresh": {
-    "ok": true,
-    "count": 24,
-    "latest": "2026-08-25",
-    "errors": []
+    "ok": false,
+    "count": 0,
+    "latest": null,
+    "errors": [
+      "page1:HTTP Error 502: Bad Gateway"
+    ]
   },
   "amendments": [
     {
