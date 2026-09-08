@@ -1507,6 +1507,56 @@ def check_duplicate_phrase_content(
         print(f"[INFO] duplicate_phrase_content scan flagged={n}")
 
 
+def check_no_leftover_cdata(
+    amendments: list[dict], articles: dict, problems: list[str], verbose: bool
+) -> None:
+    """조문 본문·개정 phrase 텍스트에 <![CDATA[…]]> 래퍼가 그대로 남아있지
+    않은지 검사한다.
+
+    법제처 XML의 목·호내용 필드가 예상한 자식 태그 없이 CDATA를 바로
+    담는 경우가 있어, 특정 태그명 기준 정규식만으로는 못 잡고 화면에
+    "<![CDATA[가. …]]>"가 그대로 노출되는 사고가 있었다(남녀고용평등법
+    제2조 4호 가·나·다목 등, 9개 법령 파일에 걸쳐 165건 발견). 세 군데
+    (fetch_full_texts.py, hydrate_articles.py)에서 방어적으로 벗기도록
+    고쳤지만, 혹시 또 다른 경로로 새는 경우를 대비해 최종 데이터 단계에서
+    한 번 더 전수 검증한다. 이건 원인이 명확히 해결된 문제라 커밋을
+    막아도 안전하다(soft_problems가 아니라 problems에 넣는 이유).
+    """
+    n = 0
+    for law_id, pack in (articles or {}).items():
+        if not isinstance(pack, dict):
+            continue
+        for tier in ("statute", "decree", "rule"):
+            for a in pack.get(tier) or []:
+                body = a.get("body") or ""
+                if "CDATA" in body:
+                    n += 1
+                    problems.append(
+                        f"leftover_cdata_in_body {law_id}/{tier}/{a.get('no')}"
+                    )
+                    if verbose:
+                        print(
+                            f"[FAIL] leftover_cdata_in_body {law_id}/{tier}/{a.get('no')}"
+                        )
+    for item in amendments:
+        for h in item.get("highlights") or []:
+            for p in h.get("phrases") or []:
+                text = p.get("text") or ""
+                if "CDATA" in text:
+                    n += 1
+                    problems.append(
+                        f"leftover_cdata_in_phrase {item.get('id')}: "
+                        f"locator={p.get('locator')!r}"
+                    )
+                    if verbose:
+                        print(
+                            f"[FAIL] leftover_cdata_in_phrase {item.get('id')}: "
+                            f"{p.get('locator')!r}"
+                        )
+    if verbose:
+        print(f"[INFO] leftover_cdata scan flagged={n}")
+
+
 def check_reused_article_identity(
     amendments: list[dict], articles: dict, problems: list[str], verbose: bool
 ) -> None:
@@ -2252,6 +2302,9 @@ def run_simulation(verbose: bool = True) -> dict:
     check_doc_expected_articles(amendments, problems, verbose)
     # 조번호 재사용 신설이 기존(다른 내용) 조문과 한 카드로 합쳐지지 않는지
     check_reused_article_identity(amendments, articles, problems, verbose)
+    # 본문·phrase에 <![CDATA[…]]> 래퍼가 안 벗겨진 채 남아있지 않은지
+    # (남녀고용평등법 제2조 4호 가·나·다목 등 CDATA 노출 회귀 방지)
+    check_no_leftover_cdata(amendments, articles, problems, verbose)
     # 아래 두 검사는 "본문 이력태그 vs 하이라이트 커버리지"와 "phrase 중복"을
     # 잡아내지만, 근본 원인(예: "조문 본문 안 인용구 치환" 지시가 다른 조의
     # 신설 처리에 흡수되는 문제)이 아직 파서에서 완전히 고쳐지지 않았다.
