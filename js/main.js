@@ -521,10 +521,34 @@
     return -1;
   }
 
+  // 줄바꿈·연속 공백·양끝 공백 차이를 무시하고 비교하기 위한 정규화.
+  // "이미 본문에 있는지" 판정을 순수 문자열 완전일치로만 하면, 같은 내용이
+  // 캐시에 줄바꿈 있는 형태(신설 항목)와 한 줄 형태(개정 항목)로 중복
+  // 등록됐을 때 "없다"고 오판해 같은 문단을 두 번 삽입하는 회귀가 있다
+  // (예: 남녀고용평등법 시행령 제11조 제8항 중복 표시). 게다가 같은 문단을
+  // 가리키는 두 캐시 항목이 <개정 …> / <신설 …> 처럼 서로 다른 이력 태그를
+  // 달고 있을 수 있어, 태그와 문장부호까지 지운 "본문 알맹이"만 비교해야
+  // 같은 내용으로 인식한다.
+  const HISTORY_TAG_RE = /&lt;(?:개정|신설)[^&]*?&gt;/g;
+  function normalizeForCompare(s) {
+    return String(s || "")
+      .replace(HISTORY_TAG_RE, " ")
+      .replace(/[.,·ㆍ]/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  function bodyAlreadyHasPhrase(html, afterEsc) {
+    if (html.indexOf(afterEsc) !== -1) return true;
+    const normHtml = normalizeForCompare(html);
+    const normPhrase = normalizeForCompare(afterEsc);
+    return Boolean(normPhrase) && normHtml.indexOf(normPhrase) !== -1;
+  }
+
   function insertNewPendingPhrase(html, phrase) {
     const afterEsc = escapeHtml(phrase.text);
     if (!afterEsc) return html;
-    if (html.indexOf(afterEsc) !== -1) return html;
+    if (bodyAlreadyHasPhrase(html, afterEsc)) return html;
     const markHtml = buildAmendMark(phrase, afterEsc);
     const at = insertIndexForNewPhrase(html, phrase);
     if (at < 0) {
