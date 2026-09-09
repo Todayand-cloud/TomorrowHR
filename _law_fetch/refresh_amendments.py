@@ -238,7 +238,30 @@ def load_articles(skip_full_refresh: bool = False) -> dict:
             load_articles.last_full_report = report  # type: ignore[attr-defined]
     except Exception as exc:  # noqa: BLE001
         load_articles.last_full_report = {"ok": False, "errors": [str(exc)]}  # type: ignore[attr-defined]
-    return load_seed_articles()
+
+    articles_db = load_seed_articles()
+
+    # 상단 "기준" 배지(statuteCite/decreeCite/ruleCite)를 이번에 새로 받은
+    # 전문의 citeLine으로 갱신한다. 예전엔 이 필드를 만드는 코드가 아예
+    # 없어서 프로젝트 최초 시드 값이 영원히 고정된 채 화면에 남아있었다
+    # (법률이 2026-08-20에 이미 새로 시행됐는데도 헤더는 2025-10-1로 표시
+    # 되는 회귀). 이번 회차에 성공적으로 받아온 파일만 갱신하고, 실패한
+    # 파일(전문 재수집 오류)의 기존 값은 그대로 둔다 — 옛 값을 유지하는
+    # 게, 실패했다고 필드를 비우는 것보다 화면에 안전하다.
+    report = getattr(load_articles, "last_full_report", None) or {}
+    for f in report.get("files") or []:
+        law_id = f.get("lawId")
+        tier = f.get("tier")
+        cite = f.get("citeLine")
+        if not (law_id and tier and cite):
+            continue
+        pack = articles_db.setdefault(
+            law_id, {"statute": [], "decree": [], "rule": [], "meta": {}}
+        )
+        meta = pack.setdefault("meta", {})
+        meta[f"{tier}Cite"] = cite
+
+    return articles_db
 
 
 def article_units(body: str) -> list[str]:
