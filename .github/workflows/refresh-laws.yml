@@ -45,7 +45,7 @@ concurrency:
 jobs:
   refresh:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 8
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -147,6 +147,12 @@ jobs:
 
       - name: Deep parity check (조문 커버리지·중복 등 정밀 검증)
         id: deep_parity
+        env:
+          # 이 값이 없으면 앞선 "Fresh fetch" 단계가 이미 받아둔 로컬
+          # full-*.txt 를 재사용하지 않고 법제처를 처음부터 다시 네트워크로
+          # 조회한다 — 같은 검증을 사실상 두 번 돌리는 셈이라 실행 시간이
+          # 거의 2배로 늘어나 10분 잡 타임아웃에 걸리는 회귀가 있었다.
+          LAW_PARITY_USE_LOCAL_FULL: "1"
         run: |
           set +e
           python3 _law_fetch/verify_law_parity.py
