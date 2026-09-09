@@ -1507,6 +1507,84 @@ def check_duplicate_phrase_content(
         print(f"[INFO] duplicate_phrase_content scan flagged={n}")
 
 
+def _parse_cite_eff_date(cite: str) -> "date | None":
+    """'[시행 2026. 8. 20.] […]' → date(2026, 8, 20). 못 찾으면 None."""
+    from datetime import date as _date
+
+    m = re.search(r"\[시행\s*(\d{4})\.\s*(\d{1,2})\.\s*(\d{1,2})\.?\]", cite or "")
+    if not m:
+        return None
+    try:
+        return _date(int(m.group(1)), int(m.group(2)), int(m.group(3)))
+    except Exception:
+        return None
+
+
+def _parse_tag_date(s: str) -> "date | None":
+    """'2026. 8. 18.' → date(2026, 8, 18). 못 찾으면 None."""
+    from datetime import date as _date
+
+    m = re.match(r"\s*(\d{4})\.\s*(\d{1,2})\.\s*(\d{1,2})\.?\s*$", s or "")
+    if not m:
+        return None
+    try:
+        return _date(int(m.group(1)), int(m.group(2)), int(m.group(3)))
+    except Exception:
+        return None
+
+
+def check_cite_header_freshness(
+    articles: dict, problems: list[str], verbose: bool
+) -> None:
+    """상단 '기준' 배지(statuteCite/decreeCite/ruleCite)의 시행일이, 그
+    조문 안에 이미 지나간(= 이미 시행된) 개정 이력 태그보다 뒤처져
+    있지 않은지 검사한다.
+
+    이 헤더 필드는 한동안 아무도 갱신하지 않는 코드 경로가 있어, 법률이
+    이미 2026-08-20에 새로 시행됐는데도 헤더는 2025-10-1로 고정 표시되는
+    사고가 있었다(남녀고용평등법 3단 전체). 조문 본문 자체는 정상적으로
+    최신화되고 있었으므로, "본문에 이미 지나간 개정 태그가 있는데 헤더
+    시행일이 그보다 이르다"는 것 자체를 오류로 잡아, 헤더 생성 로직이
+    다시 깨지더라도(원인이 이번과 다르더라도) 무조건 걸러지게 한다.
+    """
+    from datetime import date as _date
+
+    today = _date.today()
+    tag_re = re.compile(r"<(?:개정|신설)([^>]*)>")
+    n = 0
+    for law_id, pack in (articles or {}).items():
+        if not isinstance(pack, dict):
+            continue
+        meta = pack.get("meta") or {}
+        for tier in ("statute", "decree", "rule"):
+            cite = meta.get(f"{tier}Cite") or ""
+            cite_eff = _parse_cite_eff_date(cite)
+            if cite_eff is None:
+                continue  # 헤더 자체가 없으면(신규 법령 등) 이 검사는 건너뜀
+            latest_past: "date | None" = None
+            for a in pack.get(tier) or []:
+                body = a.get("body") or ""
+                for m in tag_re.finditer(body):
+                    for date_str in re.findall(r"\d{4}\.\s*\d{1,2}\.\s*\d{1,2}\.?", m.group(1)):
+                        d = _parse_tag_date(date_str)
+                        if d and d <= today and (latest_past is None or d > latest_past):
+                            latest_past = d
+            if latest_past is not None and latest_past > cite_eff:
+                n += 1
+                problems.append(
+                    f"stale_cite_header {law_id}/{tier}: "
+                    f"header={cite_eff.isoformat()!r} but body has already-effective "
+                    f"tag {latest_past.isoformat()!r}"
+                )
+                if verbose:
+                    print(
+                        f"[FAIL] stale_cite_header {law_id}/{tier}: "
+                        f"header={cite_eff.isoformat()} < body tag {latest_past.isoformat()}"
+                    )
+    if verbose:
+        print(f"[INFO] cite_header_freshness scan flagged={n}")
+
+
 def check_no_leftover_cdata(
     amendments: list[dict], articles: dict, problems: list[str], verbose: bool
 ) -> None:
@@ -2305,6 +2383,9 @@ def run_simulation(verbose: bool = True) -> dict:
     # 본문·phrase에 <![CDATA[…]]> 래퍼가 안 벗겨진 채 남아있지 않은지
     # (남녀고용평등법 제2조 4호 가·나·다목 등 CDATA 노출 회귀 방지)
     check_no_leftover_cdata(amendments, articles, problems, verbose)
+    # 상단 "기준" 배지(statuteCite 등) 시행일이 본문의 이미 지나간 개정
+    # 태그보다 뒤처져 있지 않은지 (헤더 미갱신 회귀 방지)
+    check_cite_header_freshness(articles, problems, verbose)
     # 아래 두 검사는 "본문 이력태그 vs 하이라이트 커버리지"와 "phrase 중복"을
     # 잡아내지만, 근본 원인(예: "조문 본문 안 인용구 치환" 지시가 다른 조의
     # 신설 처리에 흡수되는 문제)이 아직 파서에서 완전히 고쳐지지 않았다.
