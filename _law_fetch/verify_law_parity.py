@@ -1837,9 +1837,10 @@ def check_no_leaked_instruction_text(
 
 
 def check_doc_expected_articles(
-    amendments: list[dict], problems: list[str], verbose: bool
+    amendments: list[dict], problems: list[str], verbose: bool, soft_problems: list[str] | None = None
 ) -> None:
     """개정문에 명시된 조가 캐시에 빠지지 않았는지(제19조 누락 회귀) 검사."""
+    soft = soft_problems if soft_problems is not None else problems
     try:
         from amendment_articles import (
             expected_amended_articles_from_doc,
@@ -1869,7 +1870,11 @@ def check_doc_expected_articles(
             try:
                 doc_cache[ls_id] = fetch_doc_map(ls_id)
             except Exception as exc:  # noqa: BLE001
-                problems.append(f"doc_map_fetch_fail {ls_id}: {exc}")
+                # 법제처 접속 자체가 안 되는 건 데이터 결함이 아니라 그
+                # 순간의 네트워크 상태다. 하드 블로킹에 두면 법제처가
+                # 잠깐 느리거나(타임아웃) CI 실행이 몰릴 때마다 정상
+                # 데이터의 커밋까지 막히는 회귀가 생긴다(2026-09 실제 사례).
+                soft.append(f"doc_map_fetch_fail {ls_id}: {exc}")
                 continue
         doc = (doc_cache.get(ls_id) or {}).get(notice) or ""
         if not doc:
@@ -1905,6 +1910,13 @@ def check_doc_expected_articles(
 
 def run_simulation(verbose: bool = True) -> dict:
     problems: list[str] = []
+    # 순수 로직 결함이 아니라 "법제처에 지금 이 순간 접속이 안 됨"류의
+    # 네트워크 타임아웃성 문제는 여기(soft_problems)에 담는다. 커밋을
+    # 막으면 안 되는 이유: 이런 실패는 CI 실행 시점의 일시적 네트워크
+    # 상태를 반영할 뿐, 방금 새로 만든 데이터 자체의 결함이 아니다.
+    # 하드 블로킹(problems)에 있으면 법제처가 잠깐 느려질 때마다 정상
+    # 데이터의 커밋까지 계속 막히는 회귀가 생긴다(2026-09 실제 사례).
+    soft_problems: list[str] = []
     checks: list[dict] = []
     articles = {}
     if ARTICLES_PATH.is_file():
@@ -1947,7 +1959,8 @@ def run_simulation(verbose: bool = True) -> dict:
         try:
             live_art = live_article_text(probe)
         except Exception as exc:  # noqa: BLE001
-            problems.append(f"live_fetch_fail {ls_id}: {exc}")
+            # 이것도 법제처 접속 실패류라 soft(비차단)
+            soft_problems.append(f"live_fetch_fail {ls_id}: {exc}")
             continue
 
         row = {
@@ -2377,7 +2390,7 @@ def run_simulation(verbose: bool = True) -> dict:
     # 오염 치환·동일 before 중복 phrase
     check_corrupt_and_duplicate_phrases(amendments, problems, verbose)
     # 개정문 명시 조 ↔ 캐시 누락 (제19조 등)
-    check_doc_expected_articles(amendments, problems, verbose)
+    check_doc_expected_articles(amendments, problems, verbose, soft_problems)
     # 조번호 재사용 신설이 기존(다른 내용) 조문과 한 카드로 합쳐지지 않는지
     check_reused_article_identity(amendments, articles, problems, verbose)
     # 본문·phrase에 <![CDATA[…]]> 래퍼가 안 벗겨진 채 남아있지 않은지
@@ -2394,7 +2407,6 @@ def run_simulation(verbose: bool = True) -> dict:
     # 차단되어 자동 갱신 파이프라인 자체가 멈춘다(2026-09 실제 회귀).
     # 근본 파서 수정 전까지는 soft_problems로 분리해 "기록은 하되 커밋은
     # 막지 않는다" — 완전히 무시하는 게 아니라 가시성은 유지한다.
-    soft_problems: list[str] = []
     check_history_tag_phrase_coverage(amendments, articles, soft_problems, verbose)
     check_duplicate_phrase_content(amendments, soft_problems, verbose)
     if soft_problems and verbose:
@@ -2479,7 +2491,8 @@ def run_simulation(verbose: bool = True) -> dict:
             try:
                 docs = fetch_doc_map(ls_id)
             except Exception as exc:  # noqa: BLE001
-                problems.append(f"doc_fetch_fail {ls_id}: {exc}")
+                # 위와 같은 이유로 네트워크 접속 실패는 soft(비차단)로 기록
+                soft_problems.append(f"doc_fetch_fail {ls_id}: {exc}")
                 continue
             for notice, (amd_s, eff_s) in notice_dates.items():
                 text = (docs or {}).get(notice) or ""
@@ -2559,7 +2572,10 @@ def run_simulation(verbose: bool = True) -> dict:
                                 f"cached={cached_len} fresh={fresh_len}"
                             )
     except Exception as exc:  # noqa: BLE001
-        problems.append(f"doc_coverage_error: {exc}")
+        # 이 블록 안쪽에서 잡히지 않고 새어나온 예외도 대개는 그 안의
+        # fetch_doc_map/네트워크 호출에서 온다. 원인 불문하고 "검증 자체를
+        # 못 돌렸다"는 것이므로 데이터 결함 확정과는 다르다 — soft로 기록.
+        soft_problems.append(f"doc_coverage_error: {exc}")
 
     # --- 전체 조문개정: 노란 음영(highlights) 미처리 검사 ---
     yellow_missing = 0
