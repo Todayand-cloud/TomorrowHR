@@ -1,7 +1,7 @@
 {
-  "baseDate": "2026-09-08",
-  "from": "2026-03-10",
-  "to": "2027-03-09",
+  "baseDate": "2026-09-09",
+  "from": "2026-03-11",
+  "to": "2027-03-10",
   "forwardDays": 182,
   "lookbackDays": 182,
   "amdForwardDays": 182,
@@ -10,7 +10,7 @@
   "effLookbackDays": 182,
   "effWindowLabel": "±6개월",
   "amdWindowLabel": "±6개월",
-  "fetchedAt": "2026-09-08T17:53:19",
+  "fetchedAt": "2026-09-09T16:30:19",
   "freshFetch": true,
   "count": 51,
   "errors": [],
@@ -21,23 +21,8 @@
   },
   "fullTexts": {
     "ok": true,
-    "asOf": "2026-09-08",
+    "asOf": "2026-09-09",
     "files": [
-      {
-        "lawId": "labor-standards",
-        "tier": "rule",
-        "lsId": "006859",
-        "file": "full-labor-rule.txt",
-        "bytes": 14294,
-        "articles": 23,
-        "eflaw": {
-          "mst": "269393",
-          "efYd": "20250223",
-          "ancYd": "20250221",
-          "noticeNo": "00436",
-          "status": "현행"
-        }
-      },
       {
         "lawId": "retirement",
         "tier": "statute",
@@ -51,22 +36,8 @@
           "ancYd": "20260317",
           "noticeNo": "21475",
           "status": "현행"
-        }
-      },
-      {
-        "lawId": "labor-standards",
-        "tier": "decree",
-        "lsId": "003058",
-        "file": "full-labor-decree.txt",
-        "bytes": 55046,
-        "articles": 80,
-        "eflaw": {
-          "mst": "270551",
-          "efYd": "20251023",
-          "ancYd": "20250408",
-          "noticeNo": "35436",
-          "status": "현행"
-        }
+        },
+        "citeLine": "[시행 2026. 7. 1.] [법률 제21475호, 2026. 3. 17., 일부개정]"
       },
       {
         "lawId": "labor-standards",
@@ -81,37 +52,24 @@
           "ancYd": "20260219",
           "noticeNo": "21373",
           "status": "현행"
-        }
+        },
+        "citeLine": "[시행 2026. 8. 20.] [법률 제21373호, 2026. 2. 19., 타법개정]"
       },
       {
-        "lawId": "retirement",
-        "tier": "rule",
-        "lsId": "010043",
-        "file": "full-retire-rule.txt",
-        "bytes": 17656,
-        "articles": 19,
+        "lawId": "labor-standards",
+        "tier": "decree",
+        "lsId": "003058",
+        "file": "full-labor-decree.txt",
+        "bytes": 55046,
+        "articles": 80,
         "eflaw": {
-          "mst": "243903",
-          "efYd": "20220712",
-          "ancYd": "20220712",
-          "noticeNo": "00359",
+          "mst": "270551",
+          "efYd": "20251023",
+          "ancYd": "20250408",
+          "noticeNo": "35436",
           "status": "현행"
-        }
-      },
-      {
-        "lawId": "equal-employment",
-        "tier": "statute",
-        "lsId": "000130",
-        "file": "full-equal-statute.txt",
-        "bytes": 72042,
-        "articles": 72,
-        "eflaw": {
-          "mst": "283455",
-          "efYd": "20260820",
-          "ancYd": "20260219",
-          "noticeNo": "21373",
-          "status": "현행"
-        }
+        },
+        "citeLine": "[시행 2025. 10. 23.] [대통령령 제35436호, 2025. 4. 8., 일부개정]"
       },
       {
         "lawId": "retirement",
@@ -126,7 +84,24 @@
           "ancYd": "20260324",
           "noticeNo": "36220",
           "status": "현행"
-        }
+        },
+        "citeLine": "[시행 2026. 3. 24.] [대통령령 제36220호, 2026. 3. 24., 타법개정]"
+      },
+      {
+        "lawId": "retirement",
+        "tier": "rule",
+        "lsId": "010043",
+        "file": "full-retire-rule.txt",
+        "bytes": 17656,
+        "articles": 19,
+        "eflaw": {
+          "mst": "243903",
+          "efYd": "20220712",
+          "ancYd": "20220712",
+          "noticeNo": "00359",
+          "status": "현행"
+        },
+        "citeLine": "[시행 2022. 7. 12.] [고용노동부령 제00359호, 2022. 7. 12., 일부개정]"
       },
       {
         "lawId": "equal-employment",
@@ -141,37 +116,8 @@
           "ancYd": "20260818",
           "noticeNo": "36589",
           "status": "현행"
-        }
-      },
-      {
-        "lawId": "fixed-term",
-        "tier": "statute",
-        "lsId": "010356",
-        "file": "full-fixed-statute.txt",
-        "bytes": 18182,
-        "articles": 28,
-        "eflaw": {
-          "mst": "232201",
-          "efYd": "20210518",
-          "ancYd": "20210518",
-          "noticeNo": "18177",
-          "status": "현행"
-        }
-      },
-      {
-        "lawId": "fixed-term",
-        "tier": "decree",
-        "lsId": "010461",
-        "file": "full-fixed-decree.txt",
-        "bytes": 7380,
-        "articles": 7,
-        "eflaw": {
-          "mst": "230833",
-          "efYd": "20210408",
-          "ancYd": "20210406",
-          "noticeNo": "31611",
-          "status": "현행"
-        }
+        },
+        "citeLine": "[시행 2026. 8. 20.] [대통령령 제36589호, 2026. 8. 18., 일부개정]"
       },
       {
         "lawId": "equal-employment",
@@ -186,7 +132,56 @@
           "ancYd": "20260819",
           "noticeNo": "00478",
           "status": "현행"
-        }
+        },
+        "citeLine": "[시행 2026. 8. 20.] [고용노동부령 제00478호, 2026. 8. 19., 일부개정]"
+      },
+      {
+        "lawId": "fixed-term",
+        "tier": "statute",
+        "lsId": "010356",
+        "file": "full-fixed-statute.txt",
+        "bytes": 18182,
+        "articles": 28,
+        "eflaw": {
+          "mst": "232201",
+          "efYd": "20210518",
+          "ancYd": "20210518",
+          "noticeNo": "18177",
+          "status": "현행"
+        },
+        "citeLine": "[시행 2021. 5. 18.] [법률 제18177호, 2021. 5. 18., 일부개정]"
+      },
+      {
+        "lawId": "equal-employment",
+        "tier": "statute",
+        "lsId": "000130",
+        "file": "full-equal-statute.txt",
+        "bytes": 72042,
+        "articles": 72,
+        "eflaw": {
+          "mst": "283455",
+          "efYd": "20260820",
+          "ancYd": "20260219",
+          "noticeNo": "21373",
+          "status": "현행"
+        },
+        "citeLine": "[시행 2026. 8. 20.] [법률 제21373호, 2026. 2. 19., 일부개정]"
+      },
+      {
+        "lawId": "fixed-term",
+        "tier": "decree",
+        "lsId": "010461",
+        "file": "full-fixed-decree.txt",
+        "bytes": 7380,
+        "articles": 7,
+        "eflaw": {
+          "mst": "230833",
+          "efYd": "20210408",
+          "ancYd": "20210406",
+          "noticeNo": "31611",
+          "status": "현행"
+        },
+        "citeLine": "[시행 2021. 4. 8.] [대통령령 제31611호, 2021. 4. 6., 타법개정]"
       },
       {
         "lawId": "fixed-term",
@@ -201,18 +196,33 @@
           "ancYd": "20070629",
           "noticeNo": "00277",
           "status": "현행"
-        }
+        },
+        "citeLine": "[시행 2007. 7. 1.] [노동부령 제00277호, 2007. 6. 29., 제정]"
+      },
+      {
+        "lawId": "labor-standards",
+        "tier": "rule",
+        "lsId": "006859",
+        "file": "full-labor-rule.txt",
+        "bytes": 14294,
+        "articles": 23,
+        "eflaw": {
+          "mst": "269393",
+          "efYd": "20250223",
+          "ancYd": "20250221",
+          "noticeNo": "00436",
+          "status": "현행"
+        },
+        "citeLine": "[시행 2025. 2. 23.] [고용노동부령 제00436호, 2025. 2. 21., 일부개정]"
       }
     ],
     "errors": []
   },
   "noticesRefresh": {
-    "ok": false,
-    "count": 0,
-    "latest": null,
-    "errors": [
-      "page1:HTTP Error 502: Bad Gateway"
-    ]
+    "ok": true,
+    "count": 24,
+    "latest": "2026-09-09",
+    "errors": []
   },
   "amendments": [
     {
