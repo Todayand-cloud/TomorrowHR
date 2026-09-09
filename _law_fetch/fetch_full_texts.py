@@ -196,6 +196,33 @@ def jo_label(num: str, branch: str = "") -> str:
     return f"제{num}조"
 
 
+def extract_cite_line(xml: str) -> str:
+    """상단 '기준' 배지에 쓰는 3단 인용문을 만든다.
+    예: '[시행 2026. 8. 20.] [법률 제21373호, 2026. 2. 19., 일부개정]'
+
+    xml_to_full_text()의 헤더 두 번째 줄과 실제로 같은 값을 만들어야 하는데,
+    지금까지 이 문자열(statuteCite/decreeCite/ruleCite)을 만드는 코드가
+    파이프라인 어디에도 없어 프로젝트 최초 시드 값이 영원히 고정된 채
+    화면에 남아있었다(2026-08-20에 새 법률로 이미 시행됐는데도 2025-10-1로
+    표시되는 회귀). 이 함수를 refresh_all_full_texts()의 결과에 연결해
+    매번 최신으로 다시 만든다.
+    """
+    eff = _cdata("시행일자", xml)
+    amd = _cdata("공포일자", xml)
+    notice = _cdata("공포번호", xml)
+    kind = _cdata("법종구분", xml)
+    amend_kind = _cdata("제개정구분", xml)
+
+    def ymd(s: str) -> str:
+        s = re.sub(r"\D", "", s or "")
+        if len(s) >= 8:
+            return f"{s[0:4]}. {int(s[4:6])}. {int(s[6:8])}."
+        return s
+
+    tail = f", {amend_kind}" if amend_kind else ""
+    return f"[시행 {ymd(eff)}] [{kind} 제{notice}호, {ymd(amd)}{tail}]"
+
+
 def xml_to_full_text(xml: str) -> str:
     name = _cdata("법령명_한글", xml) or ""
     eff = _cdata("시행일자", xml)
@@ -316,6 +343,7 @@ def refresh_all_full_texts(
             fetch_eflaw_xml(ref["mst"], ref["efYd"]) if ref else fetch_law_xml(ls_id)
         )
         text = xml_to_full_text(xml)
+        cite = extract_cite_line(xml)
         problems = validate_text(text, must, tier)
         if problems:
             raise RuntimeError(f"validation failed: {problems}")
@@ -333,6 +361,7 @@ def refresh_all_full_texts(
             "bytes": len(text.encode("utf-8")),
             "articles": jo_n,
             "eflaw": ref,
+            "citeLine": cite,
         }
 
     if workers <= 1:
