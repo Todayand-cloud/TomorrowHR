@@ -145,7 +145,7 @@ window.LAW_DATA.upcomingLaws = [
 window.LAW_DATA.noticesMeta = {
   "sourcePortal": "https://www.moel.go.kr/info/lawinfo/lawmaking/list.do",
   "note": "고용노동부 「입법·행정예고」 게시판을 기준일 기준으로 자동 수집한 결과입니다.",
-  "fetchedAt": "2026-09-17T01:59:25",
+  "fetchedAt": "2026-09-17T02:00:48",
   "baseDate": "2026-09-17"
 };
 
@@ -167,7 +167,7 @@ window.LAW_DATA.notices = [
     "title": "사회적기업 육성법 시행령 일부개정령안 입법예고",
     "dept": "사회적기업과",
     "date": "2026-09-17",
-    "views": 38,
+    "views": 39,
     "summary": "입법예고 · 사회적기업과",
     "url": "https://www.moel.go.kr/info/lawinfo/lawmaking/view.do?bbs_seq=20260900560",
     "bbsSeq": "20260900560"
@@ -189,7 +189,7 @@ window.LAW_DATA.notices = [
     "title": "출산전후휴가 급여등 상한액 고시 개정안 행정예고",
     "dept": "고용문화개선정책과",
     "date": "2026-08-25",
-    "views": 6001,
+    "views": 6002,
     "summary": "행정예고 · 고용문화개선정책과",
     "url": "https://www.moel.go.kr/info/lawinfo/lawmaking/view.do?bbs_seq=20260800749",
     "bbsSeq": "20260800749"

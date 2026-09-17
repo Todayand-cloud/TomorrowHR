@@ -2,12 +2,21 @@
   "ok": true,
   "problems": [],
   "softProblems": [
+    "doc_map_fetch_fail 000130: <urlopen error timed out>",
+    "doc_map_fetch_fail 000130: <urlopen error timed out>",
     "missing_highlight_for_dated_paragraph live-003140-2026-08-18-36589-제13조: 항=[1] tagDate='2026. 8. 18.'",
     "missing_highlight_for_dated_paragraph live-003140-2026-08-18-36589-제11조: 항=[1] tagDate='2026. 8. 18.'",
     "missing_highlight_for_dated_paragraph live-009883-2026-03-17-21475-제2조: 항=[1] tagDate='2026. 3. 17.'",
     "missing_highlight_for_dated_paragraph live-009883-2026-03-17-21475-제23조의8: 항=[1] tagDate='2026. 3. 17.'",
     "missing_highlight_for_dated_paragraph live-000130-2026-02-19-21373-제19조: 항=[9] tagDate='2026. 2. 19.'",
-    "duplicate_phrase_content live-003140-2026-08-18-36589-제11조: locator='제7항→제8항' duplicates '제8항'"
+    "duplicate_phrase_content live-003140-2026-08-18-36589-제11조: locator='제7항→제8항' duplicates '제8항'",
+    "doc_fetch_fail 001872: <urlopen error timed out>",
+    "doc_fetch_fail 009883: <urlopen error timed out>",
+    "doc_fetch_fail 010035: <urlopen error timed out>",
+    "doc_fetch_fail 000130: <urlopen error timed out>",
+    "doc_fetch_fail 003140: <urlopen error timed out>",
+    "doc_fetch_fail 006909: <urlopen error timed out>",
+    "doc_fetch_fail 010356: <urlopen error timed out>"
   ],
   "checks": [
     {
