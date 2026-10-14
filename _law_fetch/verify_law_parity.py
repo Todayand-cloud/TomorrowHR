@@ -961,12 +961,16 @@ def check_compose_probes(
             articles, probe["lawId"], "statute", art_no
         ) or find_article_body(articles, probe["lawId"], "decree", art_no)
         phrases: list[dict] = []
+        matched_any = False
+        matched_applied = False
         for item in amendments:
             if item.get("articleNo") != art_no:
                 continue
             if item.get("lawId") != probe["lawId"]:
                 continue
+            matched_any = True
             if item.get("bodyApplied") is True:
+                matched_applied = True
                 continue
             for h in item.get("highlights") or []:
                 if aid and h.get("articleId") and h.get("articleId") != aid:
@@ -989,6 +993,17 @@ def check_compose_probes(
                     ) or ""
                     phrases.append(ph)
         if not phrases:
+            if matched_any and matched_applied:
+                # 모든 관련 개정이 시행일 경과로 이미 본문 반영(bodyApplied=True)
+                # 됐을 뿐 — 미시행 합성 자체가 더는 존재하지 않는 정상 상태.
+                # 캐시에서 해당 개정이 통째로 사라진 경우(matched_any=False)와
+                # 구분해 오탐(회귀 아님)을 커밋 차단으로 보고하지 않는다.
+                if verbose:
+                    print(
+                        f"[SKIP] compose {art_no}: all matching amendments "
+                        "already bodyApplied (effective date passed)"
+                    )
+                continue
             problems.append(f"compose_no_phrases {art_no}")
             if verbose:
                 print(f"[FAIL] compose {art_no}: no phrases")
@@ -2064,13 +2079,39 @@ def run_simulation(verbose: bool = True) -> dict:
                 row["details"].append(f"cache_missing:{amd['noticeNo']}")
                 continue
             item = hits[0]
+            # 시행일 경과 자동 만료: amendments[] 의 requireBodyApplied=False 등은
+            # "시행 전(미시행) 상태"를 고정 검증하는 전제다. 오늘이 effectiveDate를
+            # 지나면 실제로는 bodyApplied=True(본문 반영)가 '정상'이므로, 그 반대를
+            # 요구하는 probe가 그대로 있으면 매번 재발하는 오탐(2026-10-12 parity=33
+            # 사고 원인)이 된다. 시행일 경과 후에는 미시행 전용 검증을 건너뛰고,
+            # 실제 반영 여부는 이미 probe 상단의 must_in_live/local_full/articles
+            # 검사가 담당한다.
+            effective_passed = False
+            eff = amd.get("effectiveDate") or ""
+            if eff:
+                try:
+                    from datetime import date as _date2
+
+                    y2, m2, d2 = [int(x) for x in eff.split("-")]
+                    effective_passed = _date2.today() >= _date2(y2, m2, d2)
+                except Exception:  # noqa: BLE001
+                    effective_passed = False
+            if effective_passed and verbose:
+                print(
+                    f"[SKIP] pending-state probe expired {item.get('id')} "
+                    f"(effectiveDate {eff} passed)"
+                )
             if amd.get("effectiveDate") and item.get("effectiveDate") != amd["effectiveDate"]:
                 problems.append(
                     f"effective_mismatch {item.get('id')}: "
                     f"{item.get('effectiveDate')} != {amd['effectiveDate']}"
                 )
                 row["ok"] = False
-            if "requireBodyApplied" in amd and item.get("bodyApplied") is not amd["requireBodyApplied"]:
+            if (
+                not effective_passed
+                and "requireBodyApplied" in amd
+                and item.get("bodyApplied") is not amd["requireBodyApplied"]
+            ):
                 problems.append(
                     f"bodyApplied_mismatch {item.get('id')}: "
                     f"{item.get('bodyApplied')} != {amd['requireBodyApplied']}"
@@ -2096,7 +2137,7 @@ def run_simulation(verbose: bool = True) -> dict:
                     f"compare_after_mismatch {item.get('id')}: want {amd['compareAfter']}"
                 )
                 row["ok"] = False
-            if amd.get("requireHighlight"):
+            if amd.get("requireHighlight") and not effective_passed:
                 phrases = [
                     p
                     for h in (item.get("highlights") or [])
@@ -2125,7 +2166,7 @@ def run_simulation(verbose: bool = True) -> dict:
                             )
                             row["ok"] = False
             # 항 삭제 개정이면 노란 음영 phrase에 '삭제'가 있어야 함
-            if amd.get("requireDeleteHang"):
+            if amd.get("requireDeleteHang") and not effective_passed:
                 del_loc = amd["requireDeleteHang"]
                 del_phrases = [
                     p
@@ -2189,7 +2230,7 @@ def run_simulation(verbose: bool = True) -> dict:
                                 f"{before_need[:40]}"
                             )
                             row["ok"] = False
-            if amd.get("requirePhraseAfter"):
+            if amd.get("requirePhraseAfter") and not effective_passed:
                 needle = amd["requirePhraseAfter"]
                 texts = " ".join(
                     (p.get("text") or "")
@@ -2204,7 +2245,7 @@ def run_simulation(verbose: bool = True) -> dict:
                     )
                     row["ok"] = False
             # 노란 음영 phrase에만 있어야 함(compareAfter만 있고 화면 누락 방지)
-            if amd.get("requireHighlightPhraseAfter"):
+            if amd.get("requireHighlightPhraseAfter") and not effective_passed:
                 needle = amd["requireHighlightPhraseAfter"]
                 texts = " ".join(
                     (p.get("text") or "")
@@ -2218,7 +2259,7 @@ def run_simulation(verbose: bool = True) -> dict:
                     )
                     row["ok"] = False
                     row["details"].append(f"highlight_phrase_missing:{needle[:24]}")
-            if amd.get("requireLocators"):
+            if amd.get("requireLocators") and not effective_passed:
                 locs = {
                     (p.get("locator") or "").strip()
                     for h in (item.get("highlights") or [])
@@ -2233,7 +2274,7 @@ def run_simulation(verbose: bool = True) -> dict:
                         )
                         row["ok"] = False
                         row["details"].append(f"locator_missing:{want}")
-            if amd.get("forbidPhraseAfter"):
+            if amd.get("forbidPhraseAfter") and not effective_passed:
                 bad = amd["forbidPhraseAfter"]
                 texts = " ".join(
                     (p.get("text") or "")
@@ -2247,7 +2288,7 @@ def run_simulation(verbose: bool = True) -> dict:
                         f"phrase_after_forbidden {item.get('id')}: {bad}"
                     )
                     row["ok"] = False
-            if amd.get("requirePhraseBefore"):
+            if amd.get("requirePhraseBefore") and not effective_passed:
                 needle = amd["requirePhraseBefore"]
                 befores = (item.get("compareBefore") or "") + " ".join(
                     (p.get("beforeText") or "")
