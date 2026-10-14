@@ -2,21 +2,46 @@
   "ok": true,
   "problems": [],
   "softProblems": [
+    "live_missing 제107조: 제23조제2항 또는 제40조를 위반한",
+    "local_full_missing full-labor-statute.txt 제107조: 제23조제2항 또는 제40조를 위반한",
+    "articles_missing 제107조: 제23조제2항 또는 제40조를 위반한",
+    "live_missing 제116조: 직장 내 괴롭힘을 한 경우에는 1천만원 이하의 과태료",
+    "premature_body live 제116조: 다음 각 호의 어느 하나에 해당하는 경우에는 1천만원",
+    "premature_body local 제116조: 다음 각 호의 어느 하나에 해당하는 경우에는 1천만원",
+    "premature_body articles 제116조: 다음 각 호의 어느 하나에 해당하는 경우에는 1천만원",
+    "local_full_missing full-labor-statute.txt 제116조: 직장 내 괴롭힘을 한 경우에는 1천만원 이하의 과태료",
+    "articles_missing 제116조: 직장 내 괴롭힘을 한 경우에는 1천만원 이하의 과태료",
+    "effective_mismatch live-001872-2026-04-07-21533-제116조: 2026-10-08 != 2026-12-08",
+    "bodyApplied_mismatch live-001872-2026-04-07-21533-제116조: True != False",
+    "effective_mismatch live-001872-2026-04-07-21533-제116조: 2026-10-08 != 2027-01-01",
+    "bodyApplied_mismatch live-001872-2026-04-07-21533-제116조: True != False",
+    "live_missing 제109조: 제36조, 제43조, 제44조",
+    "live_missing 제109조: 피해자의 명시적인 의사와 다르게",
+    "local_full_missing full-labor-statute.txt 제109조: 제36조, 제43조, 제44조",
+    "local_full_missing full-labor-statute.txt 제109조: 피해자의 명시적인 의사와 다르게",
+    "articles_missing 제109조: 제36조, 제43조, 제44조",
+    "articles_missing 제109조: 피해자의 명시적인 의사와 다르게",
     "doc_map_fetch_fail 000130: <urlopen error timed out>",
     "doc_map_fetch_fail 000130: <urlopen error timed out>",
+    "missing_highlight_for_dated_paragraph live-006909-2026-08-19-478-제14조의3: 항=[1] tagDate='2026. 8. 19.'",
+    "missing_highlight_for_dated_paragraph live-003140-2026-08-18-36589-제19조: 항=[1] tagDate='2026. 8. 18.'",
+    "missing_highlight_for_dated_paragraph live-003140-2026-08-18-36589-제15조의2: 항=[1] tagDate='2026. 8. 18.'",
     "missing_highlight_for_dated_paragraph live-003140-2026-08-18-36589-제13조: 항=[1] tagDate='2026. 8. 18.'",
-    "missing_highlight_for_dated_paragraph live-003140-2026-08-18-36589-제11조: 항=[1] tagDate='2026. 8. 18.'",
+    "missing_highlight_for_dated_paragraph live-003140-2026-08-18-36589-제11조: 항=[5, 6, 7] tagDate='2026. 8. 18.'",
+    "missing_highlight_for_dated_paragraph live-001872-2026-08-04-21857-제105조: 항=[1] tagDate='2026. 8. 4.'",
+    "missing_highlight_for_dated_paragraph live-009883-2026-03-17-21475-제44조: 항=[1] tagDate='2026. 3. 17.'",
+    "missing_highlight_for_dated_paragraph live-009883-2026-03-17-21475-제43조: 항=[1] tagDate='2026. 3. 17.'",
+    "missing_highlight_for_dated_paragraph live-000130-2026-03-17-21476-제18조의2: 항=[4, 5] tagDate='2026. 3. 17.'",
     "missing_highlight_for_dated_paragraph live-009883-2026-03-17-21475-제2조: 항=[1] tagDate='2026. 3. 17.'",
     "missing_highlight_for_dated_paragraph live-009883-2026-03-17-21475-제23조의8: 항=[1] tagDate='2026. 3. 17.'",
     "missing_highlight_for_dated_paragraph live-000130-2026-02-19-21373-제19조: 항=[9] tagDate='2026. 2. 19.'",
-    "duplicate_phrase_content live-003140-2026-08-18-36589-제11조: locator='제7항→제8항' duplicates '제8항'",
     "doc_fetch_fail 001872: <urlopen error timed out>",
     "doc_fetch_fail 009883: <urlopen error timed out>",
-    "doc_fetch_fail 010035: <urlopen error timed out>",
     "doc_fetch_fail 000130: <urlopen error timed out>",
     "doc_fetch_fail 003140: <urlopen error timed out>",
-    "doc_fetch_fail 006909: <urlopen error timed out>",
-    "doc_fetch_fail 010356: <urlopen error timed out>"
+    "doc_fetch_fail 006909: <urlopen error [Errno -3] Temporary failure in name resolution>",
+    "doc_fetch_fail 010356: <urlopen error timed out>",
+    "missing_yellow_highlight live-009883-2026-03-17-21475-제44조"
   ],
   "checks": [
     {
@@ -43,16 +68,27 @@
     {
       "lsId": "001872",
       "article": "제107조",
-      "liveChars": 100,
-      "ok": true,
-      "details": []
+      "liveChars": 417,
+      "ok": false,
+      "details": [
+        "live_missing:제23조제2항 또는 제40조를 위반한",
+        "local_full_missing:제23조제2항 또는 제40조를 위반한",
+        "articles_missing:제23조제2항 또는 제40조를 위반한"
+      ]
     },
     {
       "lsId": "001872",
       "article": "제116조",
-      "liveChars": 777,
-      "ok": true,
-      "details": []
+      "liveChars": 900,
+      "ok": false,
+      "details": [
+        "live_missing:직장 내 괴롭힘을 한 경우에는 1천만원 이하의 과태료",
+        "premature:live",
+        "premature:local",
+        "premature:articles",
+        "local_full_missing:직장 내 괴롭힘을 한 경우에는 1천만원 이하의 과태료",
+        "articles_missing:직장 내 괴롭힘을 한 경우에는 1천만원 이하의 과태료"
+      ]
     },
     {
       "lsId": "001872",
@@ -64,16 +100,23 @@
     {
       "lsId": "009883",
       "article": "제43조",
-      "liveChars": 75,
+      "liveChars": 371,
       "ok": true,
       "details": []
     },
     {
       "lsId": "001872",
       "article": "제109조",
-      "liveChars": 467,
-      "ok": true,
-      "details": []
+      "liveChars": 165,
+      "ok": false,
+      "details": [
+        "live_missing:제36조, 제43조, 제44조",
+        "live_missing:피해자의 명시적인 의사와 다르게",
+        "local_full_missing:제36조, 제43조, 제44조",
+        "local_full_missing:피해자의 명시적인 의사와 다르게",
+        "articles_missing:제36조, 제43조, 제44조",
+        "articles_missing:피해자의 명시적인 의사와 다르게"
+      ]
     },
     {
       "article": "제44조의4",
@@ -81,7 +124,7 @@
       "details": []
     }
   ],
-  "emptyBodies": 3,
+  "emptyBodies": 1,
   "orphanEmptyAmended": 0,
   "displayGaps": 0
 }

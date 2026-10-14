@@ -145,7 +145,7 @@ window.LAW_DATA.upcomingLaws = [
 window.LAW_DATA.noticesMeta = {
   "sourcePortal": "https://www.moel.go.kr/info/lawinfo/lawmaking/list.do",
   "note": "고용노동부 「입법·행정예고」 게시판을 기준일 기준으로 자동 수집한 결과입니다.",
-  "fetchedAt": "2026-10-14T06:25:08",
+  "fetchedAt": "2026-10-14T06:26:08",
   "baseDate": "2026-10-14"
 };
 
@@ -156,7 +156,7 @@ window.LAW_DATA.notices = [
     "title": "산업안전보건법 시행령 일부개정령(안) 입법예고",
     "dept": "산업안전정책과",
     "date": "2026-10-01",
-    "views": 5934,
+    "views": 5936,
     "summary": "입법예고 · 산업안전정책과",
     "url": "https://www.moel.go.kr/info/lawinfo/lawmaking/view.do?bbs_seq=20261000001",
     "bbsSeq": "20261000001"
