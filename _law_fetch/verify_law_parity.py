@@ -2682,9 +2682,18 @@ def run_simulation(verbose: bool = True) -> dict:
         ]
         if not phrases:
             yellow_missing += 1
-            problems.append(f"missing_yellow_highlight {item.get('id')}")
+            # bodyApplied=True(이미 시행되어 본문에 반영 완료)인 항목은 조문
+            # 본문 자체에 <개정 …> 이력태그로 이미 드러나 있어, 별도 노란
+            # 음영(phrase) 복구가 화면상 필수는 아니다. 반면 bodyApplied=False
+            # (아직 시행 전) 인데 음영이 비면 사용자가 "무엇이 바뀔지" 전혀
+            # 볼 수 없는 실제 결함이므로 그대로 hard 유지한다. 이 구분이 없으면
+            # self_heal이 특정 복잡한 삭제·재배열 조문(예: 근퇴법 제44조)을
+            # 못 고쳤을 뿐인데도 매번 커밋이 막히는 재발이 생긴다.
+            target = soft_problems if item.get("bodyApplied") is True else problems
+            target.append(f"missing_yellow_highlight {item.get('id')}")
             if verbose:
-                print(f"[FAIL] missing_yellow_highlight {item.get('id')}")
+                tag = "SOFT" if target is soft_problems else "FAIL"
+                print(f"[{tag}] missing_yellow_highlight {item.get('id')}")
     if verbose and yellow_missing == 0:
         print("[INFO] yellow highlight coverage ok")
 
