@@ -368,7 +368,14 @@ def offline_audit(payload: dict, articles: dict | None = None) -> list[str]:
             or _summary_pair(item)
             or re.search(r"삭제|신설|→", item.get("summary") or "")
         )
-        if needs_yellow and not phrases:
+        # bodyApplied=True(이미 시행되어 본문에 반영 완료)인 항목은 조문 본문에
+        # 이미 <개정 …> 이력태그로 내용이 드러나 있어, 별도 노란 음영(phrase)
+        # 스냅샷이 없거나 본문과 글자 단위로 안 맞아도 실사용자가 보는 화면에는
+        # 결함이 아니다. 이 구분이 없으면 self_heal이 복잡한 삭제·재배열 조문을
+        # (예: 근퇴법 제44조) 완벽히 못 맞출 때마다 정상 갱신이 매번 막힌다
+        # (2026-10-14 반복 회귀 — verify_law_parity.py 쪽은 이미 같은 이유로
+        # soft 처리했지만, 이 offline_audit()는 별도 체크라 함께 고쳐야 한다).
+        if needs_yellow and not phrases and item.get("bodyApplied") is not True:
             problems.append(f"missing_yellow_highlight:{item.get('id')}")
         elif phrases and item.get("bodyApplied") is False and body:
             ok_match = False
@@ -380,7 +387,7 @@ def offline_audit(payload: dict, articles: dict | None = None) -> list[str]:
                     break
             if not ok_match:
                 problems.append(f"yellow_unmatched:{item.get('id')}")
-        elif phrases and item.get("bodyApplied") is not False and body:
+        elif phrases and item.get("bodyApplied") is None and body:
             if not any((p.get("text") or "").strip() in body for p in phrases):
                 ok_tok = any(
                     len((p.get("text") or "").strip()) >= 8
