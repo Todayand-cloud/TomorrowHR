@@ -145,7 +145,7 @@ window.LAW_DATA.upcomingLaws = [
 window.LAW_DATA.noticesMeta = {
   "sourcePortal": "https://www.moel.go.kr/info/lawinfo/lawmaking/list.do",
   "note": "고용노동부 「입법·행정예고」 게시판을 기준일 기준으로 자동 수집한 결과입니다.",
-  "fetchedAt": "2026-10-26T01:57:55",
+  "fetchedAt": "2026-10-26T01:59:22",
   "baseDate": "2026-10-26"
 };
 
@@ -156,7 +156,7 @@ window.LAW_DATA.notices = [
     "title": "위험기계·기구 안전인증 고시 일부개정안 행정예고",
     "dept": "산업안전기준과",
     "date": "2026-10-23",
-    "views": 1322,
+    "views": 1324,
     "summary": "행정예고 · 산업안전기준과",
     "url": "https://www.moel.go.kr/info/lawinfo/lawmaking/view.do?bbs_seq=20261000837",
     "bbsSeq": "20261000837"
@@ -222,7 +222,7 @@ window.LAW_DATA.notices = [
     "title": "사업장 위험성평가에 관한 지침 전부개정고시(안) 행정예고",
     "dept": "산재예방지원과",
     "date": "2026-09-23",
-    "views": 15544,
+    "views": 15546,
     "summary": "행정예고 · 산재예방지원과",
     "url": "https://www.moel.go.kr/info/lawinfo/lawmaking/view.do?bbs_seq=20260900747",
     "bbsSeq": "20260900747"
@@ -244,7 +244,7 @@ window.LAW_DATA.notices = [
     "title": "산업안전보건법 시행령 일부개정령(안) 입법예고",
     "dept": "산업안전정책과",
     "date": "2026-09-23",
-    "views": 9150,
+    "views": 9153,
     "summary": "입법예고 · 산업안전정책과",
     "url": "https://www.moel.go.kr/info/lawinfo/lawmaking/view.do?bbs_seq=20260900738",
     "bbsSeq": "20260900738"
@@ -321,7 +321,7 @@ window.LAW_DATA.notices = [
     "title": "노동감독관 수사규칙 훈령 제정안 행정예고",
     "dept": "근로감독기획과",
     "date": "2026-09-18",
-    "views": 3572,
+    "views": 3573,
     "summary": "행정예고 · 근로감독기획과",
     "url": "https://www.moel.go.kr/info/lawinfo/lawmaking/view.do?bbs_seq=20260900632",
     "bbsSeq": "20260900632"
@@ -409,7 +409,7 @@ window.LAW_DATA.notices = [
     "title": "남녀고용평등과 일ㆍ가정 양립 지원에 관한 법률 시행령 일부개정령안 입법예고",
     "dept": "고용문화개선정책과",
     "date": "2026-08-12",
-    "views": 9071,
+    "views": 9072,
     "summary": "입법예고 · 고용문화개선정책과",
     "url": "https://www.moel.go.kr/info/lawinfo/lawmaking/view.do?bbs_seq=20260800400",
     "bbsSeq": "20260800400"
