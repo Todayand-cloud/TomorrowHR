@@ -1,7 +1,7 @@
 {
-  "baseDate": "2026-10-26",
-  "from": "2026-04-27",
-  "to": "2027-04-26",
+  "baseDate": "2026-10-29",
+  "from": "2026-04-30",
+  "to": "2027-04-29",
   "forwardDays": 182,
   "lookbackDays": 182,
   "amdForwardDays": 182,
@@ -10,7 +10,7 @@
   "effLookbackDays": 182,
   "effWindowLabel": "±6개월",
   "amdWindowLabel": "±6개월",
-  "fetchedAt": "2026-10-26T10:59:23",
+  "fetchedAt": "2026-10-29T12:05:50",
   "freshFetch": true,
   "count": 50,
   "errors": [],
@@ -21,7 +21,7 @@
   },
   "fullTexts": {
     "ok": true,
-    "asOf": "2026-10-26",
+    "asOf": "2026-10-29",
     "files": [
       {
         "lawId": "retirement",
@@ -41,22 +41,6 @@
       },
       {
         "lawId": "labor-standards",
-        "tier": "statute",
-        "lsId": "001872",
-        "file": "full-labor-statute.txt",
-        "bytes": 89732,
-        "articles": 135,
-        "eflaw": {
-          "mst": "285279",
-          "efYd": "20261008",
-          "ancYd": "20260407",
-          "noticeNo": "21533",
-          "status": "현행"
-        },
-        "citeLine": "[시행 2026. 10. 8.] [법률 제21533호, 2026. 4. 7., 일부개정]"
-      },
-      {
-        "lawId": "labor-standards",
         "tier": "rule",
         "lsId": "006859",
         "file": "full-labor-rule.txt",
@@ -70,6 +54,22 @@
           "status": "현행"
         },
         "citeLine": "[시행 2025. 2. 23.] [고용노동부령 제00436호, 2025. 2. 21., 일부개정]"
+      },
+      {
+        "lawId": "labor-standards",
+        "tier": "statute",
+        "lsId": "001872",
+        "file": "full-labor-statute.txt",
+        "bytes": 89732,
+        "articles": 135,
+        "eflaw": {
+          "mst": "285279",
+          "efYd": "20261008",
+          "ancYd": "20260407",
+          "noticeNo": "21533",
+          "status": "현행"
+        },
+        "citeLine": "[시행 2026. 10. 8.] [법률 제21533호, 2026. 4. 7., 일부개정]"
       },
       {
         "lawId": "labor-standards",
@@ -121,35 +121,19 @@
       },
       {
         "lawId": "equal-employment",
-        "tier": "statute",
-        "lsId": "000130",
-        "file": "full-equal-statute.txt",
-        "bytes": 74164,
-        "articles": 73,
-        "eflaw": {
-          "mst": "284457",
-          "efYd": "20260918",
-          "ancYd": "20260317",
-          "noticeNo": "21476",
-          "status": "현행"
-        },
-        "citeLine": "[시행 2026. 9. 18.] [법률 제21476호, 2026. 3. 17., 일부개정]"
-      },
-      {
-        "lawId": "fixed-term",
         "tier": "decree",
-        "lsId": "010461",
-        "file": "full-fixed-decree.txt",
-        "bytes": 7380,
-        "articles": 7,
+        "lsId": "003140",
+        "file": "full-equal-decree.txt",
+        "bytes": 44252,
+        "articles": 41,
         "eflaw": {
-          "mst": "230833",
-          "efYd": "20210408",
-          "ancYd": "20210406",
-          "noticeNo": "31611",
+          "mst": "288719",
+          "efYd": "20260918",
+          "ancYd": "20260818",
+          "noticeNo": "36589",
           "status": "현행"
         },
-        "citeLine": "[시행 2021. 4. 8.] [대통령령 제31611호, 2021. 4. 6., 타법개정]"
+        "citeLine": "[시행 2026. 9. 18.] [대통령령 제36589호, 2026. 8. 18., 일부개정]"
       },
       {
         "lawId": "fixed-term",
@@ -169,19 +153,19 @@
       },
       {
         "lawId": "equal-employment",
-        "tier": "decree",
-        "lsId": "003140",
-        "file": "full-equal-decree.txt",
-        "bytes": 44252,
-        "articles": 41,
+        "tier": "statute",
+        "lsId": "000130",
+        "file": "full-equal-statute.txt",
+        "bytes": 74164,
+        "articles": 73,
         "eflaw": {
-          "mst": "288719",
+          "mst": "284457",
           "efYd": "20260918",
-          "ancYd": "20260818",
-          "noticeNo": "36589",
+          "ancYd": "20260317",
+          "noticeNo": "21476",
           "status": "현행"
         },
-        "citeLine": "[시행 2026. 9. 18.] [대통령령 제36589호, 2026. 8. 18., 일부개정]"
+        "citeLine": "[시행 2026. 9. 18.] [법률 제21476호, 2026. 3. 17., 일부개정]"
       },
       {
         "lawId": "fixed-term",
@@ -198,6 +182,22 @@
           "status": "현행"
         },
         "citeLine": "[시행 2007. 7. 1.] [노동부령 제00277호, 2007. 6. 29., 제정]"
+      },
+      {
+        "lawId": "fixed-term",
+        "tier": "decree",
+        "lsId": "010461",
+        "file": "full-fixed-decree.txt",
+        "bytes": 7380,
+        "articles": 7,
+        "eflaw": {
+          "mst": "230833",
+          "efYd": "20210408",
+          "ancYd": "20210406",
+          "noticeNo": "31611",
+          "status": "현행"
+        },
+        "citeLine": "[시행 2021. 4. 8.] [대통령령 제31611호, 2021. 4. 6., 타법개정]"
       },
       {
         "lawId": "equal-employment",
