@@ -145,7 +145,7 @@ window.LAW_DATA.upcomingLaws = [
 window.LAW_DATA.noticesMeta = {
   "sourcePortal": "https://www.moel.go.kr/info/lawinfo/lawmaking/list.do",
   "note": "고용노동부 「입법·행정예고」 게시판을 기준일 기준으로 자동 수집한 결과입니다.",
-  "fetchedAt": "2026-11-02T02:55:58",
+  "fetchedAt": "2026-11-02T02:56:44",
   "baseDate": "2026-11-02"
 };
 
@@ -178,7 +178,7 @@ window.LAW_DATA.notices = [
     "title": "산업안전보건법 시행령 일부개정령(안) 입법예고",
     "dept": "산업안전정책과",
     "date": "2026-10-01",
-    "views": 11895,
+    "views": 11896,
     "summary": "입법예고 · 산업안전정책과",
     "url": "https://www.moel.go.kr/info/lawinfo/lawmaking/view.do?bbs_seq=20261000001",
     "bbsSeq": "20261000001"
@@ -244,7 +244,7 @@ window.LAW_DATA.notices = [
     "title": "산업안전보건법 시행령 일부개정령(안) 입법예고",
     "dept": "산업안전정책과",
     "date": "2026-09-23",
-    "views": 10690,
+    "views": 10691,
     "summary": "입법예고 · 산업안전정책과",
     "url": "https://www.moel.go.kr/info/lawinfo/lawmaking/view.do?bbs_seq=20260900738",
     "bbsSeq": "20260900738"
@@ -255,7 +255,7 @@ window.LAW_DATA.notices = [
     "title": "고용보험법 시행규칙 일부개정령안 입법예고",
     "dept": "고용보험기획과",
     "date": "2026-09-22",
-    "views": 7172,
+    "views": 7173,
     "summary": "입법예고 · 고용보험기획과",
     "url": "https://www.moel.go.kr/info/lawinfo/lawmaking/view.do?bbs_seq=20260900701",
     "bbsSeq": "20260900701"
