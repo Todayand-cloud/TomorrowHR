@@ -1,7 +1,7 @@
 {
-  "baseDate": "2026-11-02",
-  "from": "2026-05-04",
-  "to": "2027-05-03",
+  "baseDate": "2026-11-05",
+  "from": "2026-05-07",
+  "to": "2027-05-06",
   "forwardDays": 182,
   "lookbackDays": 182,
   "amdForwardDays": 182,
@@ -10,7 +10,7 @@
   "effLookbackDays": 182,
   "effWindowLabel": "±6개월",
   "amdWindowLabel": "±6개월",
-  "fetchedAt": "2026-11-02T11:56:44",
+  "fetchedAt": "2026-11-05T12:56:00",
   "freshFetch": true,
   "count": 50,
   "errors": [],
@@ -21,15 +21,15 @@
   },
   "fullTexts": {
     "ok": false,
-    "asOf": "2026-11-02",
+    "asOf": "2026-11-05",
     "files": [],
     "errors": [
       {
         "lawId": "labor-standards",
-        "tier": "rule",
-        "lsId": "006859",
-        "file": "full-labor-rule.txt",
-        "error": "validation failed: ['missing:근로기준법 시행규칙', 'missing:이 규칙', 'not_rule_text']"
+        "tier": "decree",
+        "lsId": "003058",
+        "file": "full-labor-decree.txt",
+        "error": "validation failed: ['missing:근로기준법 시행령', 'missing:이 영', 'not_decree_text']"
       },
       {
         "lawId": "retirement",
@@ -46,11 +46,11 @@
         "error": "validation failed: ['missing:근로기준법', 'missing:이 법']"
       },
       {
-        "lawId": "labor-standards",
-        "tier": "decree",
-        "lsId": "003058",
-        "file": "full-labor-decree.txt",
-        "error": "validation failed: ['missing:근로기준법 시행령', 'missing:이 영', 'not_decree_text']"
+        "lawId": "equal-employment",
+        "tier": "statute",
+        "lsId": "000130",
+        "file": "full-equal-statute.txt",
+        "error": "validation failed: ['missing:남녀고용평등', 'missing:이 법']"
       },
       {
         "lawId": "retirement",
@@ -60,18 +60,11 @@
         "error": "validation failed: ['missing:근로자퇴직급여', 'missing:시행령', 'not_decree_text']"
       },
       {
-        "lawId": "retirement",
+        "lawId": "labor-standards",
         "tier": "rule",
-        "lsId": "010043",
-        "file": "full-retire-rule.txt",
-        "error": "validation failed: ['missing:근로자퇴직급여', 'missing:시행규칙', 'not_rule_text']"
-      },
-      {
-        "lawId": "equal-employment",
-        "tier": "statute",
-        "lsId": "000130",
-        "file": "full-equal-statute.txt",
-        "error": "validation failed: ['missing:남녀고용평등', 'missing:이 법']"
+        "lsId": "006859",
+        "file": "full-labor-rule.txt",
+        "error": "validation failed: ['missing:근로기준법 시행규칙', 'missing:이 규칙', 'not_rule_text']"
       },
       {
         "lawId": "equal-employment",
@@ -96,24 +89,31 @@
       },
       {
         "lawId": "fixed-term",
+        "tier": "rule",
+        "lsId": "010473",
+        "file": "full-fixed-rule.txt",
+        "error": "validation failed: ['missing:기간제', 'missing:시행규칙', 'not_rule_text']"
+      },
+      {
+        "lawId": "fixed-term",
         "tier": "statute",
         "lsId": "010356",
         "file": "full-fixed-statute.txt",
         "error": "validation failed: ['missing:기간제', 'missing:이 법']"
       },
       {
-        "lawId": "fixed-term",
+        "lawId": "retirement",
         "tier": "rule",
-        "lsId": "010473",
-        "file": "full-fixed-rule.txt",
-        "error": "validation failed: ['missing:기간제', 'missing:시행규칙', 'not_rule_text']"
+        "lsId": "010043",
+        "file": "full-retire-rule.txt",
+        "error": "validation failed: ['missing:근로자퇴직급여', 'missing:시행규칙', 'not_rule_text']"
       }
     ]
   },
   "noticesRefresh": {
     "ok": true,
     "count": 24,
-    "latest": "2026-10-23",
+    "latest": "2026-11-04",
     "errors": []
   },
   "amendments": [

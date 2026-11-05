@@ -145,7 +145,7 @@ window.LAW_DATA.upcomingLaws = [
 window.LAW_DATA.noticesMeta = {
   "sourcePortal": "https://www.moel.go.kr/info/lawinfo/lawmaking/list.do",
   "note": "고용노동부 「입법·행정예고」 게시판을 기준일 기준으로 자동 수집한 결과입니다.",
-  "fetchedAt": "2026-11-05T03:53:43",
+  "fetchedAt": "2026-11-05T03:56:00",
   "baseDate": "2026-11-05"
 };
 
@@ -178,7 +178,7 @@ window.LAW_DATA.notices = [
     "title": "위험기계·기구 안전인증 고시 일부개정안 행정예고",
     "dept": "산업안전기준과",
     "date": "2026-10-23",
-    "views": 5126,
+    "views": 5127,
     "summary": "행정예고 · 산업안전기준과",
     "url": "https://www.moel.go.kr/info/lawinfo/lawmaking/view.do?bbs_seq=20261000837",
     "bbsSeq": "20261000837"
@@ -244,7 +244,7 @@ window.LAW_DATA.notices = [
     "title": "사업장 위험성평가에 관한 지침 전부개정고시(안) 행정예고",
     "dept": "산재예방지원과",
     "date": "2026-09-23",
-    "views": 20079,
+    "views": 20082,
     "summary": "행정예고 · 산재예방지원과",
     "url": "https://www.moel.go.kr/info/lawinfo/lawmaking/view.do?bbs_seq=20260900747",
     "bbsSeq": "20260900747"
