@@ -21,7 +21,6 @@
     "local_full_missing full-labor-statute.txt 제109조: 피해자의 명시적인 의사와 다르게",
     "articles_missing 제109조: 제36조, 제43조, 제44조",
     "articles_missing 제109조: 피해자의 명시적인 의사와 다르게",
-    "doc_map_fetch_fail 000130: <urlopen error [Errno -3] Temporary failure in name resolution>",
     "missing_highlight_for_dated_paragraph live-006909-2026-08-19-478-제14조의3: 항=[1] tagDate='2026. 8. 19.'",
     "missing_highlight_for_dated_paragraph live-003140-2026-08-18-36589-제19조: 항=[1] tagDate='2026. 8. 18.'",
     "missing_highlight_for_dated_paragraph live-003140-2026-08-18-36589-제15조의2: 항=[1] tagDate='2026. 8. 18.'",
