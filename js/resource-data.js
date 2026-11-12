@@ -145,18 +145,62 @@ window.LAW_DATA.upcomingLaws = [
 window.LAW_DATA.noticesMeta = {
   "sourcePortal": "https://www.moel.go.kr/info/lawinfo/lawmaking/list.do",
   "note": "고용노동부 「입법·행정예고」 게시판을 기준일 기준으로 자동 수집한 결과입니다.",
-  "fetchedAt": "2026-11-09T03:15:22",
-  "baseDate": "2026-11-09"
+  "fetchedAt": "2026-11-12T04:32:19",
+  "baseDate": "2026-11-12"
 };
 
 window.LAW_DATA.notices = [
+  {
+    "id": "nt-20261100374",
+    "type": "입법",
+    "title": "고용노동부와 그 소속기관 직제 시행규칙 일부개정령(안) 입법예고",
+    "dept": "혁신행정담당관",
+    "date": "2026-11-12",
+    "views": 82,
+    "summary": "입법예고 · 혁신행정담당관",
+    "url": "https://www.moel.go.kr/info/lawinfo/lawmaking/view.do?bbs_seq=20261100374",
+    "bbsSeq": "20261100374"
+  },
+  {
+    "id": "nt-20261100373",
+    "type": "행정",
+    "title": "산업안전보건업무 수수료 일부개정안 행정예고",
+    "dept": "산업안전정책과",
+    "date": "2026-11-12",
+    "views": 124,
+    "summary": "행정예고 · 산업안전정책과",
+    "url": "https://www.moel.go.kr/info/lawinfo/lawmaking/view.do?bbs_seq=20261100373",
+    "bbsSeq": "20261100373"
+  },
+  {
+    "id": "nt-20261100364",
+    "type": "입법",
+    "title": "산업안전보건법 시행규칙 일부개정령(안) 입법예고",
+    "dept": "산업안전정책과",
+    "date": "2026-11-12",
+    "views": 247,
+    "summary": "입법예고 · 산업안전정책과",
+    "url": "https://www.moel.go.kr/info/lawinfo/lawmaking/view.do?bbs_seq=20261100364",
+    "bbsSeq": "20261100364"
+  },
+  {
+    "id": "nt-20261100363",
+    "type": "입법",
+    "title": "산업안전보건법 시행령 일부개정령(안) 입법예고",
+    "dept": "산업안전정책과",
+    "date": "2026-11-12",
+    "views": 244,
+    "summary": "입법예고 · 산업안전정책과",
+    "url": "https://www.moel.go.kr/info/lawinfo/lawmaking/view.do?bbs_seq=20261100363",
+    "bbsSeq": "20261100363"
+  },
   {
     "id": "nt-20261100113",
     "type": "입법",
     "title": "건설근로자의 고용개선 등에 관한 법률 시행령 일부개정령(안) 입법예고",
     "dept": "지역산업고용정책과",
     "date": "2026-11-04",
-    "views": 1666,
+    "views": 2399,
     "summary": "입법예고 · 지역산업고용정책과",
     "url": "https://www.moel.go.kr/info/lawinfo/lawmaking/view.do?bbs_seq=20261100113",
     "bbsSeq": "20261100113"
@@ -167,7 +211,7 @@ window.LAW_DATA.notices = [
     "title": "출산전후휴가 급여등 상한액 고시 개정안 행정예고",
     "dept": "고용문화개선정책과",
     "date": "2026-11-02",
-    "views": 2539,
+    "views": 3618,
     "summary": "행정예고 · 고용문화개선정책과",
     "url": "https://www.moel.go.kr/info/lawinfo/lawmaking/view.do?bbs_seq=20261100031",
     "bbsSeq": "20261100031"
@@ -178,7 +222,7 @@ window.LAW_DATA.notices = [
     "title": "위험기계·기구 안전인증 고시 일부개정안 행정예고",
     "dept": "산업안전기준과",
     "date": "2026-10-23",
-    "views": 6120,
+    "views": 6913,
     "summary": "행정예고 · 산업안전기준과",
     "url": "https://www.moel.go.kr/info/lawinfo/lawmaking/view.do?bbs_seq=20261000837",
     "bbsSeq": "20261000837"
@@ -189,7 +233,7 @@ window.LAW_DATA.notices = [
     "title": "정의로운전환 특별지구의 지정기준 등에 관한 고시(안) 제정 행정예고",
     "dept": "산업전환일자리지원단",
     "date": "2026-10-23",
-    "views": 3646,
+    "views": 4147,
     "summary": "행정예고 · 산업전환일자리지원단",
     "url": "https://www.moel.go.kr/info/lawinfo/lawmaking/view.do?bbs_seq=20261000814",
     "bbsSeq": "20261000814"
@@ -200,7 +244,7 @@ window.LAW_DATA.notices = [
     "title": "산업안전보건법 시행령 일부개정령(안) 입법예고",
     "dept": "산업안전정책과",
     "date": "2026-10-01",
-    "views": 13967,
+    "views": 14821,
     "summary": "입법예고 · 산업안전정책과",
     "url": "https://www.moel.go.kr/info/lawinfo/lawmaking/view.do?bbs_seq=20261000001",
     "bbsSeq": "20261000001"
@@ -211,7 +255,7 @@ window.LAW_DATA.notices = [
     "title": "국민 평생 직업능력 개발법 시행규칙 일부개정령안 입법예고",
     "dept": "직업능력정책과",
     "date": "2026-09-30",
-    "views": 6467,
+    "views": 6920,
     "summary": "입법예고 · 직업능력정책과",
     "url": "https://www.moel.go.kr/info/lawinfo/lawmaking/view.do?bbs_seq=20260900901",
     "bbsSeq": "20260900901"
@@ -222,7 +266,7 @@ window.LAW_DATA.notices = [
     "title": "국민 평생 직업능력 개발법 시행령 일부개정령안 입법예고",
     "dept": "직업능력정책과",
     "date": "2026-09-30",
-    "views": 6386,
+    "views": 6827,
     "summary": "입법예고 · 직업능력정책과",
     "url": "https://www.moel.go.kr/info/lawinfo/lawmaking/view.do?bbs_seq=20260900900",
     "bbsSeq": "20260900900"
@@ -233,7 +277,7 @@ window.LAW_DATA.notices = [
     "title": "국가기술자격법 시행령 일부개정령안 입법예고",
     "dept": "직업능력평가과",
     "date": "2026-09-28",
-    "views": 7916,
+    "views": 8436,
     "summary": "입법예고 · 직업능력평가과",
     "url": "https://www.moel.go.kr/info/lawinfo/lawmaking/view.do?bbs_seq=20260900791",
     "bbsSeq": "20260900791"
@@ -244,7 +288,7 @@ window.LAW_DATA.notices = [
     "title": "사업장 위험성평가에 관한 지침 전부개정고시(안) 행정예고",
     "dept": "산재예방지원과",
     "date": "2026-09-23",
-    "views": 21515,
+    "views": 22938,
     "summary": "행정예고 · 산재예방지원과",
     "url": "https://www.moel.go.kr/info/lawinfo/lawmaking/view.do?bbs_seq=20260900747",
     "bbsSeq": "20260900747"
@@ -255,7 +299,7 @@ window.LAW_DATA.notices = [
     "title": "산업안전보건법 시행규칙 일부개정령(안) 입법예고",
     "dept": "산업안전정책과",
     "date": "2026-09-23",
-    "views": 12235,
+    "views": 12914,
     "summary": "입법예고 · 산업안전정책과",
     "url": "https://www.moel.go.kr/info/lawinfo/lawmaking/view.do?bbs_seq=20260900739",
     "bbsSeq": "20260900739"
@@ -266,7 +310,7 @@ window.LAW_DATA.notices = [
     "title": "산업안전보건법 시행령 일부개정령(안) 입법예고",
     "dept": "산업안전정책과",
     "date": "2026-09-23",
-    "views": 11468,
+    "views": 11685,
     "summary": "입법예고 · 산업안전정책과",
     "url": "https://www.moel.go.kr/info/lawinfo/lawmaking/view.do?bbs_seq=20260900738",
     "bbsSeq": "20260900738"
@@ -277,7 +321,7 @@ window.LAW_DATA.notices = [
     "title": "고용보험법 시행규칙 일부개정령안 입법예고",
     "dept": "고용보험기획과",
     "date": "2026-09-22",
-    "views": 7387,
+    "views": 7463,
     "summary": "입법예고 · 고용보험기획과",
     "url": "https://www.moel.go.kr/info/lawinfo/lawmaking/view.do?bbs_seq=20260900701",
     "bbsSeq": "20260900701"
@@ -288,7 +332,7 @@ window.LAW_DATA.notices = [
     "title": "고용보험법 시행령 일부개정령안 입법예고",
     "dept": "고용보험기획과",
     "date": "2026-09-22",
-    "views": 6245,
+    "views": 6372,
     "summary": "입법예고 · 고용보험기획과",
     "url": "https://www.moel.go.kr/info/lawinfo/lawmaking/view.do?bbs_seq=20260900700",
     "bbsSeq": "20260900700"
@@ -299,7 +343,7 @@ window.LAW_DATA.notices = [
     "title": "고용산재보험료징수법 시행령 일부개정령안 입법예고",
     "dept": "고용보험기획과",
     "date": "2026-09-22",
-    "views": 6330,
+    "views": 6533,
     "summary": "입법예고 · 고용보험기획과",
     "url": "https://www.moel.go.kr/info/lawinfo/lawmaking/view.do?bbs_seq=20260900688",
     "bbsSeq": "20260900688"
@@ -310,7 +354,7 @@ window.LAW_DATA.notices = [
     "title": "직업안정법 시행규칙 일부개정령안 입법예고",
     "dept": "고용서비스정책과",
     "date": "2026-09-22",
-    "views": 2119,
+    "views": 2170,
     "summary": "입법예고 · 고용서비스정책과",
     "url": "https://www.moel.go.kr/info/lawinfo/lawmaking/view.do?bbs_seq=20260900681",
     "bbsSeq": "20260900681"
@@ -321,7 +365,7 @@ window.LAW_DATA.notices = [
     "title": "직업안정법 시행령 일부개정령안 입법예고",
     "dept": "고용서비스정책과",
     "date": "2026-09-22",
-    "views": 1837,
+    "views": 1890,
     "summary": "입법예고 · 고용서비스정책과",
     "url": "https://www.moel.go.kr/info/lawinfo/lawmaking/view.do?bbs_seq=20260900680",
     "bbsSeq": "20260900680"
@@ -332,7 +376,7 @@ window.LAW_DATA.notices = [
     "title": "산업재해예방시설자금 융자금 지원사업 및 클린사업장 조성지원사업 운영규정 일부개정안 행정예고",
     "dept": "산업안전기준과",
     "date": "2026-09-21",
-    "views": 2876,
+    "views": 2985,
     "summary": "행정예고 · 산업안전기준과",
     "url": "https://www.moel.go.kr/info/lawinfo/lawmaking/view.do?bbs_seq=20260900656",
     "bbsSeq": "20260900656"
@@ -343,7 +387,7 @@ window.LAW_DATA.notices = [
     "title": "노동감독관 수사규칙 훈령 제정안 행정예고",
     "dept": "근로감독기획과",
     "date": "2026-09-18",
-    "views": 3996,
+    "views": 4070,
     "summary": "행정예고 · 근로감독기획과",
     "url": "https://www.moel.go.kr/info/lawinfo/lawmaking/view.do?bbs_seq=20260900632",
     "bbsSeq": "20260900632"
@@ -354,7 +398,7 @@ window.LAW_DATA.notices = [
     "title": "사회적기업 육성법 시행규칙 일부개정령안 입법예고",
     "dept": "사회적기업과",
     "date": "2026-09-17",
-    "views": 1354,
+    "views": 1385,
     "summary": "입법예고 · 사회적기업과",
     "url": "https://www.moel.go.kr/info/lawinfo/lawmaking/view.do?bbs_seq=20260900561",
     "bbsSeq": "20260900561"
@@ -365,53 +409,9 @@ window.LAW_DATA.notices = [
     "title": "사회적기업 육성법 시행령 일부개정령안 입법예고",
     "dept": "사회적기업과",
     "date": "2026-09-17",
-    "views": 1483,
+    "views": 1516,
     "summary": "입법예고 · 사회적기업과",
     "url": "https://www.moel.go.kr/info/lawinfo/lawmaking/view.do?bbs_seq=20260900560",
     "bbsSeq": "20260900560"
-  },
-  {
-    "id": "nt-20260900316",
-    "type": "입법",
-    "title": "유해·위험작업의 취업 제한에 관한 규칙 일부개정령안 재입법예고",
-    "dept": "산업안전기준과",
-    "date": "2026-09-09",
-    "views": 4653,
-    "summary": "입법예고 · 산업안전기준과",
-    "url": "https://www.moel.go.kr/info/lawinfo/lawmaking/view.do?bbs_seq=20260900316",
-    "bbsSeq": "20260900316"
-  },
-  {
-    "id": "nt-20260800749",
-    "type": "행정",
-    "title": "출산전후휴가 급여등 상한액 고시 개정안 행정예고",
-    "dept": "고용문화개선정책과",
-    "date": "2026-08-25",
-    "views": 8299,
-    "summary": "행정예고 · 고용문화개선정책과",
-    "url": "https://www.moel.go.kr/info/lawinfo/lawmaking/view.do?bbs_seq=20260800749",
-    "bbsSeq": "20260800749"
-  },
-  {
-    "id": "nt-20260800620",
-    "type": "입법",
-    "title": "근로기준법 시행규칙 일부개정령안 입법예고",
-    "dept": "근로기준정책과",
-    "date": "2026-08-20",
-    "views": 8877,
-    "summary": "입법예고 · 근로기준정책과",
-    "url": "https://www.moel.go.kr/info/lawinfo/lawmaking/view.do?bbs_seq=20260800620",
-    "bbsSeq": "20260800620"
-  },
-  {
-    "id": "nt-20260800619",
-    "type": "입법",
-    "title": "근로기준법 시행령 일부개정령안 입법예고",
-    "dept": "근로기준정책과",
-    "date": "2026-08-20",
-    "views": 8866,
-    "summary": "입법예고 · 근로기준정책과",
-    "url": "https://www.moel.go.kr/info/lawinfo/lawmaking/view.do?bbs_seq=20260800619",
-    "bbsSeq": "20260800619"
   }
 ];
